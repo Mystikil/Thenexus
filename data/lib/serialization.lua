@@ -23,6 +23,14 @@ local function loadConfig()
         return Serialization._config
 end
 
+local function getViewConfig()
+        local config = loadConfig()
+        if not config then
+                return nil
+        end
+        return config.view
+end
+
 function Serialization.reloadConfig()
         Serialization._config = nil
         return loadConfig()
@@ -185,6 +193,61 @@ function Serialization.getSerial(item)
                 return nil
         end
         return value
+end
+
+function Serialization.canViewSerial(player)
+        local view = getViewConfig()
+        if not player or not view then
+                return false
+        end
+
+        local group = player:getGroup()
+        local gid = group and group:getId() or 0
+        local minId = view.min_group_id or 3
+        return gid >= minId
+end
+
+function Serialization.getSerialLine(item, viewer)
+        local view = getViewConfig()
+        if not (view and view.enable_in_tooltip) then
+                return nil
+        end
+
+        if not Serialization.canViewSerial(viewer) then
+                return nil
+        end
+
+        local serial = Serialization.getSerial(item)
+        if not serial then
+                return nil
+        end
+
+        local label = view.label or 'Serial'
+        return string.format('%s: %s', label, serial)
+end
+
+function Serialization.injectSerial(description, item, viewer)
+        local view = getViewConfig()
+        if not (view and view.enable_in_look) then
+                return description
+        end
+
+        if not Serialization.canViewSerial(viewer) then
+                return description
+        end
+
+        local serial = Serialization.getSerial(item)
+        if not serial then
+                return description
+        end
+
+        local label = view.label or 'Serial'
+        local base = description or ''
+        local line = label .. ': ' .. serial
+        if base == '' then
+                return line
+        end
+        return base .. '\n' .. line
 end
 
 return Serialization

@@ -15,4 +15,12 @@ return {
         blacklist_itemids = {
                 -- [3031] = true, -- gold coin
         },
+
+        -- Controls which players can view serialized information
+        view = {
+                min_group_id = 3,       -- only players with group id >= this see serials
+                label = "Serial",       -- text label shown in UI/look
+                enable_in_look = true,  -- gate inside onLook text flow
+                enable_in_tooltip = true,       -- if your UI/tooltip builder calls into Serialization
+        },
 }
