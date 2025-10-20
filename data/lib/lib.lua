@@ -8,3 +8,6 @@ dofile('data/lib/core/core.lua')
 -- Debugging helper function for Lua developers
 dofile('data/lib/debugging/dump.lua')
 dofile('data/lib/debugging/lua_version.lua')
+
+-- Serialization helpers
+dofile('data/lib/serialization.lua')

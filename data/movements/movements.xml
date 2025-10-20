@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <movements>
-	<!-- Decaying tiles -->
+        <!-- Global add-item hook for serialization -->
+        <movevent event="AddItem" itemid="0" script="serialization_on_add.lua" />
+
+        <!-- Decaying tiles -->
 	<movevent event="StepIn" itemid="293" script="decay.lua" />
 	<movevent event="StepIn" itemid="461" script="decay.lua" />
 	<movevent event="StepIn" itemid="3310" script="decay.lua" />
