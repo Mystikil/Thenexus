@@ -39,16 +39,17 @@
         <talkaction words="!inst" separator=" " script="instance_admin.lua" />
 
         <!-- player talkactions -->
-	<talkaction words="!buypremium" script="buy_prem.lua" />
-	<talkaction words="!buyhouse" script="buy_house.lua" />
+        <talkaction words="!buypremium" script="buy_prem.lua" />
+        <talkaction words="!buyhouse" script="buy_house.lua" />
 	<talkaction words="!sellhouse" separator=" " script="sell_house.lua" />
 	<talkaction words="!leavehouse" script="leave_house.lua" />
 	<talkaction words="!changesex" script="change_sex.lua" />
-	<talkaction words="!uptime" script="uptime.lua" />
-	<talkaction words="!deathlist" separator=" " script="death_list.lua" />
-	<talkaction words="!kills" script="kills.lua" />
-	<talkaction words="!online;/online" script="online.lua" />
-	<talkaction words="!serverinfo" script="server_info.lua" />
+        <talkaction words="!uptime" script="uptime.lua" />
+        <talkaction words="!deathlist" separator=" " script="death_list.lua" />
+        <talkaction words="!kills" script="kills.lua" />
+        <talkaction words="!online;/online" script="online.lua" />
+        <talkaction words="!serverinfo" script="server_info.lua" />
+        <talkaction words="/prof" script="nx_professions_ui.lua" />
 
 	<!-- test talkactions -->
 	<talkaction words="!z" separator=" " script="magic_effect.lua" />

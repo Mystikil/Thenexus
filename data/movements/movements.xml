@@ -1443,4 +1443,9 @@
 	<movevent event="DeEquip" itemid="25411" slot="shield" function="onDeEquipItem" />
 	<movevent event="Equip" itemid="25414" slot="shield" level="200" function="onEquipItem" />
 	<movevent event="DeEquip" itemid="25414" slot="shield" function="onDeEquipItem" />
+        <movevent event="StepIn" fromaid="6100" toaid="6199" script="nx_gathering_nodes.lua" />
+        <movevent event="StepIn" fromaid="6200" toaid="6299" script="nx_gathering_nodes.lua" />
+        <movevent event="StepIn" fromaid="6300" toaid="6399" script="nx_gathering_nodes.lua" />
+        <movevent event="StepIn" fromaid="6400" toaid="6499" script="nx_gathering_nodes.lua" />
+        <movevent event="StepIn" fromaid="6500" toaid="6599" script="nx_gathering_nodes.lua" />
 </movements>

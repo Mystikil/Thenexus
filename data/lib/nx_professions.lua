@@ -1,0 +1,526 @@
+if NX_PROFESSIONS_LIB_LOADED then
+        return
+end
+NX_PROFESSIONS_LIB_LOADED = true
+
+local lower = string.lower
+
+NX_PROF = {
+        FISH = { LVL = 70000, XP = 70001, NAME = "Fishing" },
+        FORG = { LVL = 70002, XP = 70003, NAME = "Foraging" },
+        MINE = { LVL = 70004, XP = 70005, NAME = "Mining" },
+}
+
+XP_PER_TIER = {
+        [1] = 0, [2] = 100, [3] = 300, [4] = 700, [5] = 1500,
+        [6] = 2700, [7] = 4300, [8] = 6400, [9] = 9000, [10] = 12200,
+        [11] = 16000, [12] = 20500, [13] = 25800, [14] = 32000, [15] = 39200,
+        [16] = 47500, [17] = 57000, [18] = 67800, [19] = 80000, [20] = 93700
+}
+
+ANTI_BOT = { perUseExhaustMs = 1500, perTileCooldownSec = 30, rotation = "daily" }
+
+local RESOLVER = {
+        cache = {},
+        names = {},
+        parsed = false
+}
+
+local function trim(str)
+        return (str:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local function splitAliases(name)
+        local result = {}
+        for part in name:gmatch("[^,/%]+") do
+                local alias = trim(part)
+                if alias ~= "" then
+                        result[#result + 1] = alias
+                end
+        end
+        return result
+end
+
+local function parseItemsXml()
+        if RESOLVER.parsed then
+                return
+        end
+
+        local itemsPath = "data/items/items.xml"
+        local file = io.open(itemsPath, "r")
+        if not file then
+                print("[NX] Professions resolver: unable to open " .. itemsPath)
+                RESOLVER.parsed = true
+                return
+        end
+
+        local content = file:read("*a")
+        file:close()
+
+        local count = 0
+        for id, name in content:gmatch("<item%s+[^>]-id=\"(\d+)\"[^>]-name=\"([^\"]+)\"") do
+                local itemId = tonumber(id)
+                if itemId then
+                        for _, alias in ipairs(splitAliases(name)) do
+                                local key = lower(alias)
+                                if not RESOLVER.names[key] then
+                                        RESOLVER.names[key] = itemId
+                                        count = count + 1
+                                end
+                        end
+                end
+        end
+        RESOLVER.parsed = true
+        print(string.format("[NX] Professions resolver: cached %d item aliases", count))
+end
+
+local function resolveByName(name)
+        if not name or name == "" then
+                return nil
+        end
+
+        local key = lower(name)
+        if RESOLVER.cache[key] then
+                return RESOLVER.cache[key]
+        end
+
+        local id
+        if type(getItemIdByName) == "function" then
+                local ok, value = pcall(getItemIdByName, name, false)
+                if ok then
+                        id = tonumber(value) or 0
+                        if id == 0 then
+                                id = nil
+                        end
+                end
+        end
+
+        if not id then
+                if not RESOLVER.parsed then
+                        parseItemsXml()
+                end
+                id = RESOLVER.names[key]
+        end
+
+        if id and id > 0 then
+                RESOLVER.cache[key] = id
+                return id
+        end
+
+        return nil
+end
+
+function NX_ItemId(name)
+        return resolveByName(name)
+end
+
+function NX_IdExists(id)
+        return type(id) == "number" and id > 0
+end
+
+function NX_FirstExisting(names)
+        if type(names) ~= "table" then
+                return nil
+        end
+        for _, name in ipairs(names) do
+            local id = NX_ItemId(name)
+            if id then
+                return id
+            end
+        end
+        return nil
+end
+
+local function filterValid(rows)
+        local valid = {}
+        if type(rows) ~= "table" then
+                return valid
+        end
+
+        for _, row in ipairs(rows) do
+                local itemId = NX_ItemId(row.name)
+                if itemId then
+                        valid[#valid + 1] = {
+                                item = itemId,
+                                chance = row.chance or 0,
+                                amount = row.amount,
+                                name = row.name
+                        }
+                end
+        end
+        return valid
+end
+NX_FilterValid = filterValid
+
+local function resolveToolSet(names)
+        local variants = {}
+        for _, entry in ipairs(names) do
+                local id = NX_ItemId(entry)
+                if id then
+                        variants[#variants + 1] = id
+                end
+        end
+        return variants[1], variants
+end
+
+local rodPrimary, rodVariants = resolveToolSet({"Mechanical Fishing Rod", "Fishing Rod", "Enhanced Fishing Rod"})
+local pickPrimary, pickVariants = resolveToolSet({"Pick", "Pickaxe"})
+local knifePrimary, knifeVariants = resolveToolSet({"Kitchen Knife", "Hunting Knife", "Knife"})
+
+TOOLS = {
+        rod = rodPrimary,
+        pick = pickPrimary,
+        knife = knifePrimary
+}
+
+NX_TOOL_VARIANTS = {
+        rod = rodVariants,
+        pick = pickVariants,
+        knife = knifeVariants
+}
+
+for kind, variants in pairs(NX_TOOL_VARIANTS) do
+        if not variants or #variants == 0 then
+                print(string.format("[NX] Professions warning: no tool resolved for '%s'", kind))
+        end
+end
+
+function NX_ToolKind(itemid)
+        if not itemid then
+                return nil
+        end
+        for kind, variants in pairs(NX_TOOL_VARIANTS) do
+                for _, id in ipairs(variants) do
+                        if id == itemid then
+                                return kind
+                        end
+                end
+        end
+        return nil
+end
+
+local NODE_KEYS = {
+        fishing_pool = true,
+        meadow_flowers = true,
+        woodland_trees = true,
+        surface_ore = true,
+        deep_basalt = true
+}
+
+NODES = {
+        fishing_pool = {
+                tool = "rod", difficulty = 10,
+                rolls = NX_FilterValid({
+                        {name = "Fish", chance = 60, amount = {1, 2}},
+                        {name = "Gold Coin", chance = 12, amount = {1, 10}},
+                        {name = "White Pearl", chance = 4},
+                        {name = "Black Pearl", chance = 3},
+                }),
+                rare = NX_FilterValid({
+                        {name = "Gold Nugget", chance = 0.6},
+                        {name = "Small Diamond", chance = 0.4},
+                        {name = "Blue Crystal Shard", chance = 0.3},
+                })
+        },
+        meadow_flowers = {
+                tool = "knife", difficulty = 8,
+                rolls = NX_FilterValid({
+                        {name = "Wild Rose", chance = 25},
+                        {name = "Fern", chance = 20},
+                        {name = "Teal Leaves", chance = 15},
+                        {name = "Branch", chance = 12, amount = {1, 2}},
+                        {name = "Tree Branch", chance = 10},
+                        {name = "Rock", chance = 8},
+                }),
+                rare = NX_FilterValid({
+                        {name = "Grave Flower", chance = 1.0},
+                        {name = "Bird Nest", chance = 0.5},
+                })
+        },
+        woodland_trees = {
+                tool = "knife", difficulty = 14,
+                rolls = NX_FilterValid({
+                        {name = "Branch", chance = 20, amount = {1, 3}},
+                        {name = "Tree Branch", chance = 12},
+                        {name = "Rock Soil", chance = 12},
+                        {name = "Rock", chance = 10},
+                        {name = "Teal Leaves", chance = 10},
+                }),
+                rare = NX_FilterValid({
+                        {name = "Bird Nest", chance = 1.0},
+                })
+        },
+        surface_ore = {
+                tool = "pick", difficulty = 12,
+                rolls = NX_FilterValid({
+                        {name = "Vein of Ore", chance = 30},
+                        {name = "Pulverized Ore", chance = 12},
+                        {name = "Coal", chance = 12, amount = {1, 3}},
+                        {name = "Stone Block", chance = 10},
+                }),
+                rare = NX_FilterValid({
+                        {name = "Crystal", chance = 1.2},
+                        {name = "Blue Crystal", chance = 0.7},
+                        {name = "Gold Nugget", chance = 0.9},
+                })
+        },
+        deep_basalt = {
+                tool = "pick", difficulty = 18,
+                rolls = NX_FilterValid({
+                        {name = "Basalt", chance = 35, amount = {1, 2}},
+                        {name = "Basalt Crystal Wall", chance = 6},
+                        {name = "Stone Block", chance = 6},
+                }),
+                rare = NX_FilterValid({
+                        {name = "Small Diamond", chance = 0.6},
+                        {name = "Crystal", chance = 1.0},
+                })
+        }
+}
+
+local rollsResolved = 0
+for key, node in pairs(NODES) do
+        if NODE_KEYS[key] then
+                rollsResolved = rollsResolved + (#node.rolls + #(node.rare or {}))
+                if #node.rolls == 0 then
+                        print(string.format("[NX] Professions warning: node '%s' has no common loot entries", key))
+                end
+        end
+end
+local toolCount = 0
+for _, variants in pairs(NX_TOOL_VARIANTS) do
+        toolCount = toolCount + (#variants or 0)
+end
+print(string.format("[NX] Professions: %d tool variants resolved", toolCount))
+print(string.format("[NX] Professions: %d loot lines active", rollsResolved))
+
+UNLOCKS = {
+        FISH = { [1] = {"fishing_pool"} },
+        FORG = { [1] = {"meadow_flowers"}, [5] = {"woodland_trees"} },
+        MINE = { [1] = {"surface_ore"}, [10] = {"deep_basalt"} },
+}
+
+local unlockLookup = {}
+for profKey, entries in pairs(UNLOCKS) do
+        unlockLookup[profKey] = {}
+        for level, list in pairs(entries) do
+                for _, nodeKey in ipairs(list) do
+                        unlockLookup[profKey][nodeKey] = math.min(unlockLookup[profKey][nodeKey] or level, level)
+                end
+        end
+end
+NX_UNLOCK_LOOKUP = unlockLookup
+
+local nodeNames = {
+        fishing_pool = "fishing_pool",
+        meadow_flowers = "meadow_flowers",
+        woodland_trees = "woodland_trees",
+        surface_ore = "surface_ore",
+        deep_basalt = "deep_basalt"
+}
+NX_NODE_NAMES = nodeNames
+
+local toolToProf = { rod = "FISH", pick = "MINE", knife = "FORG" }
+NX_TOOL_TO_PROF = toolToProf
+
+local function ensureProfStorage(player, prof)
+        local level = player:getStorageValue(prof.LVL)
+        if level < 1 then
+                level = 1
+                player:setStorageValue(prof.LVL, level)
+        end
+        local xp = player:getStorageValue(prof.XP)
+        if xp < 0 then
+                xp = 0
+                player:setStorageValue(prof.XP, xp)
+        end
+        return level, xp
+end
+NX_EnsureProfStorage = ensureProfStorage
+
+function NX_GetProfessionLevel(player, profKey)
+        local prof = NX_PROF[profKey]
+        if not prof then
+                return 1, 0
+        end
+        return ensureProfStorage(player, prof)
+end
+
+function NX_SetLevelXP(player, storLvl, storXP, addXP)
+        local level = player:getStorageValue(storLvl)
+        if level < 1 then
+                level = 1
+        end
+        local xp = player:getStorageValue(storXP)
+        if xp < 0 then
+                xp = 0
+        end
+        if addXP and addXP > 0 then
+                xp = xp + addXP
+        end
+
+        local newLevel = 1
+        for lvl = 1, #XP_PER_TIER do
+                local req = XP_PER_TIER[lvl]
+                if req and xp >= req then
+                        newLevel = lvl
+                else
+                        break
+                end
+        end
+
+        player:setStorageValue(storLvl, newLevel)
+        player:setStorageValue(storXP, xp)
+        return newLevel, xp
+end
+
+function NX_SuccessChance(player, storLvl, difficulty, base)
+        base = base or 55
+        local level = player:getStorageValue(storLvl)
+        if level < 1 then
+                level = 1
+        end
+        local chance = base + (level * 2) - (difficulty or 0)
+        if chance < 5 then
+                chance = 5
+        elseif chance > 95 then
+                chance = 95
+        end
+        return chance, level
+end
+
+function NX_NodeKeyFromAid(aid)
+        if aid >= 6100 and aid <= 6199 then
+                return "fishing_pool"
+        elseif aid >= 6200 and aid <= 6299 then
+                return "meadow_flowers"
+        elseif aid >= 6300 and aid <= 6399 then
+                return "woodland_trees"
+        elseif aid >= 6400 and aid <= 6499 then
+                return "surface_ore"
+        elseif aid >= 6500 and aid <= 6599 then
+                return "deep_basalt"
+        end
+        return nil
+end
+
+function NX_PerTileCDKey(uid)
+        local base = 70100
+        local span = 101
+        local hash = tonumber(uid) or 0
+        if hash < 0 then
+                hash = -hash
+        end
+        return base + (hash % span)
+end
+
+local rotationMode = lower(ANTI_BOT.rotation or "off")
+local ROTATION_STAMP_KEY = 70550
+NX_ROTATION_TOGGLE_KEY = 70551
+NX_NODE_RARE_BONUS = NX_NODE_RARE_BONUS or {}
+
+function NX_ShouldRotate()
+        if rotationMode == "off" then
+                return false
+        end
+        if rotationMode == "serversave" then
+                return true
+        end
+        if rotationMode == "daily" then
+                local today = tonumber(os.date("%Y%m%d"))
+                local stored = Game.getStorageValue(ROTATION_STAMP_KEY)
+                if stored ~= today then
+                        Game.setStorageValue(ROTATION_STAMP_KEY, today)
+                        return true
+                end
+                return false
+        end
+        return false
+end
+
+function NX_SetNodeRarityBonus(nodeKey, multiplier)
+        NX_NODE_RARE_BONUS[nodeKey] = multiplier
+end
+
+local function resetRarity()
+        for key in pairs(NODES) do
+                NX_NODE_RARE_BONUS[key] = 1.0
+        end
+end
+NX_ResetRarity = resetRarity
+resetRarity()
+
+local function weightedRoll(entries, multiplier, allowFallback)
+        if not entries or #entries == 0 then
+                return nil
+        end
+        multiplier = multiplier or 1
+        local fallback = entries[1]
+        local fallbackChance = fallback and (fallback.chance or 0) or 0
+        for _, entry in ipairs(entries) do
+                local chance = entry.chance or 0
+                local scaled = chance * multiplier
+                if scaled >= 100 then
+                        return entry
+                end
+                if scaled > 0 then
+                        local roll = math.random(100000) / 1000
+                        if roll <= scaled then
+                                return entry
+                        end
+                end
+                if chance > fallbackChance then
+                        fallback = entry
+                        fallbackChance = chance
+                end
+        end
+        if allowFallback then
+                return fallback
+        end
+        return nil
+end
+NX_DoRoll = weightedRoll
+
+local EXHAUST_BASE = 70300
+NX_PROF_EXHAUST = {
+        FISH = EXHAUST_BASE,
+        FORG = EXHAUST_BASE + 1,
+        MINE = EXHAUST_BASE + 2
+}
+
+function NX_GetNextLevelInfo(level, xp)
+        local nextLevel = nil
+        for lvl = level + 1, #XP_PER_TIER do
+                local req = XP_PER_TIER[lvl]
+                if req then
+                        nextLevel = lvl
+                        if req > xp then
+                                return nextLevel, req - xp
+                        end
+                end
+        end
+        return nil, nil
+end
+
+function NX_NextUnlock(profKey, level)
+        local config = UNLOCKS[profKey]
+        if not config then
+                return nil, nil
+        end
+        local targetLevel
+        local nodes
+        for lvl = level + 1, 200 do
+                local unlock = config[lvl]
+                if unlock then
+                        targetLevel = lvl
+                        nodes = unlock
+                        break
+                end
+                if lvl > #XP_PER_TIER then
+                        break
+                end
+        end
+        return targetLevel, nodes
+end
+
+print("[NX] Professions module ready.")
