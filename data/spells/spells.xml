@@ -802,4 +802,7 @@
 	<instant name="monster soulfire" words="###50" aggressive="1" blockwalls="1" range="7" needtarget="1" needlearn="1" script="monster/monster_soulfire.lua" />
 	<instant name="dipthrah skill reducer" words="###51" aggressive="1" blockwalls="1" needtarget="0" needlearn="1" script="monster/dipthrah_skill_reducer.lua" />
 	<instant name="root branchy" words="###53" blockwalls="1" needtarget="1" needlearn="1" script="monster/root_branchy.lua" />
+        <instant name="fire rain" words="exori flam" level="8" aggressive="1" params="1" needtarget="0" cooldown="4000" premium="0" script="nx_boss_spells/fire_rain.lua" />
+        <instant name="meteor" words="exori gran flam" level="15" aggressive="1" params="1" needtarget="1" cooldown="5000" premium="0" script="nx_boss_spells/meteor.lua" />
+        <instant name="hellstorm" words="exevo flam hur" level="20" aggressive="1" params="1" needtarget="0" cooldown="6000" premium="0" script="nx_boss_spells/hellstorm.lua" />
 </spells>

@@ -11,3 +11,5 @@ dofile('data/lib/debugging/lua_version.lua')
 
 -- Serialization helpers
 dofile('data/lib/serialization.lua')
+dofile('data/lib/nx_rank.lua')
+dofile('data/lib/nx_boss.lua')

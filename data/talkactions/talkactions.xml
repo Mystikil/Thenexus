@@ -54,4 +54,6 @@
 	<!-- test talkactions -->
 	<talkaction words="!z" separator=" " script="magic_effect.lua" />
 	<talkaction words="!x" separator=" " script="animation_effect.lua" />
+        <talkaction words="/rank" separator=" " script="nx_rank_debug.lua" />
+        <talkaction words="/rankvision" separator=" " script="nx_rank_reveal.lua" />
 </talkactions>
