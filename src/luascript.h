@@ -827,11 +827,16 @@ class LuaScriptInterface {
 		static int luaMonsterIsFriend(lua_State* L);
 
 		static int luaMonsterAddFriend(lua_State* L);
-		static int luaMonsterRemoveFriend(lua_State* L);
-		static int luaMonsterGetFriendList(lua_State* L);
-		static int luaMonsterGetFriendCount(lua_State* L);
+                static int luaMonsterRemoveFriend(lua_State* L);
+                static int luaMonsterGetFriendList(lua_State* L);
+                static int luaMonsterGetFriendCount(lua_State* L);
 
-		static int luaMonsterAddTarget(lua_State* L);
+                static int luaMonsterHasRank(lua_State* L);
+                static int luaMonsterGetRankTier(lua_State* L);
+                static int luaMonsterGetRankLootMultiplier(lua_State* L);
+                static int luaMonsterGetRankExtraRolls(lua_State* L);
+
+                static int luaMonsterAddTarget(lua_State* L);
 		static int luaMonsterRemoveTarget(lua_State* L);
 		static int luaMonsterGetTargetList(lua_State* L);
 		static int luaMonsterGetTargetCount(lua_State* L);

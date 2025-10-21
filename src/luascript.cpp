@@ -2742,10 +2742,15 @@ void LuaScriptInterface::registerFunctions() {
 
 	registerMethod(L, "Monster", "addFriend", LuaScriptInterface::luaMonsterAddFriend);
 	registerMethod(L, "Monster", "removeFriend", LuaScriptInterface::luaMonsterRemoveFriend);
-	registerMethod(L, "Monster", "getFriendList", LuaScriptInterface::luaMonsterGetFriendList);
-	registerMethod(L, "Monster", "getFriendCount", LuaScriptInterface::luaMonsterGetFriendCount);
+        registerMethod(L, "Monster", "getFriendList", LuaScriptInterface::luaMonsterGetFriendList);
+        registerMethod(L, "Monster", "getFriendCount", LuaScriptInterface::luaMonsterGetFriendCount);
 
-	registerMethod(L, "Monster", "addTarget", LuaScriptInterface::luaMonsterAddTarget);
+        registerMethod(L, "Monster", "hasRank", LuaScriptInterface::luaMonsterHasRank);
+        registerMethod(L, "Monster", "getRankTier", LuaScriptInterface::luaMonsterGetRankTier);
+        registerMethod(L, "Monster", "getRankLootMultiplier", LuaScriptInterface::luaMonsterGetRankLootMultiplier);
+        registerMethod(L, "Monster", "getRankExtraRolls", LuaScriptInterface::luaMonsterGetRankExtraRolls);
+
+        registerMethod(L, "Monster", "addTarget", LuaScriptInterface::luaMonsterAddTarget);
 	registerMethod(L, "Monster", "removeTarget", LuaScriptInterface::luaMonsterRemoveTarget);
 	registerMethod(L, "Monster", "getTargetList", LuaScriptInterface::luaMonsterGetTargetList);
 	registerMethod(L, "Monster", "getTargetCount", LuaScriptInterface::luaMonsterGetTargetCount);
@@ -10634,21 +10639,65 @@ int LuaScriptInterface::luaMonsterGetFriendList(lua_State* L) {
 }
 
 int LuaScriptInterface::luaMonsterGetFriendCount(lua_State* L) {
-	// monster:getFriendCount()
-	Monster* monster = lua::getUserdata<Monster>(L, 1);
-	if (monster) {
-		lua_pushnumber(L, monster->getFriendList().size());
-	} else {
-		lua_pushnil(L);
-	}
-	return 1;
+        // monster:getFriendCount()
+        Monster* monster = lua::getUserdata<Monster>(L, 1);
+        if (monster) {
+                lua_pushnumber(L, monster->getFriendList().size());
+        } else {
+                lua_pushnil(L);
+        }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterHasRank(lua_State* L) {
+        // monster:hasRank()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (monster) {
+                lua::pushBoolean(L, monster->hasRank());
+        } else {
+                lua_pushnil(L);
+        }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterGetRankTier(lua_State* L) {
+        // monster:getRankTier()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (monster) {
+                lua_pushinteger(L, static_cast<uint8_t>(monster->getRankTier()));
+        } else {
+                lua_pushnil(L);
+        }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterGetRankLootMultiplier(lua_State* L) {
+        // monster:getRankLootMultiplier()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (monster) {
+                lua_pushnumber(L, monster->getRankLootMult());
+        } else {
+                lua_pushnil(L);
+        }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterGetRankExtraRolls(lua_State* L) {
+        // monster:getRankExtraRolls()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (monster) {
+                lua_pushinteger(L, monster->getRankExtraRolls());
+        } else {
+                lua_pushnil(L);
+        }
+        return 1;
 }
 
 int LuaScriptInterface::luaMonsterAddTarget(lua_State* L) {
-	// monster:addTarget(creature[, pushFront = false])
-	Monster* monster = lua::getUserdata<Monster>(L, 1);
-	if (!monster) {
-		lua_pushnil(L);
+        // monster:addTarget(creature[, pushFront = false])
+        Monster* monster = lua::getUserdata<Monster>(L, 1);
+        if (!monster) {
+                lua_pushnil(L);
 		return 1;
 	}
 

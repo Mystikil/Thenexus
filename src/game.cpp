@@ -3,6 +3,9 @@
 
 #include "otpch.h"
 
+#include <algorithm>
+#include <limits>
+
 #include "globalevent.h"
 
 #include "actions.h"
@@ -32,6 +35,7 @@
 #include "storeinbox.h"
 #include "talkaction.h"
 #include "weapons.h"
+#include "world/WorldPressureManager.hpp"
 #if ENABLE_INSTANCING
 #include "game/InstanceManager.h"
 #endif
@@ -92,6 +96,10 @@ void Game::start(ServiceManager* manager) {
                 InstanceManager::get().heartbeat();
         }));
 #endif
+
+        g_scheduler.addEvent(createSchedulerTask(60000, [this]() {
+                checkPressure();
+        }));
 
 }
 
@@ -4041,13 +4049,53 @@ bool Game::combatChangeHealth(Creature* attacker, Creature* target, CombatDamage
 			return false;
 		}
 
-		damage.primary.value = std::abs(damage.primary.value);
-		damage.secondary.value = std::abs(damage.secondary.value);
+        damage.primary.value = std::abs(damage.primary.value);
+        damage.secondary.value = std::abs(damage.secondary.value);
 
-		int32_t healthChange = damage.primary.value + damage.secondary.value;
-		if (healthChange == 0) {
-			return true;
-		}
+        auto scaleDamageValue = [](int32_t value, double multiplier) -> int32_t {
+                if (value <= 0 || multiplier == 1.0) {
+                        return value;
+                }
+
+                int64_t scaled = static_cast<int64_t>(static_cast<double>(value) * multiplier);
+                scaled = std::max<int64_t>(1, scaled);
+                if (scaled > std::numeric_limits<int32_t>::max()) {
+                        scaled = std::numeric_limits<int32_t>::max();
+                }
+                return static_cast<int32_t>(scaled);
+        };
+
+        if (attacker) {
+                Monster* attackerMonster = attacker->getMonster();
+                if (attackerMonster && attackerMonster->hasRank()) {
+                        double outgoingMultiplier = attackerMonster->getRankOutgoingMult();
+                        if (outgoingMultiplier != 1.0) {
+                                damage.primary.value = scaleDamageValue(damage.primary.value, outgoingMultiplier);
+                                damage.secondary.value = scaleDamageValue(damage.secondary.value, outgoingMultiplier);
+                        }
+                }
+        }
+
+        Monster* targetMonster = target->getMonster();
+        if (targetMonster && targetMonster->hasRank()) {
+                double incomingMultiplier = 1.0 - targetMonster->getRankIncomingMit();
+                if (incomingMultiplier != 1.0) {
+                        damage.primary.value = scaleDamageValue(damage.primary.value, incomingMultiplier);
+                        damage.secondary.value = scaleDamageValue(damage.secondary.value, incomingMultiplier);
+                }
+
+                int32_t rankResistPercent = targetMonster->getRankResistPercent();
+                if (rankResistPercent != 0) {
+                        double resistMultiplier = 1.0 - (static_cast<double>(rankResistPercent) / 100.0);
+                        damage.primary.value = scaleDamageValue(damage.primary.value, resistMultiplier);
+                        damage.secondary.value = scaleDamageValue(damage.secondary.value, resistMultiplier);
+                }
+        }
+
+        int32_t healthChange = damage.primary.value + damage.secondary.value;
+        if (healthChange == 0) {
+                return true;
+        }
 
 		TextMessage message;
 		message.position = targetPos;
@@ -4500,9 +4548,9 @@ void Game::internalDecayItem(Item* item) {
 }
 
 void Game::checkDecay() {
-	g_scheduler.addEvent(createSchedulerTask(EVENT_DECAYINTERVAL, [this]() {
-		checkDecay();
-	}));
+        g_scheduler.addEvent(createSchedulerTask(EVENT_DECAYINTERVAL, [this]() {
+                checkDecay();
+        }));
 
 	size_t bucket = (lastBucket + 1) % EVENT_DECAY_BUCKETS;
 
@@ -4541,13 +4589,21 @@ void Game::checkDecay() {
 	}
 
 	lastBucket = bucket;
-	cleanup();
+        cleanup();
+}
+
+void Game::checkPressure() {
+        g_scheduler.addEvent(createSchedulerTask(60000, [this]() {
+                checkPressure();
+        }));
+
+        WorldPressureManager::get().decayTouched(OTSYS_TIME());
 }
 
 void Game::checkLight() {
-	g_scheduler.addEvent(createSchedulerTask(EVENT_LIGHTINTERVAL, [this]() {
-		checkLight();
-	}));
+        g_scheduler.addEvent(createSchedulerTask(EVENT_LIGHTINTERVAL, [this]() {
+                checkLight();
+        }));
 	uint8_t previousLightLevel = lightLevel;
 	updateWorldLightLevel();
 	

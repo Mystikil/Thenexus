@@ -434,11 +434,12 @@ class Game {
 		void checkCreatureWalk(uint32_t creatureId);
 		void updateCreatureWalk(uint32_t creatureId);
 		void checkCreatureAttack(uint32_t creatureId);
-		void checkCreatures(size_t index);
-		void updateCreaturesPath(size_t index);
-		void checkLight();
+                void checkCreatures(size_t index);
+                void updateCreaturesPath(size_t index);
+                void checkLight();
+                void checkPressure();
 
-		bool combatBlockHit(CombatDamage& damage, Creature* attacker, Creature* target, bool checkDefense, bool checkArmor, bool field, bool ignoreResistances = false);
+                bool combatBlockHit(CombatDamage& damage, Creature* attacker, Creature* target, bool checkDefense, bool checkArmor, bool field, bool ignoreResistances = false);
 
 		void combatGetTypeInfo(CombatType_t combatType, Creature* target, TextColor_t& color, uint8_t& effect);
 
