@@ -1,6 +1,8 @@
 #include "otpch.h"
 #include "monster/Rank.hpp"
 #include "monster/monster.h"
+#include "condition.h"
+#include "combat.h"
 
 #include <algorithm>
 #include <cmath>
@@ -150,9 +152,32 @@ bool RankSystem::loadFromJson(const std::string& path, std::string& err) {
 void RankSystem::applyScalars(Monster& m, RankTier t) const {
     const RankDef* rd = def(t);
     if (!rd) return;
+    // ---- Health scaling (engine-safe) ----
     const int32_t oldMax = m.getMaxHealth();
-    const int32_t newMax = std::max<int32_t>(1, static_cast<int32_t>(std::llround(oldMax * rd->s.hp)));
-    m.setMaxHealth(newMax);
-    m.setHealth(newMax);
-    if (rd->s.speedDelta) m.changeSpeed(rd->s.speedDelta);
+    const int32_t desired = std::max<int32_t>(1, static_cast<int32_t>(std::llround(oldMax * rd->s.hp)));
+    const int32_t target  = std::min<int32_t>(desired, oldMax); // no runtime max-HP mutation
+    const int32_t diff    = target - m.getHealth();
+
+    if (diff > 0) {
+        // Heal up by the difference
+        m.addHealth(diff);
+    } else if (diff < 0) {
+        // Deal damage by the difference (negative value)
+        CombatDamage cd;
+        cd.origin = ORIGIN_NONE;
+        cd.primary.type = COMBAT_PHYSICALDAMAGE;
+        cd.primary.value = diff; // negative = damage
+        CombatParams params;
+        Combat::doTargetCombatHealth(nullptr, &m, cd, params);
+    }
+
+    // ---- Speed scaling via Conditions ----
+    if (rd->s.speedDelta != 0) {
+        const int32_t delta = rd->s.speedDelta;
+        const auto condType = (delta > 0) ? CONDITION_HASTE : CONDITION_PARALYZE;
+        const int32_t durationMs = 24 * 60 * 60 * 1000; // 24h persistence
+        auto cond = Condition::createCondition(CONDITIONID_COMBAT, condType, durationMs, 0);
+        cond->setParam(CONDITIONPARAM_SPEEDDELTA, std::abs(delta));
+        m.addCondition(cond);
+    }
 }
