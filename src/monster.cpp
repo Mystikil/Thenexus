@@ -1923,35 +1923,22 @@ void Monster::applyRankIfNeeded() {
 			return;
 		}
 
-		RankSystem& rankSystem = RankSystem::get();
-		if (!rankSystem.isEnabled()) {
-			return;
-		}
+        RankSystem& rankSystem = RankSystem::get();
+        if (!rankSystem.isEnabled()) {
+                return;
+        }
 
-		const Position& pos = getPosition();
-		int z = pos.z;
-		int floorOffset = (z <= 8 ? 1 : 0) + (z >= 6 ? 1 : 0);
+        std::string zoneTag;
+        std::string key;
+        if (mType) {
+                key = mType->name;
+                std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::tolower(c); });
+        }
 
-		int instTier = 0;
-		bool hard = false;
-		bool perma = false;
-		int instOffset = (instTier >= 5 ? 3 : 0) + (instTier >= 8 ? 1 : 0) + (hard ? 1 : 0) + (perma ? 2 : 0);
+        rankTier = rankSystem.pick(zoneTag, key);
 
-		uint64_t nowMs = OTSYS_TIME();
-		double bias = WorldPressureManager::get().getPressureBias(pos, nowMs);
-		int biasOffset = rankSystem.biasToOffset(bias);
-
-		std::string key;
-		if (mType) {
-			key = mType->name;
-			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::tolower(c); });
-		}
-
-		RankTier base = rankSystem.pickBaseTier(key);
-		rankTier = rankSystem.clampedAdvance(base, floorOffset + instOffset + biasOffset);
-
-		rankSystem.applyScalars(*this, rankTier);
-		rankApplied = true;
+        rankSystem.applyScalars(*this, rankTier);
+        rankApplied = true;
 }
 
 void Monster::updateLookDirection() {

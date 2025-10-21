@@ -37,8 +37,9 @@ set(tfs_SRC
 	${CMAKE_CURRENT_LIST_DIR}/mailbox.cpp
 	${CMAKE_CURRENT_LIST_DIR}/map.cpp
 	${CMAKE_CURRENT_LIST_DIR}/matrixarea.cpp
-	${CMAKE_CURRENT_LIST_DIR}/monster.cpp
-	${CMAKE_CURRENT_LIST_DIR}/monsters.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/monster.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/monster/Rank.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/monsters.cpp
 	${CMAKE_CURRENT_LIST_DIR}/mounts.cpp
 	${CMAKE_CURRENT_LIST_DIR}/movement.cpp
 	${CMAKE_CURRENT_LIST_DIR}/networkmessage.cpp
@@ -126,6 +127,7 @@ set(tfs_HDR
 	${CMAKE_CURRENT_LIST_DIR}/map.h
 	${CMAKE_CURRENT_LIST_DIR}/matrixarea.h
         ${CMAKE_CURRENT_LIST_DIR}/monster.h
+        ${CMAKE_CURRENT_LIST_DIR}/monster/Rank.hpp
         ${CMAKE_CURRENT_LIST_DIR}/creatures/monsters/monster.h
         ${CMAKE_CURRENT_LIST_DIR}/monsters.h
 	${CMAKE_CURRENT_LIST_DIR}/mounts.h
