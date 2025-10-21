@@ -1,29 +1,29 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <optional>
-#include <cstdint>
+
+// forward decl to avoid heavy includes here
+class Monster;
 
 enum class RankTier : uint8_t { F, E, D, C, B, A, S, SS, SSS, None };
 
 struct RankScalars {
-    double hp = 1.0;
-    double dmg = 1.0;         // outgoing damage mult
-    double mit = 0.0;         // incoming mitigation (0..0.80)
-    int32_t speedDelta = 0;   // +speed
-    double xp = 1.0;
-    double lootMult = 1.0;
+    double  hp         = 1.0;
+    double  dmg        = 1.0;   // outgoing
+    double  mit        = 0.0;   // incoming mitigation [0..0.80]
+    int32_t speedDelta = 0;
+    double  xp         = 1.0;
+    double  lootMult   = 1.0;
     uint8_t extraRolls = 0;
-    double aiCdMult = 1.0;    // boss AI cooldown multiplier
-    uint8_t spellUnlock = 0;
-    int32_t resist = 0;       // treat as % (0..100) when applying
+    double  aiCdMult   = 1.0;
+    uint8_t spellUnlock= 0;
+    int32_t resist     = 0;     // treat as percent [0..100]
 };
 
-struct RankDef {
-    std::string name; // "F".."SSS"
-    RankScalars s;
-};
+struct RankDef { std::string name; RankScalars s; };
 
 struct RankDistribution {
     std::unordered_map<RankTier, uint32_t> weights;
@@ -36,8 +36,6 @@ struct RankConfig {
     std::unordered_map<std::string, RankDistribution> byZone;
     std::unordered_map<std::string, RankDistribution> byMonsterName;
 };
-
-class Monster; // fwd
 
 class RankSystem {
 public:
@@ -53,12 +51,12 @@ public:
 
     RankTier pick(const std::string& zoneTag, const std::string& monsterKey) const;
 
-    // Optional helpers referenced by callers; provide simple implementations
+    // helpers referenced elsewhere
     RankTier clampedAdvance(RankTier base, int delta) const;
     RankTier pickBaseTier(const std::string& monsterKey) const;
     int biasToOffset(double bias) const;
 
-    // Apply all scalar effects that can be applied immediately (HP/speed)
+    // apply immediate scalars (HP/speed)
     void applyScalars(Monster& m, RankTier t) const;
 
 private:
