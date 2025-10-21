@@ -40,8 +40,18 @@ local function ensureRotation()
         applyRotation(getToggle())
 end
 
+local function shouldRotate()
+        if NX and type(NX.shouldRotateNow) == "function" then
+                return NX.shouldRotateNow(os.time())
+        end
+        if type(_G.NX_ShouldRotate) == "function" then
+                return _G.NX_ShouldRotate()
+        end
+        return false
+end
+
 local function handleRotation(force)
-        if force or NX_ShouldRotate() then
+        if force or shouldRotate() then
                 rotate()
         else
                 ensureRotation()

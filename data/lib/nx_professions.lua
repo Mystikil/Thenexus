@@ -22,15 +22,17 @@ local function norm(str)
         return lower(trim((str or ""):gsub("%s+", " ")))
 end
 
-local function splitAliases(name)
-        local result = {}
-        for part in (name or ""):gmatch("[^,/%]+") do
-                local alias = trim(part)
-                if alias ~= "" then
-                        result[#result + 1] = alias
+-- Splits on comma, pipe or slash. Avoid [] classes to prevent malformed pattern issues.
+local function splitAliases(s)
+        local out = {}
+        s = tostring(s or "")
+        for token in s:gmatch("([^,|/]+)") do
+                local t = token:gsub("^%s+", ""):gsub("%s+$", "")
+                if #t > 0 then
+                        table.insert(out, t)
                 end
         end
-        return result
+        return out
 end
 
 -- ===== Constants =====
@@ -77,9 +79,9 @@ local function loadItemsXmlIntoCache()
         file:close()
 
         local aliasCount = 0
-        for tag in content:gmatch("<item%s+.-/?>") do
-                local id = tag:match('id="(%d+)"')
-                local rawName = tag:match('name="([^"]+)"')
+        for tag in content:gmatch("<item%s+[^>]-/?>") do
+                local id = tag:match('id%s*=%s*"(%d+)"')
+                local rawName = tag:match('name%s*=%s*"([^"]+)"')
                 if id and rawName then
                         local itemId = tonumber(id)
                         if itemId then
@@ -485,7 +487,9 @@ M.NX_ROTATION_TOGGLE_KEY = NX_ROTATION_TOGGLE_KEY
 NX_NODE_RARE_BONUS = NX_NODE_RARE_BONUS or {}
 M.NX_NODE_RARE_BONUS = NX_NODE_RARE_BONUS
 
-local function NX_ShouldRotate()
+-- Rotation policy: return true only when a rotation window is open.
+-- You can later swap this to weekly/daily cron-style checks.
+function M.shouldRotateNow(now)
         if rotationMode == "off" then
                 return false
         end
@@ -493,7 +497,7 @@ local function NX_ShouldRotate()
                 return true
         end
         if rotationMode == "daily" then
-                local today = tonumber(os.date("%Y%m%d"))
+                local today = tonumber(os.date("%Y%m%d", now or os.time()))
                 local stored = Game.getStorageValue(ROTATION_STAMP_KEY)
                 if stored ~= today then
                         Game.setStorageValue(ROTATION_STAMP_KEY, today)
@@ -501,10 +505,16 @@ local function NX_ShouldRotate()
                 end
                 return false
         end
-        return false
+        return true
 end
-_G.NX_ShouldRotate = NX_ShouldRotate
-M.NX_ShouldRotate = NX_ShouldRotate
+
+-- Back-compat shim for older scripts that expect a global:
+local function legacyShouldRotate()
+        return M.shouldRotateNow(os.time())
+end
+
+_G.NX_ShouldRotate = legacyShouldRotate
+M.NX_ShouldRotate = legacyShouldRotate
 
 local function NX_SetNodeRarityBonus(nodeKey, multiplier)
         NX_NODE_RARE_BONUS[nodeKey] = multiplier

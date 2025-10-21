@@ -156,7 +156,8 @@
 	<action itemid="2095" script="others/bird_cage.lua" />
 	<action itemid="2099" script="others/water_pipe.lua" />
 	<action itemid="2114" script="others/piggy_bank.lua" />
-	<action fromid="2376" toid="2404" script="others/destroy.lua" />
+        <action fromid="2376" toid="2402" script="others/destroy.lua" />
+        <action fromid="2404" toid="2404" script="others/destroy.lua" />
 	<action fromid="2406" toid="2415" script="others/destroy.lua" />
 	<action fromid="2417" toid="2419" script="others/destroy.lua" />
 	<action fromid="2421" toid="2441" script="others/destroy.lua" />
