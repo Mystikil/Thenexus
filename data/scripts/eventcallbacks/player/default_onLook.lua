@@ -50,6 +50,14 @@ event.onLook = function(self, thing, position, distance, description)
 			end
 		end
 	end
+
+	local group = self:getGroup()
+	if group and group:getId() >= 3 and thing:isCreature() and thing:isMonster() and thing:hasRank() then
+		local rankName = thing:getRankName()
+		if rankName ~= "" then
+			description = string.format("%s\nRank: %s", description, rankName)
+		end
+	end
 	return description
 end
 
