@@ -2747,6 +2747,8 @@ void LuaScriptInterface::registerFunctions() {
 
         registerMethod(L, "Monster", "hasRank", LuaScriptInterface::luaMonsterHasRank);
         registerMethod(L, "Monster", "getRankTier", LuaScriptInterface::luaMonsterGetRankTier);
+        registerMethod(L, "Monster", "getRankName", LuaScriptInterface::luaMonsterGetRankName);
+        registerMethod(L, "Monster", "getRankIndex", LuaScriptInterface::luaMonsterGetRankIndex);
         registerMethod(L, "Monster", "getRankLootMultiplier", LuaScriptInterface::luaMonsterGetRankLootMultiplier);
         registerMethod(L, "Monster", "getRankExtraRolls", LuaScriptInterface::luaMonsterGetRankExtraRolls);
 
@@ -10668,6 +10670,51 @@ int LuaScriptInterface::luaMonsterGetRankTier(lua_State* L) {
         } else {
                 lua_pushnil(L);
         }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterGetRankName(lua_State* L) {
+        // monster:getRankName()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (!monster) {
+                lua_pushnil(L);
+                return 1;
+        }
+
+        if (!monster->hasRank()) {
+                lua::pushString(L, "");
+                return 1;
+        }
+
+        const char* rankName = RankSystem::get().toString(monster->getRankTier());
+        if (rankName) {
+                lua::pushString(L, rankName);
+        } else {
+                lua::pushString(L, "");
+        }
+        return 1;
+}
+
+int LuaScriptInterface::luaMonsterGetRankIndex(lua_State* L) {
+        // monster:getRankIndex()
+        const Monster* monster = lua::getUserdata<const Monster>(L, 1);
+        if (!monster) {
+                lua_pushnil(L);
+                return 1;
+        }
+
+        if (!monster->hasRank()) {
+                lua_pushinteger(L, -1);
+                return 1;
+        }
+
+        const RankTier tier = monster->getRankTier();
+        if (tier == RankTier::None) {
+                lua_pushinteger(L, -1);
+                return 1;
+        }
+
+        lua_pushinteger(L, static_cast<int>(tier));
         return 1;
 }
 

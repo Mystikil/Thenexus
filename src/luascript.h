@@ -833,6 +833,8 @@ class LuaScriptInterface {
 
                 static int luaMonsterHasRank(lua_State* L);
                 static int luaMonsterGetRankTier(lua_State* L);
+                static int luaMonsterGetRankName(lua_State* L);
+                static int luaMonsterGetRankIndex(lua_State* L);
                 static int luaMonsterGetRankLootMultiplier(lua_State* L);
                 static int luaMonsterGetRankExtraRolls(lua_State* L);
 
