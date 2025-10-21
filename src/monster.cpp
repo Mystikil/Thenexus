@@ -3,14 +3,20 @@
 
 #include "otpch.h"
 
+#include <algorithm>
+#include <cctype>
+
 #include "monster.h"
 
 #include "condition.h"
 #include "configmanager.h"
 #include "events.h"
 #include "game/game.h"
+#include "monster/Rank.hpp"
 #include "spectators.h"
 #include "spells.h"
+#include "tools.h"
+#include "world/WorldPressureManager.hpp"
 
 extern Game g_game;
 extern Monsters g_monsters;
@@ -137,7 +143,9 @@ void Monster::onCreatureAppear(Creature* creature, bool isLogin) {
 		}
 	}
 
-	if (creature == this) {
+		if (creature == this) {
+			applyRankIfNeeded();
+
 		//We just spawned lets look around to see who is there.
 		if (isSummon()) {
 			isMasterInRange = canSee(getMaster()->getPosition());
@@ -1900,13 +1908,49 @@ bool Monster::isInSpawnRange(const Position& pos) const {
 }
 
 bool Monster::getCombatValues(int32_t& min, int32_t& max) {
-	if (minCombatValue == 0 && maxCombatValue == 0) {
-		return false;
-	}
+		if (minCombatValue == 0 && maxCombatValue == 0) {
+			return false;
+		}
 
-	min = minCombatValue;
-	max = maxCombatValue;
-	return true;
+		min = minCombatValue;
+		max = maxCombatValue;
+		return true;
+}
+
+void Monster::applyRankIfNeeded() {
+		if (rankApplied) {
+			return;
+		}
+
+		RankSystem& rankSystem = RankSystem::get();
+		if (!rankSystem.isEnabled()) {
+			return;
+		}
+
+		const Position& pos = getPosition();
+		int z = pos.z;
+		int floorOffset = (z <= 8 ? 1 : 0) + (z >= 6 ? 1 : 0);
+
+		int instTier = 0;
+		bool hard = false;
+		bool perma = false;
+		int instOffset = (instTier >= 5 ? 3 : 0) + (instTier >= 8 ? 1 : 0) + (hard ? 1 : 0) + (perma ? 2 : 0);
+
+		uint64_t nowMs = OTSYS_TIME();
+		double bias = WorldPressureManager::get().getPressureBias(pos, nowMs);
+		int biasOffset = rankSystem.biasToOffset(bias);
+
+		std::string key;
+		if (mType) {
+			key = mType->name;
+			std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::tolower(c); });
+		}
+
+		RankTier base = rankSystem.pickBaseTier(key);
+		rankTier = rankSystem.clampedAdvance(base, floorOffset + instOffset + biasOffset);
+
+		rankSystem.applyScalars(*this, rankTier);
+		rankApplied = true;
 }
 
 void Monster::updateLookDirection() {

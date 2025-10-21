@@ -6,6 +6,7 @@
 
 #include "monsters.h"
 
+#include "monster/Rank.hpp"
 #include "creature.h"
 #include "position.h"
 
@@ -140,6 +141,8 @@ class Monster final : public Creature {
 		void setNormalCreatureLight() override;
 		bool getCombatValues(int32_t& min, int32_t& max) override;
 
+		void applyRankIfNeeded();
+
 		void doAttacking(uint32_t interval) override;
 		bool hasExtraSwing() override {
 			return lastMeleeAttack == 0;
@@ -175,6 +178,43 @@ class Monster final : public Creature {
 
 		using Creature::onWalk;
 
+		RankTier getRankTier() const {
+			return rankTier;
+		}
+		bool hasRank() const {
+			return rankTier != RankTier::None;
+		}
+		bool isRankApplied() const {
+			return rankApplied;
+		}
+		double getRankDamageMultiplier() const {
+			return rankDmgMult;
+		}
+		double getRankMitigation() const {
+			return rankMit;
+		}
+		double getRankExperienceMultiplier() const {
+			return rankXPMult;
+		}
+		double getRankLootMultiplier() const {
+			return rankLootMult;
+		}
+		double getRankAiCooldownMultiplier() const {
+			return rankAICdMult;
+		}
+		int32_t getRankSpeedDelta() const {
+			return rankSpeedDelta;
+		}
+		int32_t getRankResistPercent() const {
+			return rankResistPercent;
+		}
+		uint8_t getRankExtraRolls() const {
+			return rankExtraRolls;
+		}
+		uint8_t getRankSpellUnlock() const {
+			return rankSpellUnlock;
+		}
+
 	private:
 		CreatureHashSet friendList;
 		CreatureList targetList;
@@ -184,6 +224,18 @@ class Monster final : public Creature {
 
 		MonsterType* mType;
 		Spawn* spawn = nullptr;
+
+		RankTier rankTier = RankTier::None;
+		bool rankApplied = false;
+		double rankDmgMult = 1.0;
+		double rankMit = 0.0;
+		double rankXPMult = 1.0;
+		double rankLootMult = 1.0;
+		double rankAICdMult = 1.0;
+		int32_t rankSpeedDelta = 0;
+		int32_t rankResistPercent = 0;
+		uint8_t rankExtraRolls = 0;
+		uint8_t rankSpellUnlock = 0;
 
 		int64_t lastMeleeAttack = 0;
 
@@ -269,6 +321,7 @@ class Monster final : public Creature {
 		void getPathSearchParams(const Creature* creature, FindPathParams& fpp) const override;
 
 		friend class LuaScriptInterface;
+		friend class RankSystem;
 };
 
 #endif // FS_MONSTER_H
