@@ -1,4 +1,4 @@
-dofile('data/lib/nx_professions.lua')
+local NX = (dofile_once and dofile_once('data/lib/nx_professions.lua')) or dofile('data/lib/nx_professions.lua')
 
 local rotationSets = {
         [0] = { meadow_flowers = 1.25, surface_ore = 1.15 },
