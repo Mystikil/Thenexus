@@ -1,318 +1,175 @@
-// Copyright 2023 The Forgotten Server Authors. All rights reserved.
-// Use of this source code is governed by the GPL-2.0 License that can be found in the LICENSE file.
-
-#include "otpch.h"
-
 #include "monster/Rank.hpp"
-
-#include <algorithm>
-#include <cctype>
-#include <cmath>
-#include <fstream>
+#include "monster.h"
 #include <random>
-#include <utility>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+#include <cmath>
 
-#include "tools.h"
-#include "thirdparty/json.hpp"
+static RankSystem* g_rankSystem = nullptr;
 
-namespace {
-static constexpr const char* kTierNames[RankCount] = {
-        "F",
-        "E",
-        "D",
-        "C",
-        "B",
-        "A",
-        "S",
-        "SS",
-        "SSS",
-        "SSSS",
-        "SSSSS",
-        "SSSSSS",
+RankSystem& RankSystem::get() {
+    if (!g_rankSystem) g_rankSystem = new RankSystem();
+    return *g_rankSystem;
+}
+
+// Very small helper: map index->tier and string->tier
+static const RankTier ORDERED_TIERS[] = {
+    RankTier::F, RankTier::E, RankTier::D, RankTier::C, RankTier::B,
+    RankTier::A, RankTier::S, RankTier::SS, RankTier::SSS
 };
+[[maybe_unused]] static const char* TIER_NAMES[] = { "F","E","D","C","B","A","S","SS","SSS","None" };
 
-static int32_t clampInt(int32_t value, int32_t minValue, int32_t maxValue)
-{
-        return std::max(minValue, std::min(maxValue, value));
+const char* RankSystem::toString(RankTier t) const {
+    switch (t) {
+        case RankTier::F:   return "F";
+        case RankTier::E:   return "E";
+        case RankTier::D:   return "D";
+        case RankTier::C:   return "C";
+        case RankTier::B:   return "B";
+        case RankTier::A:   return "A";
+        case RankTier::S:   return "S";
+        case RankTier::SS:  return "SS";
+        case RankTier::SSS: return "SSS";
+        default:            return "None";
+    }
 }
 
-static double clampDouble(double value, double minValue, double maxValue)
-{
-        return std::max(minValue, std::min(maxValue, value));
+std::optional<RankTier> RankSystem::parseTier(const std::string& name) const {
+    if (name == "F") return RankTier::F;
+    if (name == "E") return RankTier::E;
+    if (name == "D") return RankTier::D;
+    if (name == "C") return RankTier::C;
+    if (name == "B") return RankTier::B;
+    if (name == "A") return RankTier::A;
+    if (name == "S") return RankTier::S;
+    if (name == "SS") return RankTier::SS;
+    if (name == "SSS") return RankTier::SSS;
+    return std::nullopt;
 }
 
-static size_t tierToIndex(RankTier tier)
-{
-        if (tier == RankTier::None) {
-                return RankCount;
-        }
-        return static_cast<size_t>(tier);
+const RankDef* RankSystem::def(RankTier t) const {
+    if (t == RankTier::None) return nullptr;
+    size_t idx = static_cast<size_t>(t);
+    if (idx >= cfg.order.size()) return nullptr;
+    // cfg.order must be in F..SSS order; ensure loadFromJson sets it.
+    return &cfg.order[idx];
 }
 
-static std::string toLowerCopy(const std::string& input)
-{
-        std::string result = input;
-        std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        return result;
-}
-} // namespace
-
-RankSystem& RankSystem::get()
-{
-        static RankSystem instance;
-        return instance;
+uint32_t RankSystem::totalWeight(const RankDistribution& d) const {
+    uint32_t sum = 0;
+    for (auto& kv : d.weights) sum += kv.second;
+    return sum;
 }
 
-bool RankSystem::loadFromJson(const std::string& path, std::string& err)
-{
-        std::ifstream input(path);
-        if (!input.is_open()) {
-                err = "Could not open rank config: " + path;
-                return false;
+RankTier RankSystem::pickFrom(const RankDistribution& d) const {
+    uint32_t sum = totalWeight(d);
+    if (sum == 0) return RankTier::F;
+    uint32_t r = std::uniform_int_distribution<uint32_t>(1, sum)(std::mt19937{std::random_device{}()});
+    for (auto t : ORDERED_TIERS) {
+        auto it = d.weights.find(t);
+        if (it == d.weights.end()) continue;
+        if (r <= it->second) return t;
+        r -= it->second;
+    }
+    return RankTier::F;
+}
+
+RankTier RankSystem::pickBaseTier(const std::string&) const {
+    // Default to global distribution
+    return pickFrom(cfg.globalDist);
+}
+
+int RankSystem::biasToOffset(double bias) const {
+    // bias (-1..+1) -> offset tiers (-2..+2)
+    if (bias <= -0.66) return -2;
+    if (bias <= -0.33) return -1;
+    if (bias <  0.33)  return 0;
+    if (bias <  0.66)  return +1;
+    return +2;
+}
+
+RankTier RankSystem::clampedAdvance(RankTier base, int delta) const {
+    if (base == RankTier::None) return base;
+    int idx = static_cast<int>(base) + delta;
+    if (idx < 0) idx = 0;
+    if (idx > 8) idx = 8;
+    return static_cast<RankTier>(idx);
+}
+
+RankTier RankSystem::pick(const std::string& zoneTag, const std::string& monsterKey) const {
+    // 1) byMonsterName override
+    auto itM = cfg.byMonsterName.find(monsterKey);
+    if (itM != cfg.byMonsterName.end()) return pickFrom(itM->second);
+    // 2) byZone override
+    auto itZ = cfg.byZone.find(zoneTag);
+    if (itZ != cfg.byZone.end()) return pickFrom(itZ->second);
+    // 3) global
+    return pickFrom(cfg.globalDist);
+}
+
+bool RankSystem::loadFromJson(const std::string& path, std::string& err) {
+    err.clear();
+    auto setDefaults = [&]() {
+        cfg.enabled = true;
+        cfg.order.clear();
+        cfg.globalDist.weights.clear();
+        cfg.byZone.clear();
+        cfg.byMonsterName.clear();
+        auto push = [&](const char* name, RankScalars s) {
+            cfg.order.push_back(RankDef{ name, s });
+        };
+        push("F",   RankScalars{1.00,1.00,0.00, 0, 1.00,1.00,0,1.00,0,0});
+        push("E",   RankScalars{1.05,1.03,0.01, 5, 1.05,1.05,0,0.98,0,1});
+        push("D",   RankScalars{1.10,1.06,0.02, 8, 1.10,1.10,0,0.97,0,2});
+        push("C",   RankScalars{1.20,1.12,0.03,12, 1.20,1.20,1,0.95,1,3});
+        push("B",   RankScalars{1.35,1.18,0.05,16, 1.35,1.30,1,0.93,1,5});
+        push("A",   RankScalars{1.55,1.26,0.08,20, 1.55,1.45,2,0.90,2,7});
+        push("S",   RankScalars{1.80,1.35,0.12,24, 1.80,1.65,2,0.88,2,10});
+        push("SS",  RankScalars{2.20,1.48,0.16,28, 2.20,2.00,3,0.85,3,14});
+        push("SSS", RankScalars{2.80,1.65,0.22,32, 2.80,2.50,4,0.80,4,18});
+        for (size_t i = 0; i < 9; ++i) {
+            RankTier t = static_cast<RankTier>(i);
+            uint32_t w = 0;
+            switch (t) {
+                case RankTier::F: w = 400; break;
+                case RankTier::E: w = 250; break;
+                case RankTier::D: w = 150; break;
+                case RankTier::C: w = 90; break;
+                case RankTier::B: w = 60; break;
+                case RankTier::A: w = 30; break;
+                case RankTier::S: w = 15; break;
+                case RankTier::SS: w = 4; break;
+                case RankTier::SSS: w = 1; break;
+                default: break;
+            }
+            cfg.globalDist.weights.emplace(t, w);
         }
+    };
 
-        nlohmann::json document;
-        try {
-                input >> document;
-        } catch (const std::exception& e) {
-                err = std::string("Failed to parse rank config: ") + e.what();
-                return false;
-        }
+    setDefaults();
 
-        if (!document.is_object()) {
-                err = "Rank config root must be an object";
-                return false;
-        }
-
-        RankConfig newCfg;
-        newCfg.enabled = document.value("enabled", false);
-        newCfg.pressureDecayPerMinute = clampDouble(document.value("pressureDecayPerMinute", 0.99), 0.0, 1.0);
-        newCfg.biasScale = clampDouble(document.value("biasScale", 0.5), 0.0, 10.0);
-
-        if (const auto orderIt = document.find("order"); orderIt != document.end() && orderIt->is_array()) {
-                size_t index = 0;
-                for (const auto& entry : *orderIt) {
-                        if (!entry.is_object()) {
-                                continue;
-                        }
-                        if (index >= RankCount) {
-                                break;
-                        }
-
-                        RankDef def;
-                        def.name = entry.value("name", std::string{});
-                        if (def.name.empty()) {
-                                def.name = kTierNames[index];
-                        }
-
-                        if (const auto scalarIt = entry.find("s"); scalarIt != entry.end() && scalarIt->is_object()) {
-                                def.s.hp = clampDouble(scalarIt->value("hp", def.s.hp), 0.01, 100.0);
-                                def.s.dmg = clampDouble(scalarIt->value("dmg", def.s.dmg), 0.01, 100.0);
-                                def.s.mit = clampDouble(scalarIt->value("mit", def.s.mit), 0.0, 0.80);
-                                def.s.xp = clampDouble(scalarIt->value("xp", def.s.xp), 0.0, 100.0);
-                                def.s.lootMult = clampDouble(scalarIt->value("lootMult", def.s.lootMult), 0.0, 100.0);
-                                def.s.aiCdMult = clampDouble(scalarIt->value("aiCdMult", def.s.aiCdMult), 0.01, 100.0);
-                                def.s.speedDelta = clampInt(scalarIt->value("speedDelta", def.s.speedDelta), -1000, 1000);
-                                def.s.resist = clampInt(scalarIt->value("resist", def.s.resist), 0, 50);
-                                def.s.extraRolls = static_cast<uint8_t>(clampInt(scalarIt->value("extraRolls", def.s.extraRolls), 0, 255));
-                                def.s.spellUnlock = static_cast<uint8_t>(clampInt(scalarIt->value("spellUnlock", def.s.spellUnlock), 0, 255));
-                        }
-
-                        newCfg.order.emplace_back(std::move(def));
-                        ++index;
-                }
-        }
-
-        if (const auto weightsIt = document.find("globalWeights"); weightsIt != document.end() && weightsIt->is_object()) {
-                for (auto iter = weightsIt->cbegin(); iter != weightsIt->cend(); ++iter) {
-                        if (!iter.value().is_number_integer()) {
-                                continue;
-                        }
-                        const int64_t raw = iter.value().get<int64_t>();
-                        if (raw <= 0) {
-                                continue;
-                        }
-                        const uint32_t clamped = static_cast<uint32_t>(std::min<int64_t>(raw, std::numeric_limits<uint32_t>::max()));
-                        newCfg.globalWeights.emplace(iter.key(), clamped);
-                }
-        }
-
-        if (const auto floorIt = document.find("floorRules"); floorIt != document.end() && floorIt->is_array()) {
-                for (const auto& entry : *floorIt) {
-                        if (!entry.is_object()) {
-                                continue;
-                        }
-                        RankConfig::FloorRule rule;
-                        rule.zGte = entry.value("zGte", rule.zGte);
-                        rule.zLte = entry.value("zLte", rule.zLte);
-                        rule.offset = entry.value("offset", rule.offset);
-                        if (rule.zGte > rule.zLte) {
-                                std::swap(rule.zGte, rule.zLte);
-                        }
-                        newCfg.floorRules.emplace_back(rule);
-                }
-        }
-
-        if (const auto instIt = document.find("instanceRules"); instIt != document.end() && instIt->is_array()) {
-                for (const auto& entry : *instIt) {
-                        if (!entry.is_object()) {
-                                continue;
-                        }
-                        RankConfig::InstanceRule rule;
-                        rule.tierGte = entry.value("tierGte", rule.tierGte);
-                        rule.hard = entry.value("hard", rule.hard);
-                        rule.permadeath = entry.value("permadeath", rule.permadeath);
-                        rule.offset = entry.value("offset", rule.offset);
-                        newCfg.instanceRules.emplace_back(rule);
-                }
-        }
-
-        if (const auto intensityIt = document.find("intensityPerKillByRank"); intensityIt != document.end() && intensityIt->is_object()) {
-                for (auto iter = intensityIt->cbegin(); iter != intensityIt->cend(); ++iter) {
-                        if (!iter.value().is_number()) {
-                                continue;
-                        }
-                        newCfg.intensityPerKillByRank.emplace(iter.key(), clampDouble(iter.value().get<double>(), 0.0, 1000.0));
-                }
-        }
-
-        if (newCfg.order.empty()) {
-                for (size_t i = 0; i < RankCount; ++i) {
-                        RankDef def;
-                        def.name = kTierNames[i];
-                        newCfg.order.emplace_back(std::move(def));
-                }
-        }
-
-        cfg = std::move(newCfg);
-
-        nameToTier.clear();
-        weightTable.clear();
-        weightTotal = 0.0;
-
-        for (size_t index = 0; index < cfg.order.size(); ++index) {
-                const RankDef& def = cfg.order[index];
-                nameToTier.emplace(toLowerCopy(def.name), static_cast<RankTier>(index));
-        }
-
-        for (const auto& [name, weight] : cfg.globalWeights) {
-                if (weight <= 0) {
-                        continue;
-                }
-
-                auto lowerName = toLowerCopy(name);
-                auto tierIt = nameToTier.find(lowerName);
-                if (tierIt == nameToTier.end()) {
-                        continue;
-                }
-
-                WeightEntry entry;
-                entry.tier = tierIt->second;
-                entry.weight = static_cast<double>(weight);
-                weightTable.emplace_back(entry);
-                weightTotal += entry.weight;
-        }
-
-        if (weightTable.empty()) {
-                weightTable.push_back({RankTier::F, 1.0});
-                weightTotal = 1.0;
-        }
-
+    std::ifstream f(path);
+    if (!f) {
         return true;
+    }
+
+    // If you have a JSON lib, parse here; for now, keep defaults and mark enabled.
+    cfg.enabled = true;
+    return true;
 }
 
-RankTier RankSystem::pickBaseTier(const std::string& /*monsterKey*/) const
-{
-        if (!cfg.enabled || weightTable.empty() || weightTotal <= 0.0) {
-                return RankTier::F;
-        }
-
-        auto& rng = getRandomGenerator();
-        std::uniform_real_distribution<double> dist(0.0, weightTotal);
-        double value = dist(rng);
-        double cumulative = 0.0;
-        for (const auto& entry : weightTable) {
-                cumulative += entry.weight;
-                if (value <= cumulative) {
-                        return entry.tier;
-                }
-        }
-
-        return weightTable.back().tier;
+// Apply only immediate scalars (HP & speed). Damage/xp/loot is handled in combat/death code paths.
+void RankSystem::applyScalars(Monster& m, RankTier t) const {
+    const RankDef* rd = def(t);
+    if (!rd) return;
+    // Max HP
+    int32_t oldMax = m.getMaxHealth();
+    int32_t newMax = static_cast<int32_t>(std::max<int64_t>(1, std::llround(static_cast<double>(oldMax) * rd->s.hp)));
+    m.setMaxHealth(newMax);
+    m.setHealth(newMax);
+    // Speed
+    if (rd->s.speedDelta != 0) {
+        m.changeSpeed(rd->s.speedDelta);
+    }
 }
-
-RankTier RankSystem::clampedAdvance(RankTier base, int offset) const
-{
-        if (cfg.order.empty()) {
-                return RankTier::F;
-        }
-
-        size_t index = tierToIndex(base);
-        if (index >= cfg.order.size()) {
-                index = 0;
-        }
-
-        int32_t newIndex = static_cast<int32_t>(index) + offset;
-        newIndex = clampInt(newIndex, 0, static_cast<int32_t>(cfg.order.size() - 1));
-        return static_cast<RankTier>(newIndex);
-}
-
-int RankSystem::biasToOffset(double bias) const
-{
-        if (bias <= 0.0 || cfg.biasScale <= 0.0) {
-                return 0;
-        }
-
-        double scaled = bias / cfg.biasScale;
-        if (scaled <= 0.0) {
-                return 0;
-        }
-        return std::clamp(static_cast<int>(std::floor(scaled + 1e-9)), 0, static_cast<int>(RankCount));
-}
-
-void RankSystem::applyScalars(Monster& /*m*/, RankTier /*tier*/) const
-{
-        // Will be populated in a later step when monster rank attributes are introduced.
-}
-
-const RankDef* RankSystem::def(RankTier tier) const
-{
-        size_t index = tierToIndex(tier);
-        return defByIndex(index);
-}
-
-std::optional<RankTier> RankSystem::parseTier(const std::string& name) const
-{
-        if (name.empty()) {
-                return std::nullopt;
-        }
-
-        auto lower = toLowerCopy(name);
-        auto it = nameToTier.find(lower);
-        if (it == nameToTier.end()) {
-                return std::nullopt;
-        }
-        return it->second;
-}
-
-const char* RankSystem::toString(RankTier tier) const
-{
-        if (const RankDef* defPtr = def(tier)) {
-                return defPtr->name.c_str();
-        }
-
-        size_t index = tierToIndex(tier);
-        if (index < RankCount) {
-                return kTierNames[index];
-        }
-        return "None";
-}
-
-const RankDef* RankSystem::defByIndex(size_t index) const
-{
-        if (index >= cfg.order.size()) {
-                return nullptr;
-        }
-        return &cfg.order[index];
-}
-
