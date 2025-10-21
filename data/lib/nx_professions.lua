@@ -172,6 +172,123 @@ end
 _G.NX_FirstExisting = NX_FirstExisting
 M.NX_FirstExisting = NX_FirstExisting
 
+-- Node -> item display names (resolver will map names to ids; missing names are ignored)
+NODE_ITEMNAMES = {
+        fishing_pool = {
+                "Shallow Water", "Deep Water", "Water", "Small Pond", "Lily Pad", "Fishing Net"
+        },
+        meadow_flowers = {
+                "Wild Flowers", "Flower Bowl", "Bush", "Tall Grass", "Fern", "Teal Leaves"
+        },
+        woodland_trees = {
+                "Tree", "Oak", "Pine", "Dead Tree", "Tree Stump", "Fallen Tree", "Branch", "Tree Branch"
+        },
+        surface_ore = {
+                "Rock", "Stone Pile", "Ore Vein", "Coal Vein", "Stone Block", "Cracked Rock"
+        },
+        deep_basalt = {
+                "Basalt", "Basalt Column", "Basalt Crystal Wall", "Basalt Rock"
+        },
+}
+
+NODE_ITEMSETS = {}
+
+local function NX_NodeKeyFromAid(aid)
+        if aid >= 6100 and aid <= 6199 then
+                return "fishing_pool"
+        elseif aid >= 6200 and aid <= 6299 then
+                return "meadow_flowers"
+        elseif aid >= 6300 and aid <= 6399 then
+                return "woodland_trees"
+        elseif aid >= 6400 and aid <= 6499 then
+                return "surface_ore"
+        elseif aid >= 6500 and aid <= 6599 then
+                return "deep_basalt"
+        end
+        return nil
+end
+_G.NX_NodeKeyFromAid = NX_NodeKeyFromAid
+M.NX_NodeKeyFromAid = NX_NodeKeyFromAid
+
+local function NX_BuildNodeSets()
+        NODE_ITEMSETS = {}
+        for nodeKey, names in pairs(NODE_ITEMNAMES) do
+                local set = {}
+                for _, nm in ipairs(names) do
+                        local id = NX_ItemId(nm)
+                        if id and id > 0 then
+                                set[id] = true
+                        end
+                end
+                if next(set) == nil then
+                        print(string.format("[nx_professions] warning: node '%s' resolved 0 itemids", nodeKey))
+                end
+                NODE_ITEMSETS[nodeKey] = set
+        end
+        M.NODE_ITEMSETS = NODE_ITEMSETS
+end
+_G.NX_BuildNodeSets = NX_BuildNodeSets
+M.NX_BuildNodeSets = NX_BuildNodeSets
+
+M.NODE_ITEMNAMES = NODE_ITEMNAMES
+
+local function NX_DetectNodeAt(pos)
+        local tile = Tile(pos)
+        if not tile then
+                return nil
+        end
+
+        local top = tile:getTopTopItem() or tile:getTopDownItem() or tile:getGround()
+        if top then
+                local iid = top:getId()
+                if iid and iid > 0 then
+                        for nodeKey, set in pairs(NODE_ITEMSETS) do
+                                if set[iid] then
+                                        return nodeKey
+                                end
+                        end
+                end
+        end
+
+        local thing = tile:getTopVisibleThing()
+        local aid = (thing and thing:isItem()) and thing:getActionId() or 0
+        if aid and aid > 0 then
+                return NX_NodeKeyFromAid(aid)
+        end
+        return nil
+end
+_G.NX_DetectNodeAt = NX_DetectNodeAt
+M.NX_DetectNodeAt = NX_DetectNodeAt
+
+local function NX_PerTileCDKeyFromPos(pos)
+        if not pos then
+                return 70100
+        end
+        local h = ((pos.x * 73856093) ~ (pos.y * 19349663) ~ (pos.z * 83492791)) & 0x7fffffff
+        return 70100 + (h % 101)
+end
+_G.NX_PerTileCDKeyFromPos = NX_PerTileCDKeyFromPos
+M.NX_PerTileCDKeyFromPos = NX_PerTileCDKeyFromPos
+
+local function countSetEntries(set)
+        local count = 0
+        if set then
+                for _ in pairs(set) do
+                        count = count + 1
+                end
+        end
+        return count
+end
+
+NX_BuildNodeSets()
+print(string.format("[nx_professions] Node item sets built: fishing=%d, meadow=%d, woods=%d, surface=%d, basalt=%d",
+        countSetEntries(NODE_ITEMSETS.fishing_pool),
+        countSetEntries(NODE_ITEMSETS.meadow_flowers),
+        countSetEntries(NODE_ITEMSETS.woodland_trees),
+        countSetEntries(NODE_ITEMSETS.surface_ore),
+        countSetEntries(NODE_ITEMSETS.deep_basalt)
+))
+
 local function NX_FilterValid(rows)
         local valid = {}
         if type(rows) ~= "table" then
@@ -450,35 +567,6 @@ local function NX_SuccessChance(player, storLvl, difficulty, base)
 end
 _G.NX_SuccessChance = NX_SuccessChance
 M.NX_SuccessChance = NX_SuccessChance
-
-local function NX_NodeKeyFromAid(aid)
-        if aid >= 6100 and aid <= 6199 then
-                return "fishing_pool"
-        elseif aid >= 6200 and aid <= 6299 then
-                return "meadow_flowers"
-        elseif aid >= 6300 and aid <= 6399 then
-                return "woodland_trees"
-        elseif aid >= 6400 and aid <= 6499 then
-                return "surface_ore"
-        elseif aid >= 6500 and aid <= 6599 then
-                return "deep_basalt"
-        end
-        return nil
-end
-_G.NX_NodeKeyFromAid = NX_NodeKeyFromAid
-M.NX_NodeKeyFromAid = NX_NodeKeyFromAid
-
-local function NX_PerTileCDKey(uid)
-        local base = 70100
-        local span = 101
-        local hash = tonumber(uid) or 0
-        if hash < 0 then
-                hash = -hash
-        end
-        return base + (hash % span)
-end
-_G.NX_PerTileCDKey = NX_PerTileCDKey
-M.NX_PerTileCDKey = NX_PerTileCDKey
 
 local rotationMode = lower(ANTI_BOT.rotation or "off")
 local ROTATION_STAMP_KEY = 70550

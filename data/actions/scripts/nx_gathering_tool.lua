@@ -38,39 +38,6 @@ local function callFallback(toolKind, player, item, fromPosition, target, toPosi
         return false
 end
 
-local function getTopActionTile(tile)
-        if not tile then
-                return nil, nil
-        end
-        local thingCount = tile:getThingCount()
-        for index = thingCount - 1, 0, -1 do
-                local thing = tile:getThing(index)
-                if thing and thing:isItem() then
-                        local aid = thing:getActionId()
-                        if aid > 0 then
-                                local uid = thing:getUniqueId()
-                                return aid, uid
-                        end
-                end
-        end
-        local ground = tile:getGround()
-        if ground then
-                local aid = ground:getActionId()
-                if aid > 0 then
-                        return aid, ground:getUniqueId()
-                end
-        end
-        return nil, nil
-end
-
-local function resolveCooldownKey(uid, position)
-        if uid and uid > 0 then
-                return NX_PerTileCDKey(uid)
-        end
-        local hash = position.x + position.y * 512 + position.z * 131072
-        return NX_PerTileCDKey(hash)
-end
-
 local function calculateAmount(entry)
         local amount = 1
         if type(entry.amount) == "table" then
@@ -158,14 +125,10 @@ function onUse(player, item, fromPosition, target, toPosition, isHotkey)
                 return callFallback(toolKind, player, item, fromPosition, target, toPosition, isHotkey)
         end
 
-        local aid, uid = getTopActionTile(tile)
-        if not aid then
-                return callFallback(toolKind, player, item, fromPosition, target, toPosition, isHotkey)
-        end
-
-        local nodeKey = NX_NodeKeyFromAid(aid)
+        local nodeKey = NX_DetectNodeAt(toPosition)
         if not nodeKey then
-                return callFallback(toolKind, player, item, fromPosition, target, toPosition, isHotkey)
+                player:sendCancelMessage("There's nothing to gather here.")
+                return true
         end
 
         local node = NODES[nodeKey]
@@ -198,7 +161,7 @@ function onUse(player, item, fromPosition, target, toPosition, isHotkey)
 
         local now = os.time()
         local exhaustKey = NX_PROF_EXHAUST[profKey]
-        local cdKey = resolveCooldownKey(uid, toPosition)
+        local cdKey = NX_PerTileCDKeyFromPos(toPosition)
         local cooldown = Game.getStorageValue(cdKey)
         if cooldown and cooldown > now then
                 player:sendTextMessage(MESSAGE_STATUS_SMALL, "This node seems depleted, come back later.")
