@@ -11,6 +11,7 @@
 #include "game/game.h"
 #include "iomarket.h"
 #include "monsters.h"
+#include "monster/Rank.hpp"
 #include "outfit.h"
 #include "protocollogin.h"
 #include "protocolold.h"
@@ -20,6 +21,7 @@
 #include "script.h"
 #include "scriptmanager.h"
 #include "server.h"
+#include "world/WorldPressureManager.hpp"
 
 #include <fstream>
 
@@ -82,13 +84,25 @@ namespace {
 		}
 
 		// read global config
-		std::cout << ">> Loading config" << std::endl;
-		if (!ConfigManager::load()) {
-			startupErrorMessage("Unable to load " + configFile + "!");
-			return;
-		}
+                std::cout << ">> Loading config" << std::endl;
+                if (!ConfigManager::load()) {
+                        startupErrorMessage("Unable to load " + configFile + "!");
+                        return;
+                }
 
-	#ifdef _WIN32
+                std::string rerr;
+                RankSystem::get().loadFromJson("data/monster_ranks.json", rerr);
+                if (!rerr.empty()) {
+                        std::cout << "[Ranks] " << rerr << std::endl;
+                }
+
+                std::string perr;
+                WorldPressureManager::get().loadJson("data/rank_pressure.json", perr);
+                if (!perr.empty()) {
+                        std::cout << "[Pressure] " << perr << std::endl;
+                }
+
+#ifdef _WIN32
 		const std::string& defaultPriority = getString(ConfigManager::DEFAULT_PRIORITY);
 		if (caseInsensitiveEqual(defaultPriority, "high")) {
 			SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);
