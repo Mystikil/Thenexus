@@ -8,11 +8,21 @@
 	<event type="death" name="PlayerDeath" script="player_death.lua" />
 	<event type="death" name="DropLoot" script="drop_loot.lua" />
         <event type="extendedopcode" name="ExtendedOpcode" script="extended_opcode.lua" />
-        <event type="look" name="SerialOnLook" script="serial_on_look.lua" />
+
+        <!-- Rank system -->
         <event type="spawn" name="nx_rank_apply" script="nx_rank_apply.lua" />
         <event type="healthchange" name="nx_rank_scale" script="nx_rank_scalers.lua" />
         <event type="death" name="nx_rank_scale" script="nx_rank_scalers.lua" />
+        <!-- Optional fallback for forks that emit statschange instead of healthchange -->
+        <event type="statschange" name="nx_rank_scale2" script="nx_rank_scalers.lua" />
+
+        <!-- Rank reveal on look (player-gated) -->
         <event type="look" name="nx_rank_look" script="nx_rank_look.lua" />
+
+        <!-- Item serialization onLook (your existing feature) -->
+        <event type="look" name="SerialOnLook" script="serial_on_look.lua" />
+
+        <!-- Boss AI hooks -->
         <event type="spawn" name="nx_boss_spawn" script="nx_boss_think.lua" />
         <event type="think" name="nx_boss_think" script="nx_boss_think.lua" />
         <event type="healthchange" name="nx_boss_hit" script="nx_boss_think.lua" />

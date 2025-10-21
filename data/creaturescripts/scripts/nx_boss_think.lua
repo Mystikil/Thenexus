@@ -1,3 +1,4 @@
+-- [codex-fix] corrected event type/handler as per TFS 10.98
 -- nx_boss_think.lua
 -- Very light-weight placeholder for the boss phase system. It wires the
 -- hooks and demonstrates how rank derived scalars could be consumed. The
@@ -23,6 +24,9 @@ local function resetState(monster)
 end
 
 local function readRankScalars(monster)
+    if not NX_RANK or not NX_RANK.STORAGE then
+        return 1, 0, 0
+    end
     local ai = monster:getStorageValue(NX_RANK.STORAGE.ai_cd_mult)
     if type(ai) ~= "number" or ai <= 0 then
         ai = 1
@@ -64,35 +68,50 @@ local function evaluatePhases(monster, entry)
     end
 end
 
-function onSpawn(monster)
-    resetState(monster)
-    local state = getState(monster)
-    state.ai_cd_mult, state.spell_unlock, state.rank_resist = readRankScalars(monster)
+function onSpawn(creature)
+    if not creature or not creature:isMonster() then
+        return true
+    end
+    resetState(creature)
+    local state = getState(creature)
+    state.ai_cd_mult, state.spell_unlock, state.rank_resist = readRankScalars(creature)
     return true
 end
 
-function onThink(monster)
-    local entry = getBossEntry(monster)
+function onThink(creature, interval)
+    if not creature or not creature:isMonster() then
+        return true
+    end
+    local entry = getBossEntry(creature)
     if not entry then
         return true
     end
-    evaluatePhases(monster, entry)
+    evaluatePhases(creature, entry)
     return true
 end
 
-function onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
-    local entry = getBossEntry(monster)
+function onHealthChange(creature, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
+    if not creature or not creature:isMonster() then
+        return primaryDamage, primaryType, secondaryDamage, secondaryType
+    end
+    local entry = getBossEntry(creature)
     if entry then
-        evaluatePhases(monster, entry)
+        evaluatePhases(creature, entry)
     end
     return primaryDamage, primaryType, secondaryDamage, secondaryType
 end
 
-function onTarget(monster, target)
+function onTarget(creature, target)
+    if not creature or not creature:isMonster() then
+        return true
+    end
     return true
 end
 
-function onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
-    resetState(monster)
+function onDeath(creature, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
+    if not creature or not creature:isMonster() then
+        return true
+    end
+    resetState(creature)
     return true
 end

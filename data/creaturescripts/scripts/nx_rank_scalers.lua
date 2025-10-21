@@ -1,7 +1,12 @@
+-- [codex-fix] corrected event type/handler as per TFS 10.98
 -- nx_rank_scalers.lua
 -- Handles runtime stat adjustments derived from monster ranks. Responsible
 -- for scaling incoming/outgoing damage, loot, experience and cleaning up
 -- visual state on death.
+
+local function hasValidRankContext()
+    return NX_RANK and NX_RANK.STORAGE and NX_RANK.getRankForCreature
+end
 
 local function getTierFromCreature(creature)
     if not creature then
@@ -64,9 +69,13 @@ local function adjustIncoming(target, primary, secondary)
 end
 
 local function cleanupConditions(monster)
-    if monster:getStorageValue(NX_RANK.STORAGE.haste) == 1 then
-        monster:removeCondition(CONDITION_HASTE, CONDITIONID_COMBAT, NX_RANK.STORAGE.haste)
-        monster:setStorageValue(NX_RANK.STORAGE.haste, -1)
+    if not hasValidRankContext() then
+        return
+    end
+    local hasteStorage = NX_RANK.STORAGE.haste
+    if hasteStorage and monster:getStorageValue(hasteStorage) == 1 then
+        monster:removeCondition(CONDITION_HASTE, CONDITIONID_COMBAT, hasteStorage)
+        monster:setStorageValue(hasteStorage, -1)
     end
 end
 
@@ -93,26 +102,57 @@ local function scaleLoot(monster, tier)
     return tier and tier.loot_mult
 end
 
-function onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
+local function scaleHealthDelta(creature, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType)
     if attacker and attacker:isMonster() then
         primaryDamage, secondaryDamage = adjustOutgoing(attacker, primaryDamage, secondaryDamage)
     end
-    if monster and monster:isMonster() then
-        primaryDamage, secondaryDamage = adjustIncoming(monster, primaryDamage, secondaryDamage)
+    if creature and creature:isMonster() then
+        primaryDamage, secondaryDamage = adjustIncoming(creature, primaryDamage, secondaryDamage)
     end
     return primaryDamage, primaryType, secondaryDamage, secondaryType
 end
 
-function onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
-    if not monster or not monster:isMonster() then
+function onHealthChange(creature, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
+    if not hasValidRankContext() then
+        return primaryDamage, primaryType, secondaryDamage, secondaryType
+    end
+    return scaleHealthDelta(creature, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType)
+end
+
+function onStatsChange(creature, attacker, type, combat, value)
+    if not hasValidRankContext() then
+        return type, combat, value
+    end
+    if type ~= STATSCHANGE_HEALTHLOSS and type ~= STATSCHANGE_HEALTHGAIN then
+        return type, combat, value
+    end
+
+    local healthChange = value
+    if type == STATSCHANGE_HEALTHGAIN then
+        healthChange = -value
+    end
+
+    local scaledHealth, _, _, _ = scaleHealthDelta(creature, attacker, healthChange, combat, 0, COMBAT_NONE)
+
+    if type == STATSCHANGE_HEALTHGAIN then
+        scaledHealth = -scaledHealth
+    end
+
+    return type, combat, scaledHealth
+end
+
+function onDeath(creature, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
+    if not creature or not creature:isMonster() or not hasValidRankContext() then
         return true
     end
-    local tier = getTierFromCreature(monster)
+    local tier = getTierFromCreature(creature)
     if tier then
-        applyExtraXp(monster, killer, tier)
-        scaleLoot(monster, tier)
+        applyExtraXp(creature, killer, tier)
+        scaleLoot(creature, tier)
     end
-    cleanupConditions(monster)
-    NX_RANK.RUNTIME[monster:getId()] = nil
+    cleanupConditions(creature)
+    if NX_RANK.RUNTIME then
+        NX_RANK.RUNTIME[creature:getId()] = nil
+    end
     return true
 end
