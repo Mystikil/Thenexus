@@ -4598,6 +4598,12 @@ void Game::checkPressure() {
         }));
 
         WorldPressureManager::get().decayTouched(OTSYS_TIME());
+
+        std::string sErr;
+        WorldPressureManager::get().saveJson("data/rank_pressure.json", sErr);
+        if (!sErr.empty()) {
+                std::cout << "[Pressure] " << sErr << std::endl;
+        }
 }
 
 void Game::checkLight() {
@@ -4638,11 +4644,17 @@ void Game::updateWorldTime() {
 }
 
 void Game::shutdown() {
-	std::cout << "Shutting down..." << std::flush;
+        std::cout << "Shutting down..." << std::flush;
 
-	g_scheduler.shutdown();
-	g_databaseTasks.shutdown();
-	g_dispatcher.shutdown();
+        std::string sErr;
+        WorldPressureManager::get().saveJson("data/rank_pressure.json", sErr);
+        if (!sErr.empty()) {
+                std::cout << "[Pressure] " << sErr << std::endl;
+        }
+
+        g_scheduler.shutdown();
+        g_databaseTasks.shutdown();
+        g_dispatcher.shutdown();
 	map.spawns.clear();
 
 	cleanup();
