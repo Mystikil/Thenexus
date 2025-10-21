@@ -1,12 +1,14 @@
-dofile('data/lib/serialization.lua')
-
 function onLook(player, thing, position, distance)
-        local description = thing:getDescription(distance)
-
-        if thing:isItem() then
-                description = Serialization.injectSerial(description, thing, player)
+        if not player then
+                return true
         end
 
-        player:sendTextMessage(MESSAGE_INFO_DESCR, description)
-        return false
+        local group = player:getGroup() and player:getGroup():getId() or 1
+        if group >= 3 and thing and thing.isItem and thing:isItem() then
+                local desc = thing:getAttribute(ITEM_ATTRIBUTE_DESCRIPTION) or ""
+                if desc ~= "" then
+                        player:sendTextMessage(MESSAGE_INFO_DESCR, "Serial: " .. desc)
+                end
+        end
+        return true
 end
