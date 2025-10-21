@@ -2,7 +2,7 @@
 #include "monster/Rank.hpp"
 #include "monster/monster.h"
 #include "condition.h"
-#include "combat.h"
+#include "game.h"
 
 #include <algorithm>
 #include <cmath>
@@ -158,17 +158,18 @@ void RankSystem::applyScalars(Monster& m, RankTier t) const {
     const int32_t target  = std::min<int32_t>(desired, oldMax); // no runtime max-HP mutation
     const int32_t diff    = target - m.getHealth();
 
-    if (diff > 0) {
-        // Heal up by the difference
-        m.addHealth(diff);
-    } else if (diff < 0) {
-        // Deal damage by the difference (negative value)
+    if (diff != 0) {
+        // Use the core combat pipeline so hooks/messages stay consistent.
         CombatDamage cd;
         cd.origin = ORIGIN_NONE;
-        cd.primary.type = COMBAT_PHYSICALDAMAGE;
-        cd.primary.value = diff; // negative = damage
-        CombatParams params;
-        Combat::doTargetCombatHealth(nullptr, &m, cd, params);
+        if (diff > 0) {
+            cd.primary.type = COMBAT_HEALING;
+            cd.primary.value = diff;
+        } else {
+            cd.primary.type = COMBAT_PHYSICALDAMAGE;
+            cd.primary.value = diff; // negative triggers damage branch
+        }
+        g_game.combatChangeHealth(nullptr, &m, cd);
     }
 
     // ---- Speed scaling via Conditions ----
@@ -177,7 +178,8 @@ void RankSystem::applyScalars(Monster& m, RankTier t) const {
         const auto condType = (delta > 0) ? CONDITION_HASTE : CONDITION_PARALYZE;
         const int32_t durationMs = 24 * 60 * 60 * 1000; // 24h persistence
         auto cond = Condition::createCondition(CONDITIONID_COMBAT, condType, durationMs, 0);
-        cond->setParam(CONDITIONPARAM_SPEEDDELTA, std::abs(delta));
+        // CONDITION_PARAM_SPEED is the supported modifier in this fork.
+        cond->setParam(CONDITION_PARAM_SPEED, std::abs(delta));
         m.addCondition(cond);
     }
 }
