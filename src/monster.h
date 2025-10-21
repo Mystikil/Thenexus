@@ -6,6 +6,8 @@
 
 #include "monsters.h"
 
+#include <limits>
+
 #include "monster/Rank.hpp"
 #include "creature.h"
 #include "position.h"
@@ -187,23 +189,23 @@ class Monster final : public Creature {
 		bool isRankApplied() const {
 			return rankApplied;
 		}
-		double getRankDamageMultiplier() const {
-			return rankDmgMult;
-		}
-		double getRankMitigation() const {
-			return rankMit;
-		}
-		double getRankExperienceMultiplier() const {
-			return rankXPMult;
-		}
-		double getRankLootMultiplier() const {
-			return rankLootMult;
-		}
-		double getRankAiCooldownMultiplier() const {
-			return rankAICdMult;
-		}
-		int32_t getRankSpeedDelta() const {
-			return rankSpeedDelta;
+                double getRankDamageMultiplier() const {
+                        return rankDmgMult;
+                }
+                double getRankMitigation() const {
+                        return rankMit;
+                }
+                double getRankExperienceMultiplier() const {
+                        return rankXPMult;
+                }
+                double getRankLootMultiplier() const {
+                        return rankLootMult;
+                }
+                double getRankAiCooldownMultiplier() const {
+                        return rankAICdMult;
+                }
+                int32_t getRankSpeedDelta() const {
+                        return rankSpeedDelta;
 		}
 		int32_t getRankResistPercent() const {
 			return rankResistPercent;
@@ -211,11 +213,23 @@ class Monster final : public Creature {
 		uint8_t getRankExtraRolls() const {
 			return rankExtraRolls;
 		}
-		uint8_t getRankSpellUnlock() const {
-			return rankSpellUnlock;
-		}
+                uint8_t getRankSpellUnlock() const {
+                        return rankSpellUnlock;
+                }
+                double getRankOutgoingMult() const {
+                        return getRankDamageMultiplier();
+                }
+                double getRankIncomingMit() const {
+                        return getRankMitigation();
+                }
+                double getRankXPMult() const {
+                        return getRankExperienceMultiplier();
+                }
+                double getRankLootMult() const {
+                        return getRankLootMultiplier();
+                }
 
-	private:
+        private:
 		CreatureHashSet friendList;
 		CreatureList targetList;
 
@@ -305,9 +319,32 @@ class Monster final : public Creature {
 		bool isFriend(const Creature* creature) const;
 		bool isOpponent(const Creature* creature) const;
 
-		uint64_t getLostExperience() const override {
-			return skillLoss ? mType->info.experience : 0;
-		}
+                uint64_t getLostExperience() const override {
+                        if (!skillLoss) {
+                                return 0;
+                        }
+
+                        uint64_t baseExperience = mType->info.experience;
+                        if (!hasRank()) {
+                                return baseExperience;
+                        }
+
+                        double multiplier = getRankXPMult();
+                        if (multiplier == 1.0) {
+                                return baseExperience;
+                        }
+
+                        double scaled = static_cast<double>(baseExperience) * multiplier;
+                        if (scaled <= 0.0) {
+                                return 0;
+                        }
+
+                        if (scaled >= static_cast<double>(std::numeric_limits<uint64_t>::max())) {
+                                return std::numeric_limits<uint64_t>::max();
+                        }
+
+                        return static_cast<uint64_t>(scaled);
+                }
 		uint16_t getLookCorpse() const override {
 			return mType->info.lookcorpse;
 		}

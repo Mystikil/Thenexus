@@ -1853,11 +1853,12 @@ bool Monster::canWalkTo(Position pos, Direction direction) const {
 }
 
 void Monster::death(Creature*) {
-	removeAttackedCreature();
+        WorldPressureManager::get().registerKill(getPosition(), getRankTier(), OTSYS_TIME());
+        removeAttackedCreature();
 
-	for (Creature* summon : summons) {
-		summon->changeHealth(-summon->getHealth());
-		summon->removeMaster();
+        for (Creature* summon : summons) {
+                summon->changeHealth(-summon->getHealth());
+                summon->removeMaster();
 	}
 	summons.clear();
 
