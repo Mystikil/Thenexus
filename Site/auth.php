@@ -1,8 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 function current_user(): ?array
 {
-    return $_SESSION['user'] ?? null;
+    if (!isset($_SESSION['user_id'])) {
+        return null;
+    }
+
+    $stmt = db()->prepare('SELECT * FROM website_users WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $_SESSION['user_id']]);
+    $user = $stmt->fetch();
+
+    if ($user === false) {
+        unset($_SESSION['user_id']);
+        return null;
+    }
+
+    return $user;
 }
 
 function is_logged_in(): bool
@@ -10,50 +25,164 @@ function is_logged_in(): bool
     return current_user() !== null;
 }
 
-function login(string $identifier, string $password): bool
+function require_login(): void
 {
-    $stmt = db()->prepare('SELECT * FROM accounts WHERE name = :identifier OR email = :identifier LIMIT 1');
-    $stmt->execute(['identifier' => $identifier]);
+    if (is_logged_in()) {
+        return;
+    }
+
+    flash('error', 'You must be logged in to access that page.');
+    redirect('?p=account');
+}
+
+function register(string $email, string $password): array
+{
+    $pdo = db();
+    $errors = [];
+
+    $email = trim($email);
+
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Please enter a valid email address.';
+    }
+
+    if ($password === '' || strlen($password) < 8) {
+        $errors[] = 'Password must be at least 8 characters long.';
+    }
+
+    if ($errors !== []) {
+        return [
+            'success' => false,
+            'errors' => $errors,
+        ];
+    }
+
+    $stmt = $pdo->prepare('SELECT id FROM website_users WHERE email = :email LIMIT 1');
+    $stmt->execute(['email' => $email]);
+
+    if ($stmt->fetch()) {
+        return [
+            'success' => false,
+            'errors' => ['An account with that email already exists.'],
+        ];
+    }
+
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+
+    try {
+        $stmt = $pdo->prepare('INSERT INTO website_users (email, pass_hash, created_at) VALUES (:email, :pass_hash, NOW())');
+        $stmt->execute([
+            'email' => $email,
+            'pass_hash' => $hash,
+        ]);
+    } catch (PDOException $exception) {
+        return [
+            'success' => false,
+            'errors' => ['Unable to create your account at this time. Please try again.'],
+        ];
+    }
+
+    $userId = (int) $pdo->lastInsertId();
+
+    $userStmt = $pdo->prepare('SELECT * FROM website_users WHERE id = :id LIMIT 1');
+    $userStmt->execute(['id' => $userId]);
+    $user = $userStmt->fetch();
+
+    if ($user === false) {
+        return [
+            'success' => false,
+            'errors' => ['There was a problem completing your registration.'],
+        ];
+    }
+
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = $userId;
+
+    audit_log($userId, 'register', null, ['email' => $user['email']]);
+
+    return [
+        'success' => true,
+        'user' => $user,
+    ];
+}
+
+function login(string $email, string $password): array
+{
+    $email = trim($email);
+    $errors = [];
+
+    if ($email === '') {
+        $errors[] = 'Email is required.';
+    }
+
+    if ($password === '') {
+        $errors[] = 'Password is required.';
+    }
+
+    if ($errors !== []) {
+        return [
+            'success' => false,
+            'errors' => $errors,
+        ];
+    }
+
+    $stmt = db()->prepare('SELECT * FROM website_users WHERE email = :email LIMIT 1');
+    $stmt->execute(['email' => $email]);
     $user = $stmt->fetch();
 
-    if (!$user) {
-        return false;
+    if (!$user || !password_verify($password, $user['pass_hash'])) {
+        return [
+            'success' => false,
+            'errors' => ['Invalid email or password.'],
+        ];
     }
 
-    if (!password_verify($password, $user['password'])) {
-        return false;
-    }
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = (int) $user['id'];
 
-    $_SESSION['user'] = [
-        'id' => $user['id'],
-        'name' => $user['name'],
-        'email' => $user['email'] ?? null,
+    audit_log((int) $user['id'], 'login');
+
+    return [
+        'success' => true,
+        'user' => $user,
     ];
-
-    return true;
 }
 
 function logout(): void
 {
-    unset($_SESSION['user']);
+    $user = current_user();
+
+    if ($user !== null) {
+        audit_log((int) $user['id'], 'logout');
+    }
+
+    unset($_SESSION['user_id']);
     session_regenerate_id(true);
 }
 
-function register(string $name, string $email, string $password): bool
+function audit_log(?int $userId, string $action, ?array $before = null, ?array $after = null): void
 {
-    $hash = password_hash($password, PASSWORD_BCRYPT);
-
-    $stmt = db()->prepare('INSERT INTO accounts (name, email, password, created_at) VALUES (:name, :email, :password, NOW())');
-
     try {
+        $stmt = db()->prepare('INSERT INTO audit_log (user_id, action, before_json, after_json, ip) VALUES (:user_id, :action, :before_json, :after_json, :ip)');
         $stmt->execute([
-            'name' => $name,
-            'email' => $email,
-            'password' => $hash,
+            'user_id' => $userId,
+            'action' => $action,
+            'before_json' => $before !== null ? json_encode($before, JSON_UNESCAPED_UNICODE) : null,
+            'after_json' => $after !== null ? json_encode($after, JSON_UNESCAPED_UNICODE) : null,
+            'ip' => ip_address(),
         ]);
-    } catch (PDOException $e) {
-        return false;
+    } catch (Throwable $exception) {
+        // Swallow logging errors so auth flow continues.
+    }
+}
+
+function ip_address(): ?string
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+
+    if (!is_string($ip) || $ip === '') {
+        return null;
     }
 
-    return login($name, $password);
+    return substr($ip, 0, 45);
 }
