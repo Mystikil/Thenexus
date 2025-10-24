@@ -9,7 +9,17 @@ function csrf_token(): string
     return $_SESSION['csrf_token'];
 }
 
-function verify_csrf(string $token): bool
+function csrf_validate(?string $token): bool
 {
-    return hash_equals($_SESSION['csrf_token'] ?? '', $token);
+    $sessionToken = $_SESSION['csrf_token'] ?? null;
+
+    if (!is_string($token) || $token === '') {
+        return false;
+    }
+
+    if (!is_string($sessionToken) || $sessionToken === '') {
+        return false;
+    }
+
+    return hash_equals($sessionToken, $token);
 }
