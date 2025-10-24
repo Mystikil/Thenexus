@@ -27,11 +27,31 @@ body {
     gap: 1rem;
     padding: 0;
     margin: 0;
+    align-items: center;
 }
 
 .site-nav a {
     color: #ffffff;
     text-decoration: none;
+}
+
+.site-nav__logout-form {
+    display: inline;
+}
+
+.site-nav__logout-button {
+    background: none;
+    border: none;
+    color: #ffffff;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+    text-decoration: none;
+}
+
+.site-nav__logout-button:hover,
+.site-nav a:hover {
+    text-decoration: underline;
 }
 
 .site-content {
@@ -44,4 +64,109 @@ body {
     text-align: center;
     padding: 1rem;
     font-size: 0.875rem;
+}
+
+.alert {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+}
+
+.alert--error {
+    background: #ffe5e5;
+    color: #7a0c0c;
+}
+
+.alert--success {
+    background: #e3f9e5;
+    color: #0f5132;
+}
+
+.account-forms {
+    display: grid;
+    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    margin-top: 1.5rem;
+}
+
+.account-form,
+.account-profile,
+.account-theme-placeholder {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.account-profile {
+    margin-bottom: 2rem;
+}
+
+.account-profile dl {
+    margin: 0;
+}
+
+.account-profile dt {
+    font-weight: 600;
+}
+
+.account-profile dd {
+    margin: 0 0 0.75rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    font-weight: 600;
+}
+
+.form-group input,
+.account-form select,
+.account-theme-placeholder select {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.form-actions {
+    margin-top: 1rem;
+}
+
+.form-actions button {
+    background: #1e1e24;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    font: inherit;
+}
+
+.form-actions button:hover {
+    background: #34343c;
+}
+
+.form-errors {
+    margin: 0 0 1rem;
+    padding-left: 1.2rem;
+    color: #7a0c0c;
+}
+
+.form-errors li {
+    margin-bottom: 0.25rem;
+}
+
+.account-theme-placeholder {
+    margin-top: 1.5rem;
+}
+
+.account-theme-placeholder p {
+    margin: 0.75rem 0 0;
+    color: #55555f;
 }
