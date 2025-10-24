@@ -1,19 +1,28 @@
 <?php
 
-function flash(string $key, ?string $message = null)
+function flash(string $key, string $message): void
 {
-    if ($message === null) {
-        if (!isset($_SESSION['flash'][$key])) {
-            return null;
-        }
-
-        $msg = $_SESSION['flash'][$key];
-        unset($_SESSION['flash'][$key]);
-
-        return $msg;
+    if (!isset($_SESSION['flash']) || !is_array($_SESSION['flash'])) {
+        $_SESSION['flash'] = [];
     }
 
     $_SESSION['flash'][$key] = $message;
+}
+
+function take_flash(string $key): ?string
+{
+    if (!isset($_SESSION['flash'][$key])) {
+        return null;
+    }
+
+    $message = $_SESSION['flash'][$key];
+    unset($_SESSION['flash'][$key]);
+
+    if ($_SESSION['flash'] === []) {
+        unset($_SESSION['flash']);
+    }
+
+    return $message;
 }
 
 function redirect(string $path): void
