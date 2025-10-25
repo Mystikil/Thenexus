@@ -11,6 +11,17 @@ body {
     flex-direction: column;
 }
 
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
 .site-header {
     background: #1e1e24;
     color: #ffffff;
@@ -160,6 +171,66 @@ body {
 
 .form-errors li {
     margin-bottom: 0.25rem;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1.5rem;
+    background: #ffffff;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 6px 16px rgba(30, 30, 36, 0.08);
+}
+
+.table th,
+.table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid #e6e8f0;
+}
+
+.table thead {
+    background: #1e1e24;
+    color: #ffffff;
+}
+
+.table tbody tr:nth-child(even) {
+    background: #f6f7fb;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.table--shop input[type="text"] {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.table--shop button {
+    background: #1e1e24;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font: inherit;
+}
+
+.table--shop button:hover {
+    background: #34343c;
+}
+
+.shop__balance {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.shop__balance strong {
+    font-weight: 700;
 }
 
 .account-theme-placeholder {
