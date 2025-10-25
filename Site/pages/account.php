@@ -153,8 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     $accountId = (int) $accountRow['account_id'];
-                    $salt = nx_password_supports_salt() ? ($accountRow['account_salt'] ?? null) : null;
-                    $legacyOk = nx_verify_tfs($currentPassword, (string) $accountRow['account_password'], $salt, nx_password_legacy_mode());
+                    $legacyOk = nx_verify_account_password($accountRow, $currentPassword);
                     $modernOk = nx_verify_web_secure($currentPassword, (string) ($user['pass_hash'] ?? ''));
 
                     if (!$legacyOk && !$modernOk) {
@@ -172,6 +171,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         nx_password_set($pdo, $accountId, $newPassword);
 
+                        if (defined('PASSWORD_MODE') && PASSWORD_MODE === 'dual') {
+                            $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
+                            $update->execute([
+                                'pass_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+                                'id' => (int) $user['id'],
+                            ]);
+                        }
+
                         if ($startedTransaction && $pdo->inTransaction()) {
                             $pdo->commit();
                         }
@@ -184,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         break;
                     }
 
-                    audit_log((int) $user['id'], 'password_change', null, ['account_id' => $accountId]);
+                    audit_log((int) $user['id'], 'change_password', null, ['account_id' => $accountId]);
 
                     flash('success', 'Your password has been updated.');
                     redirect('?p=account');
