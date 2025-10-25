@@ -45,7 +45,7 @@ function nx_public_vocation_name(int $vocationId): string
 $rawEndpoint = $_GET['endpoint'] ?? '';
 $endpoint = strtolower(trim((string) $rawEndpoint));
 
-$allowedEndpoints = ['highscores', 'online', 'character', 'news', 'changelog'];
+$allowedEndpoints = ['highscores', 'online', 'character', 'news', 'changelog', 'widget'];
 
 if ($endpoint === '' || !in_array($endpoint, $allowedEndpoints, true)) {
     nx_public_error('Unsupported endpoint. Expected one of: ' . implode(', ', $allowedEndpoints));
@@ -75,26 +75,31 @@ if ($characterName !== '') {
     $cacheKeySeed .= '|' . mb_strtolower($characterName, 'UTF-8');
 }
 
-$cacheKey = sha1($cacheKeySeed);
-$cacheFile = NX_PUBLIC_CACHE_DIR . '/' . $cacheKey . '.json';
+$usePublicCache = $endpoint !== 'widget';
+$cacheFile = '';
 
-if (is_file($cacheFile)) {
-    $modified = filemtime($cacheFile);
+if ($usePublicCache) {
+    $cacheKey = sha1($cacheKeySeed);
+    $cacheFile = NX_PUBLIC_CACHE_DIR . '/' . $cacheKey . '.json';
 
-    if ($modified !== false && (time() - $modified) < NX_PUBLIC_CACHE_TTL) {
-        $payload = json_decode((string) file_get_contents($cacheFile), true);
+    if (is_file($cacheFile)) {
+        $modified = filemtime($cacheFile);
 
-        if (is_array($payload)) {
-            $remaining = max(0, NX_PUBLIC_CACHE_TTL - (time() - (int) $modified));
-            header('Cache-Control: public, max-age=' . $remaining);
+        if ($modified !== false && (time() - $modified) < NX_PUBLIC_CACHE_TTL) {
+            $payload = json_decode((string) file_get_contents($cacheFile), true);
 
-            if (!isset($payload['meta']) || !is_array($payload['meta'])) {
-                $payload['meta'] = [];
+            if (is_array($payload)) {
+                $remaining = max(0, NX_PUBLIC_CACHE_TTL - (time() - (int) $modified));
+                header('Cache-Control: public, max-age=' . $remaining);
+
+                if (!isset($payload['meta']) || !is_array($payload['meta'])) {
+                    $payload['meta'] = [];
+                }
+
+                $payload['meta']['cached'] = true;
+
+                json_out($payload);
             }
-
-            $payload['meta']['cached'] = true;
-
-            json_out($payload);
         }
     }
 }
@@ -265,6 +270,38 @@ try {
             }, $rows ?: []);
             break;
 
+        case 'widget':
+            require_once __DIR__ . '/../widgets/_registry.php';
+
+            $widgetName = trim((string) ($_GET['name'] ?? ''));
+
+            if ($widgetName === '') {
+                nx_public_error('The "name" query parameter is required for the widget endpoint.');
+            }
+
+            if (!isset($WIDGETS[$widgetName])) {
+                nx_public_error('Unknown widget requested.', 404);
+            }
+
+            $limitParam = isset($_GET['limit']) ? (int) $_GET['limit'] : 0;
+            if ($limitParam <= 0) {
+                $limitParam = 5;
+            }
+            $limit = max(1, min(50, $limitParam));
+
+            $html = render_widget_box($widgetName, $limit);
+            $attributes = widget_resolve_attributes($widgetName, $limit);
+            $widgetCacheKey = widget_cache_key($widgetName, $limit, $attributes);
+            $timestamp = cache_last_modified($widgetCacheKey) ?? time();
+
+            $data = [
+                'name' => $widgetName,
+                'limit' => $limit,
+                'html' => $html,
+                'ts' => $timestamp,
+            ];
+            break;
+
         default:
             nx_public_error('Unsupported endpoint requested.', 400);
     }
@@ -280,21 +317,25 @@ $payload = [
     'meta' => [
         'cached' => false,
         'generated_at' => gmdate('c'),
-        'cache_ttl' => NX_PUBLIC_CACHE_TTL,
+        'cache_ttl' => $usePublicCache ? NX_PUBLIC_CACHE_TTL : 0,
     ],
 ];
 
-if (!is_dir(NX_PUBLIC_CACHE_DIR)) {
-    @mkdir(NX_PUBLIC_CACHE_DIR, 0775, true);
-}
-
-if (is_dir(NX_PUBLIC_CACHE_DIR)) {
-    $encoded = json_encode($payload);
-
-    if ($encoded !== false) {
-        @file_put_contents($cacheFile, $encoded, LOCK_EX);
+if ($usePublicCache) {
+    if (!is_dir(NX_PUBLIC_CACHE_DIR)) {
+        @mkdir(NX_PUBLIC_CACHE_DIR, 0775, true);
     }
-}
 
-header('Cache-Control: public, max-age=' . NX_PUBLIC_CACHE_TTL);
+    if ($cacheFile !== '' && is_dir(NX_PUBLIC_CACHE_DIR)) {
+        $encoded = json_encode($payload);
+
+        if ($encoded !== false) {
+            @file_put_contents($cacheFile, $encoded, LOCK_EX);
+        }
+    }
+
+    header('Cache-Control: public, max-age=' . NX_PUBLIC_CACHE_TTL);
+} else {
+    header('Cache-Control: no-store, max-age=0');
+}
 json_out($payload);
