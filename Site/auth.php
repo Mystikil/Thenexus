@@ -638,6 +638,25 @@ function nx_fetch_account_by_name(PDO $pdo, string $accountName): ?array
     return $row !== false ? $row : null;
 }
 
+function nx_fetch_account_by_email(PDO $pdo, string $email): ?array
+{
+    $normalized = strtolower(trim($email));
+
+    if ($normalized === '') {
+        return null;
+    }
+
+    $sql = sprintf(
+        'SELECT * FROM %s WHERE LOWER(email) = :email LIMIT 1',
+        TFS_ACCOUNTS_TABLE
+    );
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['email' => $normalized]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
 function nx_verify_account_password(array $accountRow, string $password): bool
 {
     $legacyMode = nx_password_legacy_mode();
