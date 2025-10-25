@@ -20,6 +20,39 @@ function current_user(): ?array
     return $user;
 }
 
+function is_role(string $roleOrAbove): bool
+{
+    $roles = [
+        'user' => 0,
+        'mod' => 1,
+        'gm' => 2,
+        'admin' => 3,
+        'owner' => 4,
+    ];
+
+    $roleKey = strtolower($roleOrAbove);
+    $targetRank = $roles[$roleKey] ?? null;
+
+    if ($targetRank === null) {
+        return false;
+    }
+
+    $user = current_user();
+
+    if ($user === null) {
+        return false;
+    }
+
+    $userRole = strtolower((string) ($user['role'] ?? ''));
+    $userRank = $roles[$userRole] ?? null;
+
+    if ($userRank === null) {
+        return false;
+    }
+
+    return $userRank >= $targetRank;
+}
+
 function is_logged_in(): bool
 {
     return current_user() !== null;
