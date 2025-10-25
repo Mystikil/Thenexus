@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/auth_passwords.php';
 
+/**
+ * Authentication helpers for linking website users to legacy TFS accounts.
+ */
+
 function current_user(): ?array
 {
     if (!isset($_SESSION['user_id'])) {
@@ -11,8 +15,13 @@ function current_user(): ?array
     }
 
     $sql = sprintf(
-        'SELECT wu.*, a.%s AS account_id, a.%s AS account_name, a.email AS account_email FROM website_users wu '
-        . 'LEFT JOIN %s a ON a.email = wu.email WHERE wu.id = :id LIMIT 1',
+        'SELECT wu.*, '
+        . 'a.%1$s AS linked_account_id, a.%2$s AS linked_account_name, a.email AS linked_account_email, '
+        . 'ae.%1$s AS fallback_account_id, ae.%2$s AS fallback_account_name, ae.email AS fallback_account_email '
+        . 'FROM website_users wu '
+        . 'LEFT JOIN %3$s a ON a.%1$s = wu.account_id '
+        . 'LEFT JOIN %3$s ae ON wu.account_id IS NULL AND ae.email = wu.email '
+        . 'WHERE wu.id = :id LIMIT 1',
         TFS_ACCOUNT_ID_COL,
         TFS_NAME_COL,
         TFS_ACCOUNTS_TABLE
@@ -26,6 +35,23 @@ function current_user(): ?array
         unset($_SESSION['user_id']);
         return null;
     }
+
+    if (($user['account_id'] ?? null) === null) {
+        $fallbackId = $user['fallback_account_id'] ?? null;
+
+        if ($fallbackId !== null) {
+            $user['account_id'] = (int) $fallbackId;
+            $user['account_name'] = (string) ($user['fallback_account_name'] ?? '');
+            $user['account_email'] = (string) ($user['fallback_account_email'] ?? '');
+        }
+    } else {
+        $user['account_id'] = (int) $user['account_id'];
+        $user['account_name'] = (string) ($user['linked_account_name'] ?? '');
+        $user['account_email'] = (string) ($user['linked_account_email'] ?? '');
+    }
+
+    unset($user['linked_account_id'], $user['linked_account_name'], $user['linked_account_email']);
+    unset($user['fallback_account_id'], $user['fallback_account_name'], $user['fallback_account_email']);
 
     return $user;
 }
@@ -78,12 +104,21 @@ function require_login(): void
     redirect('?p=account');
 }
 
-function register(string $email, string $password): array
+/**
+ * Register a new website user and linked TFS account.
+ *
+ * The returned website user will always include an `account_id` pointing to
+ * the corresponding row in the legacy `accounts` table.
+ *
+ * @return array{success:bool,errors?:array<int,string>,user?:array}
+ */
+function register(string $email, string $password, string $accountName): array
 {
     $pdo = db();
     $errors = [];
 
     $email = trim($email);
+    $accountName = trim($accountName);
 
     if (!nx_password_rate_limit($pdo, 'register', 5, 60)) {
         return [
@@ -98,6 +133,10 @@ function register(string $email, string $password): array
 
     if ($password === '' || strlen($password) < 8) {
         $errors[] = 'Password must be at least 8 characters long.';
+    }
+
+    if ($accountName === '' || !preg_match('/^[A-Za-z0-9]{3,20}$/', $accountName)) {
+        $errors[] = 'Account name must be 3-20 characters using only letters and numbers.';
     }
 
     if ($errors !== []) {
@@ -117,19 +156,21 @@ function register(string $email, string $password): array
         ];
     }
 
+    $normalizedAccount = strtolower($accountName);
     $accountExistsSql = sprintf(
-        'SELECT %s FROM %s WHERE email = :email LIMIT 1',
+        'SELECT %1$s FROM %2$s WHERE LOWER(%3$s) = :name LIMIT 1',
         TFS_ACCOUNT_ID_COL,
-        TFS_ACCOUNTS_TABLE
+        TFS_ACCOUNTS_TABLE,
+        TFS_NAME_COL
     );
 
     $accountExists = $pdo->prepare($accountExistsSql);
-    $accountExists->execute(['email' => $email]);
+    $accountExists->execute(['name' => $normalizedAccount]);
 
     if ($accountExists->fetch()) {
         return [
             'success' => false,
-            'errors' => ['An account with that email already exists.'],
+            'errors' => ['That account name is already taken.'],
         ];
     }
 
@@ -141,19 +182,10 @@ function register(string $email, string $password): array
             $startedTransaction = true;
         }
 
-        $webHash = nx_hash_web_secure($password);
-        $websiteInsert = $pdo->prepare('INSERT INTO website_users (email, pass_hash, created_at) VALUES (:email, :pass_hash, NOW())');
-        $websiteInsert->execute([
-            'email' => $email,
-            'pass_hash' => $webHash,
-        ]);
-
-        $userId = (int) $pdo->lastInsertId();
-        $accountName = nx_generate_account_name($pdo, $email);
-
+        $initialPassword = str_repeat('0', 40);
         $accountFields = [
             TFS_NAME_COL => $accountName,
-            TFS_PASS_COL => str_repeat('0', 40),
+            TFS_PASS_COL => $initialPassword,
             'email' => $email,
             'creation' => time(),
         ];
@@ -184,6 +216,23 @@ function register(string $email, string $password): array
 
         nx_password_set($pdo, $accountId, $password);
 
+        $webHash = nx_password_mode() === 'dual'
+            ? nx_hash_web_secure($password)
+            : null;
+
+        $websiteInsert = $pdo->prepare(
+            'INSERT INTO website_users (email, pass_hash, account_id, role, created_at) '
+            . 'VALUES (:email, :pass_hash, :account_id, :role, NOW())'
+        );
+        $websiteInsert->execute([
+            'email' => $email,
+            'pass_hash' => $webHash,
+            'account_id' => $accountId,
+            'role' => 'user',
+        ]);
+
+        $userId = (int) $pdo->lastInsertId();
+
         if ($startedTransaction && $pdo->inTransaction()) {
             $pdo->commit();
         }
@@ -198,31 +247,29 @@ function register(string $email, string $password): array
         ];
     }
 
-    $sql = sprintf(
-        'SELECT wu.*, a.%s AS account_id, a.%s AS account_name, a.email AS account_email FROM website_users wu '
-        . 'LEFT JOIN %s a ON a.email = wu.email WHERE wu.id = :id LIMIT 1',
-        TFS_ACCOUNT_ID_COL,
-        TFS_NAME_COL,
-        TFS_ACCOUNTS_TABLE
-    );
-
-    $userStmt = $pdo->prepare($sql);
-    $userStmt->execute(['id' => $userId]);
-    $user = $userStmt->fetch();
-
-    if ($user === false) {
-        return [
-            'success' => false,
-            'errors' => ['There was a problem completing your registration.'],
-        ];
-    }
-
     session_regenerate_id(true);
     $_SESSION['user_id'] = $userId;
 
+    $user = current_user();
+
+    if ($user === null || (int) $user['id'] !== $userId) {
+        $sql = 'SELECT * FROM website_users WHERE id = :id LIMIT 1';
+        $userStmt = $pdo->prepare($sql);
+        $userStmt->execute(['id' => $userId]);
+        $user = $userStmt->fetch();
+
+        if ($user === false) {
+            return [
+                'success' => false,
+                'errors' => ['There was a problem completing your registration.'],
+            ];
+        }
+    }
+
     audit_log($userId, 'register', null, [
         'email' => $user['email'],
-        'account_id' => $user['account_id'],
+        'account_id' => $user['account_id'] ?? null,
+        'account_name' => $accountName,
     ]);
 
     return [
@@ -231,6 +278,11 @@ function register(string $email, string $password): array
     ];
 }
 
+/**
+ * Log in using either an email address or a TFS account name.
+ *
+ * @return array{success:bool,errors?:array<int,string>,user?:array}
+ */
 function login(string $accountNameOrEmail, string $password): array
 {
     $pdo = db();
@@ -238,7 +290,7 @@ function login(string $accountNameOrEmail, string $password): array
     $errors = [];
 
     if ($identifier === '') {
-        $errors[] = 'Account name or email is required.';
+        $errors[] = 'Email or account name is required.';
     }
 
     if ($password === '') {
@@ -259,74 +311,353 @@ function login(string $accountNameOrEmail, string $password): array
         ];
     }
 
-    $result = nx_password_verify_account($pdo, $identifier, $password);
+    $isEmail = strpos($identifier, '@') !== false;
+    $websiteUser = null;
+    $accountRow = null;
+    $used = 'tfs';
+    $linkedAutomatically = false;
 
-    if (!($result['ok'] ?? false) || !is_array($result['userRow'])) {
+    if ($isEmail) {
+        $stmt = $pdo->prepare('SELECT * FROM website_users WHERE email = :email LIMIT 1');
+        $stmt->execute(['email' => $identifier]);
+        $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($websiteUser === null) {
+            return [
+                'success' => false,
+                'errors' => ['Invalid account credentials.'],
+            ];
+        }
+
+        $accountId = isset($websiteUser['account_id']) ? (int) $websiteUser['account_id'] : 0;
+
+        if ($accountId > 0) {
+            $accountRow = nx_fetch_account_by_id($pdo, $accountId);
+        }
+
+        if ($accountRow === null && isset($websiteUser['email']) && $websiteUser['email'] !== null) {
+            $candidateRows = nx_find_account_candidates($pdo, (string) $websiteUser['email']);
+
+            if (count($candidateRows) === 1) {
+                $accountRow = $candidateRows[0];
+            }
+        }
+    } else {
+        $accountRow = nx_fetch_account_by_name($pdo, $identifier);
+
+        if ($accountRow === null) {
+            return [
+                'success' => false,
+                'errors' => ['Invalid account credentials.'],
+            ];
+        }
+
+        $accountId = (int) $accountRow[TFS_ACCOUNT_ID_COL];
+
+        $stmt = $pdo->prepare('SELECT * FROM website_users WHERE account_id = :account_id LIMIT 1');
+        $stmt->execute(['account_id' => $accountId]);
+        $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($websiteUser === null) {
+            $webHash = nx_password_mode() === 'dual'
+                ? nx_hash_web_secure($password)
+                : null;
+
+            $insert = $pdo->prepare(
+                'INSERT INTO website_users (email, pass_hash, account_id, role, created_at) '
+                . 'VALUES (:email, :pass_hash, :account_id, :role, NOW())'
+            );
+            $emailValue = $accountRow['email'] ?? null;
+            $insert->execute([
+                'email' => $emailValue !== '' ? $emailValue : null,
+                'pass_hash' => $webHash,
+                'account_id' => $accountId,
+                'role' => 'user',
+            ]);
+
+            $websiteUserId = (int) $pdo->lastInsertId();
+            $stmt = $pdo->prepare('SELECT * FROM website_users WHERE id = :id LIMIT 1');
+            $stmt->execute(['id' => $websiteUserId]);
+            $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+        }
+    }
+
+    if ($websiteUser === null) {
+        return [
+            'success' => false,
+            'errors' => ['Unable to load your account profile. Please contact support.'],
+        ];
+    }
+
+    $webHash = (string) ($websiteUser['pass_hash'] ?? '');
+    $modernOk = $webHash !== '' && nx_verify_web_secure($password, $webHash);
+
+    $legacyOk = false;
+    $accountId = isset($websiteUser['account_id']) ? (int) $websiteUser['account_id'] : 0;
+
+    if ($accountRow !== null) {
+        $legacyOk = nx_verify_account_password($accountRow, $password);
+
+        if ($legacyOk && $accountId === 0) {
+            $accountId = (int) $accountRow[TFS_ACCOUNT_ID_COL];
+
+            try {
+                $update = $pdo->prepare('UPDATE website_users SET account_id = :account_id WHERE id = :id');
+                $update->execute([
+                    'account_id' => $accountId,
+                    'id' => (int) $websiteUser['id'],
+                ]);
+                audit_log((int) $websiteUser['id'], 'link_account', null, [
+                    'account_id' => $accountId,
+                    'method' => 'auto',
+                ]);
+                $websiteUser['account_id'] = $accountId;
+                $linkedAutomatically = true;
+            } catch (Throwable $exception) {
+                // Non-fatal; continue without linking.
+            }
+        }
+    }
+
+    if (!$modernOk && !$legacyOk) {
         return [
             'success' => false,
             'errors' => ['Invalid account credentials.'],
         ];
     }
 
-    $user = $result['userRow'];
+    if ($modernOk) {
+        $used = 'web';
+    }
 
-    if ((int) ($user['id'] ?? 0) === 0) {
-        $accountEmail = (string) ($user['account_email'] ?? '');
-
-        if ($accountEmail === '') {
-            return [
-                'success' => false,
-                'errors' => ['Unable to load your account profile. Please contact support.'],
-            ];
-        }
-
+    if (!$modernOk && nx_password_mode() === 'dual') {
+        // Upgrade stored hash for dual mode users logging in via TFS password.
         try {
-            $passHash = nx_hash_web_secure($password);
-            $insert = $pdo->prepare('INSERT INTO website_users (email, pass_hash, created_at) VALUES (:email, :pass_hash, NOW())');
-            $insert->execute([
-                'email' => $accountEmail,
-                'pass_hash' => $passHash,
+            $newHash = nx_hash_web_secure($password);
+            $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
+            $update->execute([
+                'pass_hash' => $newHash,
+                'id' => (int) $websiteUser['id'],
             ]);
-
-            $newId = (int) $pdo->lastInsertId();
-
-            $sql = sprintf(
-                'SELECT wu.*, a.%s AS account_id, a.%s AS account_name, a.email AS account_email FROM website_users wu '
-                . 'LEFT JOIN %s a ON a.email = wu.email WHERE wu.id = :id LIMIT 1',
-                TFS_ACCOUNT_ID_COL,
-                TFS_NAME_COL,
-                TFS_ACCOUNTS_TABLE
-            );
-
-            $freshStmt = $pdo->prepare($sql);
-            $freshStmt->execute(['id' => $newId]);
-            $freshUser = $freshStmt->fetch();
-
-            if ($freshUser !== false) {
-                $user = $freshUser;
-            } else {
-                $user['id'] = $newId;
-                $user['pass_hash'] = $passHash;
-            }
-        } catch (PDOException $exception) {
-            return [
-                'success' => false,
-                'errors' => ['Unable to load your account profile. Please contact support.'],
-            ];
+            $websiteUser['pass_hash'] = $newHash;
+        } catch (Throwable $exception) {
+            // Ignore upgrade errors.
         }
     }
 
     session_regenerate_id(true);
-    $_SESSION['user_id'] = (int) $user['id'];
+    $_SESSION['user_id'] = (int) $websiteUser['id'];
 
-    audit_log((int) $user['id'], 'login', null, ['used' => $result['used'] ?? 'tfs']);
+    audit_log((int) $websiteUser['id'], 'login', null, [
+        'used' => $used,
+        'linked' => $linkedAutomatically,
+    ]);
 
-    nx_on_successful_login_upgrade($pdo, (int) $user['id'], $password);
+    nx_on_successful_login_upgrade($pdo, (int) $websiteUser['id'], $password);
+
+    $current = current_user();
+
+    if ($current !== null) {
+        $websiteUser = $current;
+    }
 
     return [
         'success' => true,
-        'user' => $user,
+        'user' => $websiteUser,
     ];
+}
+
+/**
+ * Link an existing website user to an in-game account.
+ *
+ * @return array{success:bool,errors?:array<int,string>}
+ */
+function link_account_manual(int $userId, string $accountName, string $password): array
+{
+    $pdo = db();
+    $errors = [];
+
+    $accountName = trim($accountName);
+
+    if ($accountName === '' || !preg_match('/^[A-Za-z0-9]{3,20}$/', $accountName)) {
+        $errors[] = 'Please enter a valid account name (letters and numbers, 3-20 characters).';
+    }
+
+    if ($password === '') {
+        $errors[] = 'Password is required to link your game account.';
+    }
+
+    if ($errors !== []) {
+        return [
+            'success' => false,
+            'errors' => $errors,
+        ];
+    }
+
+    $stmt = $pdo->prepare('SELECT * FROM website_users WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $userId]);
+    $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($websiteUser === false) {
+        return [
+            'success' => false,
+            'errors' => ['Unable to load your profile. Please try again.'],
+        ];
+    }
+
+    if (!empty($websiteUser['account_id'])) {
+        return [
+            'success' => false,
+            'errors' => ['Your profile is already linked to a game account.'],
+        ];
+    }
+
+    $accountRow = nx_fetch_account_by_name($pdo, $accountName);
+
+    if ($accountRow === null) {
+        return [
+            'success' => false,
+            'errors' => ['That account name could not be found.'],
+        ];
+    }
+
+    if (!nx_verify_account_password($accountRow, $password)) {
+        return [
+            'success' => false,
+            'errors' => ['The password did not match that account.'],
+        ];
+    }
+
+    $accountId = (int) $accountRow[TFS_ACCOUNT_ID_COL];
+
+    try {
+        $update = $pdo->prepare('UPDATE website_users SET account_id = :account_id WHERE id = :id');
+        $update->execute([
+            'account_id' => $accountId,
+            'id' => $userId,
+        ]);
+
+        audit_log($userId, 'link_account', null, [
+            'account_id' => $accountId,
+            'method' => 'manual',
+        ]);
+    } catch (Throwable $exception) {
+        return [
+            'success' => false,
+            'errors' => ['Unable to link your account right now. Please try again later.'],
+        ];
+    }
+
+    return ['success' => true];
+}
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function nx_find_account_candidates(PDO $pdo, string $email): array
+{
+    $candidates = [];
+    $email = trim($email);
+
+    if ($email === '') {
+        return $candidates;
+    }
+
+    $sql = sprintf('SELECT * FROM %s WHERE email = :email', TFS_ACCOUNTS_TABLE);
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['email' => $email]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($rows as $row) {
+        $candidates[] = $row;
+    }
+
+    $localPart = strtolower((string) strstr($email, '@', true));
+
+    if ($localPart !== '' && $localPart !== false) {
+        $nameSql = sprintf(
+            'SELECT * FROM %s WHERE LOWER(%s) = :name',
+            TFS_ACCOUNTS_TABLE,
+            TFS_NAME_COL
+        );
+        $nameStmt = $pdo->prepare($nameSql);
+        $nameStmt->execute(['name' => $localPart]);
+        $byName = $nameStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($byName as $row) {
+            $existingIds = array_column($candidates, TFS_ACCOUNT_ID_COL);
+            if (!in_array($row[TFS_ACCOUNT_ID_COL], $existingIds, true)) {
+                $candidates[] = $row;
+            }
+        }
+    }
+
+    return $candidates;
+}
+
+function nx_fetch_account_by_id(PDO $pdo, int $accountId): ?array
+{
+    $sql = sprintf(
+        'SELECT * FROM %s WHERE %s = :id LIMIT 1',
+        TFS_ACCOUNTS_TABLE,
+        TFS_ACCOUNT_ID_COL
+    );
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['id' => $accountId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
+function nx_fetch_account_by_name(PDO $pdo, string $accountName): ?array
+{
+    $normalized = strtolower(trim($accountName));
+
+    if ($normalized === '') {
+        return null;
+    }
+
+    $sql = sprintf(
+        'SELECT * FROM %s WHERE LOWER(%s) = :name LIMIT 1',
+        TFS_ACCOUNTS_TABLE,
+        TFS_NAME_COL
+    );
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(['name' => $normalized]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row !== false ? $row : null;
+}
+
+function nx_verify_account_password(array $accountRow, string $password): bool
+{
+    $legacyMode = nx_password_legacy_mode();
+    $salt = nx_password_supports_salt() ? ($accountRow[SALT_COL] ?? null) : null;
+    $hash = (string) ($accountRow[TFS_PASS_COL] ?? '');
+
+    if ($hash === '') {
+        return false;
+    }
+
+    if (nx_verify_tfs($password, $hash, $salt, $legacyMode)) {
+        return true;
+    }
+
+    if (ALLOW_FALLBACKS !== true) {
+        return false;
+    }
+
+    foreach (['tfs_sha1', 'tfs_md5'] as $candidate) {
+        if ($candidate === $legacyMode) {
+            continue;
+        }
+
+        if (nx_verify_tfs($password, $hash, $salt, $candidate)) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function logout(): void
