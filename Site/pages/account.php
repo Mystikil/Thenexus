@@ -7,8 +7,10 @@ $loginErrors = [];
 $registerErrors = [];
 $passwordErrors = [];
 $themeErrors = [];
-$loginEmail = '';
+$linkErrors = [];
+$loginIdentifier = '';
 $registerEmail = '';
+$registerAccountName = '';
 $themes = nx_all_themes();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -16,11 +18,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
 
     if ($action === 'login') {
-        $loginEmail = trim((string) ($_POST['email'] ?? ''));
+        $loginIdentifier = trim((string) ($_POST['identifier'] ?? ''));
     }
 
     if ($action === 'register') {
         $registerEmail = trim((string) ($_POST['email'] ?? ''));
+        $registerAccountName = trim((string) ($_POST['account_name'] ?? ''));
     }
 
     if (!csrf_validate($token)) {
@@ -38,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         switch ($action) {
             case 'login':
                 $password = (string) ($_POST['password'] ?? '');
-                $result = login($loginEmail, $password);
+                $result = login($loginIdentifier, $password);
 
                 if ($result['success'] ?? false) {
                     flash('success', 'You are now logged in.');
@@ -51,13 +54,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'register':
                 $password = (string) ($_POST['password'] ?? '');
                 $confirm = (string) ($_POST['confirm_password'] ?? '');
+                $accountName = trim((string) ($_POST['account_name'] ?? ''));
 
                 if ($password !== $confirm) {
                     $registerErrors[] = 'Passwords do not match.';
                     break;
                 }
 
-                $result = register($registerEmail, $password);
+                $result = register($registerEmail, $password, $accountName);
 
                 if ($result['success'] ?? false) {
                     flash('success', 'Your account has been created.');
@@ -188,6 +192,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 break;
 
+            case 'link_account':
+                if (!is_logged_in()) {
+                    flash('error', 'You must be logged in to link a game account.');
+                    redirect('?p=account');
+                }
+
+                $accountName = trim((string) ($_POST['account_name'] ?? ''));
+                $accountPassword = (string) ($_POST['account_password'] ?? '');
+                $user = current_user();
+
+                if ($user === null) {
+                    $linkErrors[] = 'Unable to load your profile. Please try again.';
+                    break;
+                }
+
+                $result = link_account_manual((int) $user['id'], $accountName, $accountPassword);
+
+                if ($result['success'] ?? false) {
+                    flash('success', 'Your website profile is now linked to your game account.');
+                    redirect('?p=account');
+                }
+
+                $linkErrors = $result['errors'] ?? ['Unable to link your account right now.'];
+
+                break;
+
             case 'theme':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to update your theme preference.');
@@ -274,13 +304,13 @@ $themeStatusMessage = $selectedThemeSlug === ''
                 <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
 
                 <div class="form-group">
-                    <label for="login-email">Email</label>
-                    <input type="email" id="login-email" name="email" value="<?php echo sanitize($loginEmail); ?>" required>
+                    <label for="login-identifier">Email or Account Name</label>
+                    <input type="text" id="login-identifier" name="identifier" value="<?php echo sanitize($loginIdentifier); ?>" required autocomplete="username">
                 </div>
 
                 <div class="form-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" name="password" required>
+                    <input type="password" id="login-password" name="password" required autocomplete="current-password">
                 </div>
 
                 <div class="form-actions">
@@ -303,18 +333,31 @@ $themeStatusMessage = $selectedThemeSlug === ''
                 <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
 
                 <div class="form-group">
+                    <label for="register-account-name">Game Account Name</label>
+                    <input
+                        type="text"
+                        id="register-account-name"
+                        name="account_name"
+                        value="<?php echo sanitize($registerAccountName); ?>"
+                        required
+                        pattern="[A-Za-z0-9]{3,20}"
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
                     <label for="register-email">Email</label>
-                    <input type="email" id="register-email" name="email" value="<?php echo sanitize($registerEmail); ?>" required>
+                    <input type="email" id="register-email" name="email" value="<?php echo sanitize($registerEmail); ?>" required autocomplete="email">
                 </div>
 
                 <div class="form-group">
                     <label for="register-password">Password</label>
-                    <input type="password" id="register-password" name="password" required>
+                    <input type="password" id="register-password" name="password" required autocomplete="new-password">
                 </div>
 
                 <div class="form-group">
                     <label for="register-confirm">Confirm Password</label>
-                    <input type="password" id="register-confirm" name="confirm_password" required>
+                    <input type="password" id="register-confirm" name="confirm_password" required autocomplete="new-password">
                 </div>
 
                 <div class="form-actions">
@@ -327,11 +370,60 @@ $themeStatusMessage = $selectedThemeSlug === ''
             <h3>Your Profile</h3>
             <dl>
                 <dt>Email</dt>
-                <dd><?php echo sanitize($user['email']); ?></dd>
+                <dd>
+                    <?php if ($user['email'] !== null && $user['email'] !== ''): ?>
+                        <?php echo sanitize((string) $user['email']); ?>
+                    <?php else: ?>
+                        <em>Not set</em>
+                    <?php endif; ?>
+                </dd>
                 <dt>Role</dt>
                 <dd><?php echo sanitize($user['role']); ?></dd>
+                <dt>Game Account</dt>
+                <dd>
+                    <?php if (!empty($user['account_id'])): ?>
+                        <?php
+                        $accountLabel = (string) ($user['account_name'] ?? '');
+                        $accountLabel = $accountLabel !== '' ? $accountLabel : ('ID #' . (int) $user['account_id']);
+                        echo sanitize($accountLabel);
+                        ?>
+                    <?php else: ?>
+                        <em>Not linked</em>
+                    <?php endif; ?>
+                </dd>
             </dl>
         </div>
+
+        <?php if (empty($user['account_id'])): ?>
+            <form class="account-form" method="post" action="?p=account">
+                <h3>Link Your Game Account</h3>
+
+                <?php if ($linkErrors): ?>
+                    <ul class="form-errors">
+                        <?php foreach ($linkErrors as $error): ?>
+                            <li><?php echo sanitize($error); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+
+                <input type="hidden" name="action" value="link_account">
+                <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+
+                <div class="form-group">
+                    <label for="link-account-name">Game Account Name</label>
+                    <input type="text" id="link-account-name" name="account_name" required pattern="[A-Za-z0-9]{3,20}">
+                </div>
+
+                <div class="form-group">
+                    <label for="link-account-password">Game Account Password</label>
+                    <input type="password" id="link-account-password" name="account_password" required autocomplete="current-password">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Link Account</button>
+                </div>
+            </form>
+        <?php endif; ?>
 
         <form class="account-form" method="post" action="?p=account">
             <h3>Change Password</h3>

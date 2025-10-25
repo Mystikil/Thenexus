@@ -121,6 +121,11 @@ few minutes.
    `/api/public_read.php` endpoints and `/api/jobs_pull.php` bridge will now use
    the secrets defined in `config.php`.
 
+New registrations completed through the website now create a matching entry in
+the legacy `accounts` table and link it to the website profile. Players can log
+into the game client immediately using the account name and password they
+choose during signup.
+
 ### 🔐 Password Modes and Legacy Compatibility
 
 - Update `Site/config.php` so the `PASSWORD_MODE` constant matches your TFS
