@@ -46,71 +46,252 @@ $WIDGETS = [
     'vote_links' => ['title' => 'Vote & Support', 'renderer' => 'widget_vote_links', 'ttl' => 3600],
 ];
 
-function widget_resolve_attributes(string $slug, int $limit = 5, ?array $overrides = null): array
+function nx_widget_registry(): array
 {
     global $WIDGETS;
 
-    $limit = max(1, $limit);
-    $attributes = [];
-
-    if (isset($WIDGETS[$slug])) {
-        $widget = $WIDGETS[$slug];
-        $ttl = isset($widget['ttl']) ? (int) $widget['ttl'] : 0;
-
-        if (in_array($slug, ['online', 'server_status'], true)) {
-            $attributes['data-auto-refresh'] = $slug;
-
-            if ($ttl > 0) {
-                $attributes['data-interval'] = (string) max(5000, $ttl * 1000);
-            }
-        }
+    if (!is_array($WIDGETS)) {
+        return [];
     }
 
-    $attributes['data-limit'] = (string) $limit;
-
-    if ($overrides !== null) {
-        foreach ($overrides as $name => $value) {
-            if ($value === null) {
-                unset($attributes[$name]);
-                continue;
-            }
-
-            $attributes[$name] = (string) $value;
-        }
-    }
-
-    ksort($attributes);
-
-    return $attributes;
+    return $WIDGETS;
 }
 
-function widget_cache_key(string $slug, int $limit, array $attributes): string
+function nx_widget_default_layout(): array
 {
-    return cache_key('widget_' . $slug, [
-        'limit' => max(1, $limit),
-        'attributes' => $attributes,
-    ]);
+    return [
+        'left' => ['top_levels', 'top_guilds', 'vote_links'],
+        'right' => ['online', 'server_status', 'recent_deaths'],
+    ];
 }
 
-function widget_format_attributes(array $attributes): string
+function nx_widget_default_limits(): array
 {
-    if ($attributes === []) {
+    return [
+        'top_levels' => 10,
+        'top_guilds' => 8,
+        'online' => 10,
+        'recent_deaths' => 8,
+    ];
+}
+
+function nx_widget_normalize_slug(?string $slug): string
+{
+    $slug = strtolower(trim((string) $slug));
+    $slug = preg_replace('/[^a-z0-9_]/', '', $slug);
+
+    return is_string($slug) ? $slug : '';
+}
+
+function nx_widget_normalize_page_slug(?string $pageSlug): string
+{
+    $pageSlug = nx_widget_normalize_slug($pageSlug);
+
+    if ($pageSlug === '') {
         return '';
     }
 
-    $chunks = [];
+    return $pageSlug;
+}
 
-    foreach ($attributes as $name => $value) {
-        if ($value === null || $value === '') {
+function nx_widget_setting_key(string $side, ?string $pageSlug = null): string
+{
+    $side = $side === 'right' ? 'right' : 'left';
+    $pageSlug = nx_widget_normalize_page_slug($pageSlug);
+
+    if ($pageSlug === '') {
+        return 'widgets_' . $side . '_default';
+    }
+
+    return 'widgets_' . $side . '_' . $pageSlug;
+}
+
+function nx_widget_setting_fetch(PDO $pdo, string $side, ?string $pageSlug = null): array
+{
+    $key = nx_widget_setting_key($side, $pageSlug);
+
+    static $cache = [];
+
+    if (array_key_exists($key, $cache)) {
+        return $cache[$key];
+    }
+
+    $result = ['found' => false, 'value' => []];
+
+    if (!widget_table_exists($pdo, 'settings')) {
+        $cache[$key] = $result;
+
+        return $result;
+    }
+
+    try {
+        $stmt = $pdo->prepare('SELECT value FROM settings WHERE `key` = :key LIMIT 1');
+        $stmt->execute(['key' => $key]);
+        $value = $stmt->fetchColumn();
+
+        if ($value === false) {
+            $cache[$key] = $result;
+
+            return $result;
+        }
+
+        $json = trim((string) $value);
+        $decoded = json_decode($json, true);
+
+        if (!is_array($decoded)) {
+            $decoded = [];
+        }
+
+        $registry = nx_widget_registry();
+        $slugs = [];
+
+        foreach ($decoded as $slug) {
+            $normalized = nx_widget_normalize_slug(is_string($slug) ? $slug : null);
+
+            if ($normalized === '' || isset($slugs[$normalized])) {
+                continue;
+            }
+
+            if (!array_key_exists($normalized, $registry)) {
+                continue;
+            }
+
+            $slugs[$normalized] = true;
+        }
+
+        $result = [
+            'found' => true,
+            'value' => array_keys($slugs),
+        ];
+    } catch (PDOException $exception) {
+        $result = ['found' => false, 'value' => []];
+    }
+
+    $cache[$key] = $result;
+
+    return $result;
+}
+
+function nx_widget_resolve_layout(PDO $pdo, string $side, string $pageSlug): array
+{
+    $side = $side === 'right' ? 'right' : 'left';
+    $pageSlug = nx_widget_normalize_page_slug($pageSlug);
+
+    $pageSetting = nx_widget_setting_fetch($pdo, $side, $pageSlug);
+    if ($pageSetting['found']) {
+        return ['slugs' => $pageSetting['value'], 'source' => 'page'];
+    }
+
+    $defaultSetting = nx_widget_setting_fetch($pdo, $side, null);
+    if ($defaultSetting['found']) {
+        return ['slugs' => $defaultSetting['value'], 'source' => 'default'];
+    }
+
+    $defaults = nx_widget_default_layout();
+
+    return [
+        'slugs' => $defaults[$side] ?? [],
+        'source' => 'fallback',
+    ];
+}
+
+function nx_widget_build_order(array $enabledSlugs, array $registry): array
+{
+    $order = [];
+    $seen = [];
+    $limits = nx_widget_default_limits();
+
+    foreach ($enabledSlugs as $slug) {
+        $normalized = nx_widget_normalize_slug($slug);
+
+        if ($normalized === '' || isset($seen[$normalized])) {
             continue;
         }
 
-        $attrName = htmlspecialchars((string) $name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $attrValue = htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $chunks[] = $attrName . '="' . $attrValue . '"';
+        if (!array_key_exists($normalized, $registry)) {
+            continue;
+        }
+
+        $limit = $limits[$normalized] ?? null;
+
+        $order[] = ['slug' => $normalized, 'enabled' => true, 'limit' => $limit];
+        $seen[$normalized] = true;
     }
 
-    return $chunks === [] ? '' : ' ' . implode(' ', $chunks);
+    foreach ($registry as $slug => $widget) {
+        if (isset($seen[$slug])) {
+            continue;
+        }
+
+        $limit = $limits[$slug] ?? null;
+
+        $order[] = ['slug' => $slug, 'enabled' => false, 'limit' => $limit];
+    }
+
+    return $order;
+}
+
+function nx_widget_order_from_slugs(array $enabledSlugs): array
+{
+    $registry = nx_widget_registry();
+
+    return nx_widget_build_order($enabledSlugs, $registry);
+}
+
+function nx_widget_order(PDO $pdo, string $side, string $pageSlug): array
+{
+    $resolved = nx_widget_resolve_layout($pdo, $side, $pageSlug);
+
+    return nx_widget_order_from_slugs($resolved['slugs']);
+}
+
+function nx_widget_save_enabled_slugs(PDO $pdo, string $side, ?string $pageSlug, array $slugs): void
+{
+    $side = $side === 'right' ? 'right' : 'left';
+    $pageSlug = nx_widget_normalize_page_slug($pageSlug);
+    $registry = nx_widget_registry();
+    $filtered = [];
+
+    foreach ($slugs as $slug) {
+        $normalized = nx_widget_normalize_slug($slug);
+
+        if ($normalized === '' || isset($filtered[$normalized])) {
+            continue;
+        }
+
+        if (!array_key_exists($normalized, $registry)) {
+            continue;
+        }
+
+        $filtered[$normalized] = true;
+    }
+
+    $payload = json_encode(array_keys($filtered));
+    $key = nx_widget_setting_key($side, $pageSlug === '' ? null : $pageSlug);
+
+    if (!widget_table_exists($pdo, 'settings')) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO settings (`key`, value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE value = VALUES(value)');
+    $stmt->execute([
+        'key' => $key,
+        'value' => $payload,
+    ]);
+}
+
+function nx_widget_delete_configuration(PDO $pdo, string $side, ?string $pageSlug = null): void
+{
+    $side = $side === 'right' ? 'right' : 'left';
+    $pageSlug = nx_widget_normalize_page_slug($pageSlug);
+    $key = nx_widget_setting_key($side, $pageSlug === '' ? null : $pageSlug);
+
+    if (!widget_table_exists($pdo, 'settings')) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('DELETE FROM settings WHERE `key` = :key');
+    $stmt->execute(['key' => $key]);
 }
 
 function widget_escape(string $value): string
