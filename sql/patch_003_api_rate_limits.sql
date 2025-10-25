@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS api_rate_limits (
+    rate_key VARCHAR(191) NOT NULL PRIMARY KEY,
+    requests INT UNSIGNED NOT NULL DEFAULT 0,
+    reset_at INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -6,6 +6,7 @@ require __DIR__ . '/../config.php';
 require __DIR__ . '/../db.php';
 require __DIR__ . '/../functions.php';
 require __DIR__ . '/../auth.php';
+require __DIR__ . '/../includes/rate_limiter.php';
 
 function require_bridge_auth(): void
 {
@@ -38,9 +39,10 @@ function decode_json_body(): array
     return $data;
 }
 
-require_bridge_auth();
-
 $pdo = db();
+rate_limit_check($pdo, client_rate_limit_key('jobs_pull'), 60, 60);
+
+require_bridge_auth();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 if ($method === 'GET') {
