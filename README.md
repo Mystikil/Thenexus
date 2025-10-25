@@ -144,6 +144,13 @@ password they just picked on the site.
 - When migrating old AAC data, you can temporarily flip `ALLOW_FALLBACKS = true`
   to log which legacy hash format (SHA1 or MD5) matches during login.
 
+### 🔁 Account Recovery
+
+- Recovery keys are generated from high-entropy random data and are displayed exactly once at creation time. Only a SHA-256 hash is stored in `accounts.recovery_key_hash`.
+- The reset flow (`/pages/recover.php`) requires both the account name and the matching recovery key before a password can be changed.
+- Recovery attempts are rate limited by default (10 submissions per 15 minutes per account/IP pair) to slow brute-force attacks.
+- An optional rotate-on-use policy issues a brand-new recovery key after a successful recovery. It is enabled by default and can be toggled in the admin settings when operating in trusted environments.
+
 🌍 Connections
 To connect to your server, use one of the following compatible clients:
 

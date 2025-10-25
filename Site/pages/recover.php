@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth_recovery.php';
 
+$pdo = db();
+$rotateOnUse = nx_recovery_rotate_on_use_enabled($pdo);
+
 $errors = [];
 $successMessage = '';
 $revealedRecoveryKey = null;
@@ -19,7 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($token)) {
         $errors[] = 'Invalid request. Please try again.';
     } else {
-        $pdo = db();
         $ip = ip_address();
 
         if (nx_recovery_too_many_attempts($pdo, $accountName, $ip, RECOVERY_WINDOW_SECONDS, RECOVERY_ATTEMPT_LIMIT)) {
@@ -68,8 +70,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             ]);
                         }
 
-                        $newRecoveryKey = nx_generate_recovery_key();
-                        nx_set_recovery_key($pdo, $accountId, $newRecoveryKey);
+                        if ($rotateOnUse) {
+                            $newRecoveryKey = nx_generate_recovery_key();
+                            nx_set_recovery_key($pdo, $accountId, $newRecoveryKey);
+                        }
 
                         if ($startedTransaction && $pdo->inTransaction()) {
                             $pdo->commit();
@@ -77,8 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         audit_log(null, 'recover_account_password', null, ['account_id' => $accountId]);
 
-                        $revealedRecoveryKey = $newRecoveryKey;
-                        $successMessage = 'Your password has been reset. Save the new recovery key below and then log in.';
+                        if ($rotateOnUse) {
+                            $revealedRecoveryKey = $newRecoveryKey;
+                            $successMessage = 'Your password has been reset. Save the new recovery key below and then log in.';
+                        } else {
+                            $successMessage = 'Your password has been reset. Your recovery key remains valid—store it safely.';
+                        }
                         $accountName = '';
                         $recoveryKeyInput = '';
                     } catch (Throwable $exception) {
@@ -100,6 +108,13 @@ $csrfToken = csrf_token();
     <h2>Account Recovery</h2>
 
     <p>Use your recovery key to reset the password on your game account. Each attempt is rate limited to protect against abuse.</p>
+
+    <p class="form-help">Password tips:</p>
+    <ul class="form-help-list">
+        <li>Passwords must be at least 8 characters—aim for 12 or more for better security.</li>
+        <li>Mix uppercase and lowercase letters, numbers, and symbols to increase entropy.</li>
+        <li>Avoid reusing passwords across sites and keep your recovery key private.</li>
+    </ul>
 
     <?php if ($successMessage): ?>
         <div class="alert alert--success"><?php echo sanitize($successMessage); ?></div>

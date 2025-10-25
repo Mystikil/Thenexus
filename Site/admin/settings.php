@@ -13,13 +13,19 @@ $settingsMap = [
     'site_title' => 'Site Title',
     'WEBHOOK_SECRET' => 'Webhook Secret',
     'BRIDGE_SECRET' => 'Bridge Secret',
+    'recovery_rotate_on_use' => 'Rotate Recovery Key After Use',
+    'recovery_allow_admin_view_plain' => 'Allow Admin Plain Recovery View',
 ];
+
+$booleanSettings = ['recovery_rotate_on_use', 'recovery_allow_admin_view_plain'];
 
 $currentSettings = [
     'default_theme' => 'default',
     'site_title' => SITE_TITLE,
     'WEBHOOK_SECRET' => WEBHOOK_SECRET,
     'BRIDGE_SECRET' => BRIDGE_SECRET,
+    'recovery_rotate_on_use' => 'true',
+    'recovery_allow_admin_view_plain' => 'false',
 ];
 
 $availableThemes = nx_all_themes();
@@ -50,7 +56,13 @@ $stmt->execute(array_keys($settingsMap));
 while ($row = $stmt->fetch()) {
     $key = $row['key'];
     if (array_key_exists($key, $currentSettings)) {
-        $currentSettings[$key] = (string) $row['value'];
+        if (in_array($key, $booleanSettings, true)) {
+            $currentSettings[$key] = in_array(strtolower(trim((string) $row['value'] ?? '')), ['1', 'true', 'yes', 'on'], true)
+                ? 'true'
+                : 'false';
+        } else {
+            $currentSettings[$key] = (string) $row['value'];
+        }
     }
 }
 
@@ -79,6 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($newValue === '' || !in_array($newValue, $availableThemeSlugs, true)) {
                     $newValue = 'default';
                 }
+            } elseif (in_array($key, $booleanSettings, true)) {
+                $normalized = strtolower($newValue);
+                $newValue = in_array($normalized, ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false';
             }
             $previousValue = $currentSettings[$key] ?? '';
 
@@ -140,6 +155,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 ?>
                             </option>
                         <?php endforeach; ?>
+                    </select>
+                <?php elseif (in_array($key, $booleanSettings, true)): ?>
+                    <select id="<?php echo sanitize($key); ?>" name="<?php echo sanitize($key); ?>">
+                        <option value="true"<?php echo ($currentSettings[$key] ?? '') === 'true' ? ' selected' : ''; ?>>Enabled</option>
+                        <option value="false"<?php echo ($currentSettings[$key] ?? '') === 'false' ? ' selected' : ''; ?>>Disabled</option>
                     </select>
                 <?php else: ?>
                     <input

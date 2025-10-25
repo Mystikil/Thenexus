@@ -26,37 +26,86 @@ if (!function_exists('nx_generate_recovery_key')) {
 
         if ($length < 28) {
             $length = 28;
-        } elseif ($length > 64) {
-            $length = 64;
+        } elseif ($length > 128) {
+            $length = 128;
         }
 
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Crockford-style Base32 without confusing chars.
-        $alphabetLength = strlen($alphabet);
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $key = '';
 
-        for ($i = 0; $i < $length; $i++) {
-            try {
-                $index = random_int(0, $alphabetLength - 1);
-            } catch (Throwable $exception) {
-                $fallbackByte = null;
-
-                try {
-                    $fallbackByte = random_bytes(1);
-                } catch (Throwable $inner) {
-                    $fallbackByte = openssl_random_pseudo_bytes(1);
-                }
-
-                if (!is_string($fallbackByte) || $fallbackByte === '') {
-                    $fallbackByte = chr(mt_rand(0, 255));
-                }
-
-                $index = ord($fallbackByte[0]) % $alphabetLength;
-            }
-
-            $key .= $alphabet[$index];
+        while (strlen($key) < $length) {
+            $bytes = nx_recovery_secure_bytes(5);
+            $key .= nx_recovery_base32_encode($bytes, $alphabet);
         }
 
-        return $key;
+        return substr($key, 0, $length);
+    }
+}
+
+if (!function_exists('nx_recovery_secure_bytes')) {
+    function nx_recovery_secure_bytes(int $length): string
+    {
+        if ($length <= 0) {
+            $length = 1;
+        }
+
+        try {
+            return random_bytes($length);
+        } catch (Throwable $exception) {
+            try {
+                $bytes = openssl_random_pseudo_bytes($length);
+                if (is_string($bytes) && $bytes !== '') {
+                    return $bytes;
+                }
+            } catch (Throwable $inner) {
+                // Ignore and fall through.
+            }
+
+            $fallback = '';
+
+            for ($i = 0; $i < $length; $i++) {
+                try {
+                    $fallback .= chr(random_int(0, 255));
+                } catch (Throwable $failure) {
+                    $fallback .= chr(mt_rand(0, 255));
+                }
+            }
+
+            return $fallback;
+        }
+    }
+}
+
+if (!function_exists('nx_recovery_base32_encode')) {
+    function nx_recovery_base32_encode(string $bytes, string $alphabet): string
+    {
+        $alphabetLength = strlen($alphabet);
+
+        if ($alphabetLength < 32) {
+            throw new RuntimeException('Recovery alphabet must contain at least 32 symbols.');
+        }
+
+        $output = '';
+        $buffer = 0;
+        $bitsLeft = 0;
+
+        for ($i = 0, $len = strlen($bytes); $i < $len; $i++) {
+            $buffer = ($buffer << 8) | ord($bytes[$i]);
+            $bitsLeft += 8;
+
+            while ($bitsLeft >= 5) {
+                $bitsLeft -= 5;
+                $index = ($buffer >> $bitsLeft) & 0x1F;
+                $output .= $alphabet[$index];
+            }
+        }
+
+        if ($bitsLeft > 0) {
+            $index = ($buffer << (5 - $bitsLeft)) & 0x1F;
+            $output .= $alphabet[$index];
+        }
+
+        return $output;
     }
 }
 
@@ -70,25 +119,9 @@ if (!function_exists('nx_hash_recovery_key')) {
 if (!function_exists('nx_account_has_recovery_key')) {
     function nx_account_has_recovery_key(PDO $pdo, int $accountId): bool
     {
-        if ($accountId <= 0) {
-            return false;
-        }
+        $meta = nx_fetch_recovery_key_meta($pdo, $accountId);
 
-        $sql = sprintf(
-            'SELECT recovery_key_hash FROM %s WHERE %s = :account_id LIMIT 1',
-            TFS_ACCOUNTS_TABLE,
-            TFS_ACCOUNT_ID_COL
-        );
-
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['account_id' => $accountId]);
-        $hash = $stmt->fetchColumn();
-
-        if ($hash === false || $hash === null) {
-            return false;
-        }
-
-        return $hash !== '';
+        return $meta['has_key'];
     }
 }
 
@@ -115,6 +148,103 @@ if (!function_exists('nx_set_recovery_key')) {
             'created_at' => $createdAt,
             'account_id' => $accountId,
         ]);
+    }
+}
+
+if (!function_exists('nx_clear_recovery_key')) {
+    function nx_clear_recovery_key(PDO $pdo, int $accountId): bool
+    {
+        if ($accountId <= 0) {
+            return false;
+        }
+
+        $sql = sprintf(
+            'UPDATE %s SET recovery_key_hash = NULL, recovery_key_created_at = NULL WHERE %s = :account_id',
+            TFS_ACCOUNTS_TABLE,
+            TFS_ACCOUNT_ID_COL
+        );
+
+        $stmt = $pdo->prepare($sql);
+
+        return $stmt->execute(['account_id' => $accountId]);
+    }
+}
+
+if (!function_exists('nx_fetch_recovery_key_meta')) {
+    function nx_fetch_recovery_key_meta(PDO $pdo, int $accountId): array
+    {
+        if ($accountId <= 0) {
+            return ['has_key' => false, 'created_at' => null];
+        }
+
+        $sql = sprintf(
+            'SELECT recovery_key_hash, recovery_key_created_at FROM %s WHERE %s = :account_id LIMIT 1',
+            TFS_ACCOUNTS_TABLE,
+            TFS_ACCOUNT_ID_COL
+        );
+
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(['account_id' => $accountId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($row === false) {
+            return ['has_key' => false, 'created_at' => null];
+        }
+
+        $hash = $row['recovery_key_hash'] ?? null;
+        $createdAt = $row['recovery_key_created_at'] ?? null;
+
+        return [
+            'has_key' => is_string($hash) && $hash !== '',
+            'created_at' => $createdAt !== null ? (string) $createdAt : null,
+        ];
+    }
+}
+
+if (!function_exists('nx_recovery_setting_bool')) {
+    function nx_recovery_setting_bool(PDO $pdo, string $key, bool $default): bool
+    {
+        static $cache = [];
+
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        $value = $default;
+
+        try {
+            $stmt = $pdo->prepare('SELECT value FROM settings WHERE `key` = :key LIMIT 1');
+            $stmt->execute(['key' => $key]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($row !== false) {
+                $normalized = strtolower(trim((string) ($row['value'] ?? '')));
+
+                if ($normalized !== '') {
+                    $value = in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+                }
+            }
+        } catch (Throwable $exception) {
+            // Ignore lookup errors (settings table may not exist yet).
+        }
+
+        $cache[$key] = $value;
+
+        return $value;
+    }
+}
+
+if (!function_exists('nx_recovery_rotate_on_use_enabled')) {
+    function nx_recovery_rotate_on_use_enabled(PDO $pdo): bool
+    {
+        return nx_recovery_setting_bool($pdo, 'recovery_rotate_on_use', true);
+    }
+}
+
+if (!function_exists('nx_recovery_admin_plain_allowed')) {
+    function nx_recovery_admin_plain_allowed(PDO $pdo): bool
+    {
+        return nx_recovery_setting_bool($pdo, 'recovery_allow_admin_view_plain', false);
     }
 }
 

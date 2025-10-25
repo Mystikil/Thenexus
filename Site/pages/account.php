@@ -456,6 +456,10 @@ if ($user !== null) {
         </div>
     <?php else: ?>
         <?php if ($showRecoveryKeyModal && $generatedRecoveryKey !== null): ?>
+            <div class="alert alert--info alert--dismissible" role="alert">
+                <button type="button" class="alert__close" aria-label="Dismiss" onclick="this.closest('.alert').remove();">&times;</button>
+                Store this somewhere safe. If you lose access to your email or password, this key is your only way back.
+            </div>
             <div class="account-recovery-modal" role="alertdialog" aria-labelledby="recovery-modal-title" aria-describedby="recovery-modal-body">
                 <h3 id="recovery-modal-title">Save Your Recovery Key</h3>
                 <p id="recovery-modal-body">This key is shown only once. Store it safely—we only keep a secure hash on the server.</p>
