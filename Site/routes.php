@@ -26,12 +26,13 @@ $page = $_GET['p'] ?? 'home';
 $page = strtolower(trim((string) $page));
 $page = preg_replace('/[^a-z0-9_]/', '', $page);
 
-if (!$page) {
+if ($page === '') {
     $page = 'home';
 }
 
+$pdo = db();
+
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
-    $pdo = db();
     $override = nx_locate_template($pdo, $page);
 
     include __DIR__ . '/includes/header.php';
@@ -47,10 +48,21 @@ if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
 }
 
 http_response_code(404);
+$notFoundTemplate = nx_locate_template($pdo, '404');
+
 include __DIR__ . '/includes/header.php';
-?>
-<section class="page page--404">
-    <h2>Page not found</h2>
-    <p>The page you requested could not be located.</p>
-</section>
-<?php include __DIR__ . '/includes/footer.php';
+
+if ($notFoundTemplate !== null) {
+    include $notFoundTemplate;
+} elseif (file_exists(__DIR__ . '/pages/404.php')) {
+    include __DIR__ . '/pages/404.php';
+} else {
+    ?>
+    <section class="page page--404">
+        <h2>Page not found</h2>
+        <p>The page you requested could not be located.</p>
+    </section>
+    <?php
+}
+
+include __DIR__ . '/includes/footer.php';

@@ -91,6 +91,36 @@ Dynamic scaling by level or power
 
 Custom map templates per instance
 
+## 🌐 Website Setup (XAMPP)
+
+The PHP website that ships with The Nexus can be hosted locally with XAMPP in a
+few minutes.
+
+1. **Install XAMPP** with Apache and MySQL enabled, then copy the repository's
+   `Site/` directory into your `htdocs` directory (for example
+   `C:/xampp/htdocs/nexus`).
+2. **Create the database** and import the schemas in order:
+   - `NexusDB.sql` (root of the repository)
+   - `sql/patch_001_website.sql`
+3. **Update `Site/config.php`** with your MySQL credentials. While editing the
+   file, set fresh values for `WEBHOOK_SECRET` and `BRIDGE_SECRET`; these are
+   required for secure webhook ingestion and job polling.
+4. **Create the first website owner account.** Generate a password hash
+   (`php -r "echo password_hash('ChangeMe123', PASSWORD_DEFAULT), PHP_EOL;"`) and
+   insert it manually:
+
+   ```sql
+   INSERT INTO website_users (email, pass_hash, role)
+   VALUES ('owner@example.com', '$2y$...', 'owner');
+   ```
+
+   You can also adapt the snippet above into a one-off PHP script if you prefer
+   not to run SQL by hand.
+5. Visit `http://localhost/nexus/index.php` and log in with the owner account to
+   configure the default theme, shop, and other settings. The new
+   `/api/public_read.php` endpoints and `/api/jobs_pull.php` bridge will now use
+   the secrets defined in `config.php`.
+
 🌍 Connections
 To connect to your server, use one of the following compatible clients:
 

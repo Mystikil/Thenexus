@@ -163,6 +163,17 @@ $selectedThemeSlug = $user !== null ? (string) ($user['theme_preference'] ?? '')
 if ($themeErrors !== []) {
     $selectedThemeSlug = trim((string) ($_POST['theme'] ?? ''));
 }
+
+$selectedThemeName = '';
+
+if ($selectedThemeSlug !== '' && isset($themes[$selectedThemeSlug])) {
+    $selectedThemeName = (string) ($themes[$selectedThemeSlug]['name'] ?? ucfirst($selectedThemeSlug));
+}
+
+$defaultThemeLabel = 'site default theme';
+$themeStatusMessage = $selectedThemeSlug === ''
+    ? 'Using the site default theme.'
+    : 'Using the "' . ($selectedThemeName !== '' ? $selectedThemeName : ucfirst($selectedThemeSlug)) . '" theme.';
 ?>
 <section class="page page--account">
     <h2>Account</h2>
@@ -301,14 +312,21 @@ if ($themeErrors !== []) {
 
                 <div class="form-group">
                     <label for="theme-preference">Preferred Theme</label>
-                    <select id="theme-preference" name="theme">
-                        <option value=""<?php echo $selectedThemeSlug === '' ? ' selected' : ''; ?>>Use site default</option>
+                    <select
+                        id="theme-preference"
+                        name="theme"
+                        data-theme-select
+                        data-theme-default-label="<?php echo sanitize($defaultThemeLabel); ?>"
+                    >
+                        <option value="" data-theme-label="<?php echo sanitize(ucfirst($defaultThemeLabel)); ?>"<?php echo $selectedThemeSlug === '' ? ' selected' : ''; ?>>Use site default</option>
                         <?php foreach ($themes as $slug => $theme): ?>
-                            <option value="<?php echo sanitize($slug); ?>"<?php echo $selectedThemeSlug === $slug ? ' selected' : ''; ?>>
-                                <?php echo sanitize(($theme['name'] ?? $slug) . ' (' . $slug . ')'); ?>
+                            <?php $displayName = (string) ($theme['name'] ?? $slug); ?>
+                            <option value="<?php echo sanitize($slug); ?>" data-theme-label="<?php echo sanitize($displayName); ?>"<?php echo $selectedThemeSlug === $slug ? ' selected' : ''; ?>>
+                                <?php echo sanitize($displayName . ' (' . $slug . ')'); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <p class="form-help" data-theme-select-message><?php echo sanitize($themeStatusMessage); ?></p>
                 </div>
 
                 <div class="form-actions">
