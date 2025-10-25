@@ -121,18 +121,19 @@ few minutes.
    `/api/public_read.php` endpoints and `/api/jobs_pull.php` bridge will now use
    the secrets defined in `config.php`.
 
-New registrations completed through the website now create a matching entry in
-the legacy `accounts` table and link it to the website profile. Players can log
-into the game client immediately using the account name and password they
-choose during signup.
+New registrations completed through the website always create a matching entry
+in the legacy `accounts` table (`REQUIRE_GAME_ACCOUNT_ON_REGISTER = true` by
+default) and link it to the website profile. As soon as the form is submitted,
+players can launch the TFS game client and log in using the account name and
+password they just picked on the site.
 
 ### 🔐 Password Modes and Legacy Compatibility
 
-- Update `Site/config.php` so the `PASSWORD_MODE` constant matches your TFS
-  `config.lua` setting:
-  - `sha1`  → `PASSWORD_MODE = 'tfs_sha1'`
-  - `md5`   → `PASSWORD_MODE = 'tfs_md5'`
-  - `plain` → `PASSWORD_MODE = 'tfs_plain'`
+- In `config.lua`, set `passwordType` (`"sha1"`, `"md5"`, or `"plain"`). Match
+  that value in `Site/config.php` by setting `PASSWORD_MODE` to:
+  - `passwordType = "sha1"`  → `PASSWORD_MODE = 'tfs_sha1'`
+  - `passwordType = "md5"`   → `PASSWORD_MODE = 'tfs_md5'`
+  - `passwordType = "plain"` → `PASSWORD_MODE = 'tfs_plain'`
   - Use `PASSWORD_MODE = 'dual'` to keep SHA1 for TFS while the website stores
     modern `password_hash()` credentials.
 - If your `accounts` table has a `salt` column and legacy hashes were computed
