@@ -98,21 +98,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($passwordErrors === []) {
                     $user = current_user();
 
-                    if (!$user || !password_verify($currentPassword, $user['pass_hash'])) {
-                        $passwordErrors[] = 'Current password is incorrect.';
-                    } else {
-                        $hash = password_hash($newPassword, PASSWORD_DEFAULT);
-                        $stmt = db()->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
-                        $stmt->execute([
-                            'pass_hash' => $hash,
-                            'id' => $user['id'],
-                        ]);
-
-                        audit_log((int) $user['id'], 'password_change');
-
-                        flash('success', 'Your password has been updated.');
-                        redirect('?p=account');
+                    if ($user === null) {
+                        $passwordErrors[] = 'Unable to load your account. Please try again.';
+                        break;
                     }
+
+                    $accountEmail = (string) ($user['account_email'] ?? $user['email'] ?? '');
+                    $accountId = isset($user['account_id']) ? (int) $user['account_id'] : 0;
+
+                    if ($accountEmail === '') {
+                        $passwordErrors[] = 'Unable to locate your account record.';
+                        break;
+                    }
+
+                    $pdo = db();
+
+                    $selectParts = [
+                        sprintf('a.%s AS account_id', TFS_ACCOUNT_ID_COL),
+                        sprintf('a.%s AS account_password', TFS_PASS_COL),
+                    ];
+
+                    if (nx_password_supports_salt()) {
+                        $selectParts[] = sprintf('a.%s AS account_salt', SALT_COL);
+                    }
+
+                    if ($accountId > 0) {
+                        $accountSql = sprintf(
+                            'SELECT %s FROM %s a WHERE a.%s = :value LIMIT 1',
+                            implode(', ', $selectParts),
+                            TFS_ACCOUNTS_TABLE,
+                            TFS_ACCOUNT_ID_COL
+                        );
+                        $accountParams = ['value' => $accountId];
+                    } else {
+                        $accountSql = sprintf(
+                            'SELECT %s FROM %s a WHERE a.email = :value LIMIT 1',
+                            implode(', ', $selectParts),
+                            TFS_ACCOUNTS_TABLE
+                        );
+                        $accountParams = ['value' => $accountEmail];
+                    }
+
+                    $accountStmt = $pdo->prepare($accountSql);
+                    $accountStmt->execute($accountParams);
+                    $accountRow = $accountStmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($accountRow === false) {
+                        $passwordErrors[] = 'Unable to locate your account record.';
+                        break;
+                    }
+
+                    $accountId = (int) $accountRow['account_id'];
+                    $salt = nx_password_supports_salt() ? ($accountRow['account_salt'] ?? null) : null;
+                    $legacyOk = nx_verify_tfs($currentPassword, (string) $accountRow['account_password'], $salt, nx_password_legacy_mode());
+                    $modernOk = nx_verify_web_secure($currentPassword, (string) ($user['pass_hash'] ?? ''));
+
+                    if (!$legacyOk && !$modernOk) {
+                        $passwordErrors[] = 'Current password is incorrect.';
+                        break;
+                    }
+
+                    $startedTransaction = false;
+
+                    try {
+                        if (!$pdo->inTransaction()) {
+                            $pdo->beginTransaction();
+                            $startedTransaction = true;
+                        }
+
+                        nx_password_set($pdo, $accountId, $newPassword);
+
+                        if ($startedTransaction && $pdo->inTransaction()) {
+                            $pdo->commit();
+                        }
+                    } catch (Throwable $exception) {
+                        if ($startedTransaction && $pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+
+                        $passwordErrors[] = 'Unable to update your password right now. Please try again later.';
+                        break;
+                    }
+
+                    audit_log((int) $user['id'], 'password_change', null, ['account_id' => $accountId]);
+
+                    flash('success', 'Your password has been updated.');
+                    redirect('?p=account');
                 }
 
                 break;
