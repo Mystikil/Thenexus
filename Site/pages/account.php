@@ -3,11 +3,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/theme.php';
 
+require_once __DIR__ . '/../auth_recovery.php';
+
 $loginErrors = [];
 $registerErrors = [];
 $passwordErrors = [];
 $themeErrors = [];
 $linkErrors = [];
+$recoveryErrors = [];
+$generatedRecoveryKey = null;
+$showRecoveryKeyModal = false;
 $loginIdentifier = '';
 $registerEmail = '';
 $registerAccountName = '';
@@ -33,6 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $registerErrors[] = 'Invalid request. Please try again.';
         } elseif ($action === 'password') {
             $passwordErrors[] = 'Invalid request. Please try again.';
+        } elseif ($action === 'generate_recovery_key') {
+            $recoveryErrors[] = 'Invalid request. Please try again.';
         } elseif ($action === 'logout') {
             flash('error', 'Invalid request. Please try again.');
             redirect('?p=account');
@@ -199,6 +206,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 break;
 
+            case 'generate_recovery_key':
+                if (!is_logged_in()) {
+                    flash('error', 'You must be logged in to generate a recovery key.');
+                    redirect('?p=account');
+                }
+
+                $user = current_user();
+
+                if ($user === null) {
+                    $recoveryErrors[] = 'Unable to load your profile. Please try again.';
+                    break;
+                }
+
+                $accountId = isset($user['account_id']) ? (int) $user['account_id'] : 0;
+
+                if ($accountId <= 0) {
+                    $recoveryErrors[] = 'You must link a game account before generating a recovery key.';
+                    break;
+                }
+
+                $pdo = db();
+
+                if (nx_account_has_recovery_key($pdo, $accountId)) {
+                    $recoveryErrors[] = 'A recovery key is already active for this account.';
+                    break;
+                }
+
+                $newKey = nx_generate_recovery_key();
+
+                if (!nx_set_recovery_key($pdo, $accountId, $newKey)) {
+                    $recoveryErrors[] = 'Unable to generate a recovery key right now. Please try again later.';
+                    break;
+                }
+
+                audit_log((int) $user['id'], 'generate_recovery_key', null, ['account_id' => $accountId]);
+
+                $generatedRecoveryKey = $newKey;
+                $showRecoveryKeyModal = true;
+
+                break;
+
             case 'link_account':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to link a game account.');
@@ -287,17 +335,24 @@ $accountStatus = [
     'linked' => false,
     'name' => '',
 ];
+$accountHasRecoveryKey = false;
 
 if ($user !== null) {
     $accountId = isset($user['account_id']) ? (int) $user['account_id'] : 0;
 
     if ($accountId > 0) {
-        $accountRow = nx_fetch_account_by_id(db(), $accountId);
+        $pdo = db();
+        $accountHasRecoveryKey = nx_account_has_recovery_key($pdo, $accountId);
+        $accountRow = nx_fetch_account_by_id($pdo, $accountId);
 
         if ($accountRow !== null) {
             $accountStatus['linked'] = true;
             $accountStatus['name'] = (string) ($accountRow[TFS_NAME_COL] ?? '');
         }
+    }
+
+    if ($showRecoveryKeyModal) {
+        $accountHasRecoveryKey = true;
     }
 
     if ($accountStatus['name'] === '') {
@@ -345,6 +400,7 @@ if ($user !== null) {
                     <label for="login-password">Password</label>
                     <input type="password" id="login-password" name="password" required autocomplete="current-password">
                 </div>
+                <p class="form-help"><a href="?p=recover">Forgot password? Use Recovery Key</a></p>
 
                 <div class="form-actions">
                     <button type="submit">Login</button>
@@ -399,6 +455,22 @@ if ($user !== null) {
             </form>
         </div>
     <?php else: ?>
+        <?php if ($showRecoveryKeyModal && $generatedRecoveryKey !== null): ?>
+            <div class="account-recovery-modal" role="alertdialog" aria-labelledby="recovery-modal-title" aria-describedby="recovery-modal-body">
+                <h3 id="recovery-modal-title">Save Your Recovery Key</h3>
+                <p id="recovery-modal-body">This key is shown only once. Store it safely—we only keep a secure hash on the server.</p>
+                <div class="account-recovery-modal__key"><code><?php echo sanitize($generatedRecoveryKey); ?></code></div>
+                <form class="account-recovery-modal__confirm" method="get" action="?p=account">
+                    <div class="form-group">
+                        <input type="checkbox" id="recovery-modal-confirm" name="ack" value="1" required>
+                        <label for="recovery-modal-confirm">I have stored this safely</label>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit">OK</button>
+                    </div>
+                </form>
+            </div>
+        <?php endif; ?>
         <div class="account-status" role="status">
             <h3>Game Account Status</h3>
             <p>
@@ -484,6 +556,32 @@ if ($user !== null) {
                     <?php endif; ?>
                 </dd>
             </dl>
+        </div>
+
+        <div class="account-recovery">
+            <h3>Account Recovery Key</h3>
+            <p>Generate a recovery key to regain access if you ever lose your password. The key is displayed only once&mdash;store it securely.</p>
+
+            <?php if ($recoveryErrors): ?>
+                <ul class="form-errors">
+                    <?php foreach ($recoveryErrors as $error): ?>
+                        <li><?php echo sanitize($error); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+
+            <?php if (!$accountHasRecoveryKey): ?>
+                <form class="account-recovery__form" method="post" action="?p=account">
+                    <input type="hidden" name="action" value="generate_recovery_key">
+                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+                    <p class="form-help">You will only see the recovery key once.</p>
+                    <div class="form-actions">
+                        <button type="submit" class="account-recovery__button">Generate Recovery Key</button>
+                    </div>
+                </form>
+            <?php else: ?>
+                <p>Your account already has a recovery key on file. Keep it stored safely.</p>
+            <?php endif; ?>
         </div>
 
         <form class="account-form" method="post" action="?p=account">

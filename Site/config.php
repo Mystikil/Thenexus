@@ -16,5 +16,10 @@ const PASS_WITH_SALT = false;
 const SALT_COL = 'salt';
 const ALLOW_FALLBACKS = false;
 
+
+define('RECOVERY_KEY_LENGTH', 32);
+define('RECOVERY_ATTEMPT_LIMIT', 10);     // attempts per 15 min per account+IP
+define('RECOVERY_WINDOW_SECONDS', 900);   // 15 minutes
+
 define('REQUIRE_GAME_ACCOUNT_ON_REGISTER', true); // must create accounts row
 define('ALLOW_AUTO_PROVISION_WEBSITE_USER', true); // when logging in with a game account that lacks a website user
