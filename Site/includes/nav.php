@@ -47,7 +47,7 @@ $primaryLinks = [
                 </a>
             </li>
             <li class="site-nav__item">
-                <a class="site-nav__link" href="?p=account#register">Register</a>
+                <a class="site-nav__link" href="?p=account#register">Create Account (for game &amp; website)</a>
             </li>
         <?php endif; ?>
     </ul>

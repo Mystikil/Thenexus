@@ -15,3 +15,6 @@ const PASSWORD_MODE = 'tfs_sha1'; // 'tfs_sha1' | 'tfs_md5' | 'tfs_plain' | 'dua
 const PASS_WITH_SALT = false;
 const SALT_COL = 'salt';
 const ALLOW_FALLBACKS = false;
+
+define('REQUIRE_GAME_ACCOUNT_ON_REGISTER', true); // must create accounts row
+define('ALLOW_AUTO_PROVISION_WEBSITE_USER', true); // when logging in with a game account that lacks a website user

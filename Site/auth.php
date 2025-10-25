@@ -316,6 +316,8 @@ function login(string $accountNameOrEmail, string $password): array
     $accountRow = null;
     $used = 'tfs';
     $linkedAutomatically = false;
+    $autoProvisionWebsiteUser = !defined('ALLOW_AUTO_PROVISION_WEBSITE_USER')
+        || ALLOW_AUTO_PROVISION_WEBSITE_USER === true;
 
     if ($isEmail) {
         $stmt = $pdo->prepare('SELECT * FROM website_users WHERE email = :email LIMIT 1');
@@ -359,6 +361,13 @@ function login(string $accountNameOrEmail, string $password): array
         $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
         if ($websiteUser === null) {
+            if (!$autoProvisionWebsiteUser) {
+                return [
+                    'success' => false,
+                    'errors' => ['This game account is not linked to a website profile yet. Please create a website account before logging in.'],
+                ];
+            }
+
             $webHash = nx_password_mode() === 'dual'
                 ? nx_hash_web_secure($password)
                 : null;

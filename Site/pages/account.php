@@ -282,6 +282,32 @@ $defaultThemeLabel = 'site default theme';
 $themeStatusMessage = $selectedThemeSlug === ''
     ? 'Using the site default theme.'
     : 'Using the "' . ($selectedThemeName !== '' ? $selectedThemeName : ucfirst($selectedThemeSlug)) . '" theme.';
+
+$accountStatus = [
+    'linked' => false,
+    'name' => '',
+];
+
+if ($user !== null) {
+    $accountId = isset($user['account_id']) ? (int) $user['account_id'] : 0;
+
+    if ($accountId > 0) {
+        $accountRow = nx_fetch_account_by_id(db(), $accountId);
+
+        if ($accountRow !== null) {
+            $accountStatus['linked'] = true;
+            $accountStatus['name'] = (string) ($accountRow[TFS_NAME_COL] ?? '');
+        }
+    }
+
+    if ($accountStatus['name'] === '') {
+        $fallbackName = (string) ($user['account_name'] ?? '');
+
+        if ($fallbackName !== '') {
+            $accountStatus['name'] = $fallbackName;
+        }
+    }
+}
 ?>
 <section class="page page--account">
     <h2>Account</h2>
@@ -373,6 +399,66 @@ $themeStatusMessage = $selectedThemeSlug === ''
             </form>
         </div>
     <?php else: ?>
+        <div class="account-status" role="status">
+            <h3>Game Account Status</h3>
+            <p>
+                <strong>Account name:</strong>
+                <?php if ($accountStatus['name'] !== ''): ?>
+                    <?php echo sanitize($accountStatus['name']); ?>
+                <?php else: ?>
+                    <em>Not set</em>
+                <?php endif; ?>
+            </p>
+            <p>
+                <strong>Linked:</strong>
+                <?php echo $accountStatus['linked'] ? 'Yes' : 'No'; ?>
+            </p>
+
+            <?php if (!$accountStatus['linked']): ?>
+                <form class="account-status__link-form" method="post" action="?p=account">
+                    <h4>Link now</h4>
+
+                    <?php if ($linkErrors): ?>
+                        <ul class="form-errors">
+                            <?php foreach ($linkErrors as $error): ?>
+                                <li><?php echo sanitize($error); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+
+                    <input type="hidden" name="action" value="link_account">
+                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+
+                    <div class="account-status__field">
+                        <label for="link-account-name-mini">Game Account Name</label>
+                        <input
+                            type="text"
+                            id="link-account-name-mini"
+                            name="account_name"
+                            required
+                            pattern="[A-Za-z0-9]{3,20}"
+                            autocomplete="username"
+                        >
+                    </div>
+
+                    <div class="account-status__field">
+                        <label for="link-account-password-mini">Game Account Password</label>
+                        <input
+                            type="password"
+                            id="link-account-password-mini"
+                            name="account_password"
+                            required
+                            autocomplete="current-password"
+                        >
+                    </div>
+
+                    <div class="account-status__actions">
+                        <button type="submit">Link now</button>
+                    </div>
+                </form>
+            <?php endif; ?>
+        </div>
+
         <div class="account-profile">
             <h3>Your Profile</h3>
             <dl>
@@ -388,49 +474,17 @@ $themeStatusMessage = $selectedThemeSlug === ''
                 <dd><?php echo sanitize($user['role']); ?></dd>
                 <dt>Game Account</dt>
                 <dd>
-                    <?php if (!empty($user['account_id'])): ?>
-                        <?php
-                        $accountLabel = (string) ($user['account_name'] ?? '');
-                        $accountLabel = $accountLabel !== '' ? $accountLabel : ('ID #' . (int) $user['account_id']);
-                        echo sanitize($accountLabel);
-                        ?>
+                    <?php if ($accountStatus['linked']): ?>
+                        <?php echo sanitize($accountStatus['name']); ?>
+                    <?php elseif ($accountStatus['name'] !== ''): ?>
+                        <?php echo sanitize($accountStatus['name']); ?>
+                        <span class="account-profile__status-note">(link pending)</span>
                     <?php else: ?>
                         <em>Not linked</em>
                     <?php endif; ?>
                 </dd>
             </dl>
         </div>
-
-        <?php if (empty($user['account_id'])): ?>
-            <form class="account-form" method="post" action="?p=account">
-                <h3>Link Your Game Account</h3>
-
-                <?php if ($linkErrors): ?>
-                    <ul class="form-errors">
-                        <?php foreach ($linkErrors as $error): ?>
-                            <li><?php echo sanitize($error); ?></li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-
-                <input type="hidden" name="action" value="link_account">
-                <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
-
-                <div class="form-group">
-                    <label for="link-account-name">Game Account Name</label>
-                    <input type="text" id="link-account-name" name="account_name" required pattern="[A-Za-z0-9]{3,20}">
-                </div>
-
-                <div class="form-group">
-                    <label for="link-account-password">Game Account Password</label>
-                    <input type="password" id="link-account-password" name="account_password" required autocomplete="current-password">
-                </div>
-
-                <div class="form-actions">
-                    <button type="submit">Link Account</button>
-                </div>
-            </form>
-        <?php endif; ?>
 
         <form class="account-form" method="post" action="?p=account">
             <h3>Change Password</h3>
