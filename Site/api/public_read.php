@@ -290,7 +290,7 @@ try {
             $limit = max(1, min(50, $limitParam));
 
             $html = render_widget_box($widgetName, $limit);
-            $attributes = widget_resolve_attributes($widgetName, $limit);
+            $attributes = widget_collect_attributes($widgetName, $limit);
             $widgetCacheKey = widget_cache_key($widgetName, $limit, $attributes);
             $timestamp = cache_last_modified($widgetCacheKey) ?? time();
 

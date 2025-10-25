@@ -46,6 +46,82 @@ $WIDGETS = [
     'vote_links' => ['title' => 'Vote & Support', 'renderer' => 'widget_vote_links', 'ttl' => 3600],
 ];
 
+function widget_collect_attributes(string $slug, int $limit, ?array $attributeOverrides = null): array
+{
+    global $WIDGETS;
+
+    $attributes = ['data-auto-refresh' => $slug];
+
+    $widget = $WIDGETS[$slug] ?? [];
+    $ttlSeconds = isset($widget['ttl']) ? (int) $widget['ttl'] : 0;
+    if ($ttlSeconds > 0) {
+        $attributes['data-interval'] = max(5000, $ttlSeconds * 1000);
+    } else {
+        $attributes['data-interval'] = 15000;
+    }
+
+    if ($limit > 0) {
+        $attributes['data-limit'] = $limit;
+    }
+
+    if (is_array($attributeOverrides)) {
+        foreach ($attributeOverrides as $key => $value) {
+            if ($value === null || $value === false) {
+                unset($attributes[$key]);
+                continue;
+            }
+
+            $attributes[$key] = $value;
+        }
+    }
+
+    return $attributes;
+}
+
+if (!function_exists('widget_resolve_attributes')) {
+    /**
+     * Turn an assoc array into a safe HTML attributes string.
+     * Example: ['data-auto-refresh'=>'online','data-interval'=>15000,'hidden'=>true]
+     *   ->  ' data-auto-refresh="online" data-interval="15000" hidden'
+     */
+    function widget_resolve_attributes(array $attrs = []): string
+    {
+        if (!$attrs) {
+            return '';
+        }
+
+        $out = [];
+        foreach ($attrs as $k => $v) {
+            if ($v === null || $v === false) {
+                continue;
+            }
+
+            $k = htmlspecialchars((string) $k, ENT_QUOTES, 'UTF-8');
+
+            if ($v === true) {
+                $out[] = $k;
+            } else {
+                $val = htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+                $out[] = $k . '="' . $val . '"';
+            }
+        }
+
+        return $out ? ' ' . implode(' ', $out) : '';
+    }
+}
+
+function widget_cache_key(string $slug, int $limit, array $attributes = []): string
+{
+    $params = ['limit' => $limit];
+
+    if ($attributes) {
+        ksort($attributes);
+        $params['attrs'] = $attributes;
+    }
+
+    return cache_key('widget:' . $slug, $params);
+}
+
 function nx_widget_registry(): array
 {
     global $WIDGETS;
@@ -710,7 +786,7 @@ function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverri
     }
 
     $limit = max(1, $limit);
-    $attributes = widget_resolve_attributes($slug, $limit, $attributeOverrides);
+    $attributes = widget_collect_attributes($slug, $limit, $attributeOverrides);
     $ttl = isset($widget['ttl']) ? (int) $widget['ttl'] : 0;
     $key = widget_cache_key($slug, $limit, $attributes);
 
@@ -727,7 +803,7 @@ function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverri
         $innerHtml = (string) $innerHtml;
     }
     $title = htmlspecialchars($widget['title'] ?? $slug, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $attrString = widget_format_attributes($attributes);
+    $attrString = widget_resolve_attributes($attributes);
     $box = '<section class="widget"' . $attrString . '><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
 
     if ($ttl > 0) {
