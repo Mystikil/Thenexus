@@ -121,6 +121,23 @@ few minutes.
    `/api/public_read.php` endpoints and `/api/jobs_pull.php` bridge will now use
    the secrets defined in `config.php`.
 
+### 🔐 Password Modes and Legacy Compatibility
+
+- Update `Site/config.php` so the `PASSWORD_MODE` constant matches your TFS
+  `config.lua` setting:
+  - `sha1`  → `PASSWORD_MODE = 'tfs_sha1'`
+  - `md5`   → `PASSWORD_MODE = 'tfs_md5'`
+  - `plain` → `PASSWORD_MODE = 'tfs_plain'`
+  - Use `PASSWORD_MODE = 'dual'` to keep SHA1 for TFS while the website stores
+    modern `password_hash()` credentials.
+- If your `accounts` table has a `salt` column and legacy hashes were computed
+  as `sha1(salt .. password)`, set `PASS_WITH_SALT = true` (and confirm the
+  `SALT_COL` constant matches your schema).
+- For live servers, keep rate limiting enabled on login and registration and
+  pair owner/admin accounts with 2FA.
+- When migrating old AAC data, you can temporarily flip `ALLOW_FALLBACKS = true`
+  to log which legacy hash format (SHA1 or MD5) matches during login.
+
 🌍 Connections
 To connect to your server, use one of the following compatible clients:
 
