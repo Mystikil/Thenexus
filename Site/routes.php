@@ -14,6 +14,7 @@ $routes = [
     'houses' => __DIR__ . '/pages/houses.php',
     'character' => __DIR__ . '/pages/character.php',
     'account' => __DIR__ . '/pages/account.php',
+    'recover' => __DIR__ . '/pages/recover.php',
     'characters' => __DIR__ . '/pages/characters.php',
     'shop' => __DIR__ . '/pages/shop.php',
     'tickets' => __DIR__ . '/pages/tickets.php',
