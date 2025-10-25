@@ -60,3 +60,21 @@ function base_url(string $path = ''): string
 
     return $url === '' ? './' : $url;
 }
+
+function nx_current_page_slug(): string
+{
+    $slug = $GLOBALS['nx_current_page_slug'] ?? null;
+
+    if (!is_string($slug) || $slug === '') {
+        $slug = $_GET['p'] ?? 'home';
+    }
+
+    $slug = strtolower(trim((string) $slug));
+    $slug = preg_replace('/[^a-z0-9_]/', '', $slug);
+
+    if ($slug === '') {
+        return 'home';
+    }
+
+    return $slug;
+}
