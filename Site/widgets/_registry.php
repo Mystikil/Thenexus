@@ -695,7 +695,7 @@ function widget_vote_links(PDO $pdo, int $limit = 0): string
     return $html;
 }
 
-function render_widget_box(string $slug, int $limit = 5): string
+function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverrides = null): string
 {
     global $WIDGETS;
 
@@ -709,8 +709,10 @@ function render_widget_box(string $slug, int $limit = 5): string
         return '';
     }
 
+    $limit = max(1, $limit);
+    $attributes = widget_resolve_attributes($slug, $limit, $attributeOverrides);
     $ttl = isset($widget['ttl']) ? (int) $widget['ttl'] : 0;
-    $key = cache_key('widget_' . $slug, ['limit' => $limit]);
+    $key = widget_cache_key($slug, $limit, $attributes);
 
     if ($ttl > 0) {
         $cached = cache_get($key, $ttl);
@@ -725,7 +727,8 @@ function render_widget_box(string $slug, int $limit = 5): string
         $innerHtml = (string) $innerHtml;
     }
     $title = htmlspecialchars($widget['title'] ?? $slug, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $box = '<section class="widget"><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
+    $attrString = widget_format_attributes($attributes);
+    $box = '<section class="widget"' . $attrString . '><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
 
     if ($ttl > 0) {
         cache_set($key, $box);

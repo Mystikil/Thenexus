@@ -17,13 +17,31 @@ function cache_key(string $name, array $paramsArray = []): string
     return hash('sha256', $payload);
 }
 
+function cache_path(string $key): string
+{
+    return WIDGET_CACHE_DIR . '/' . $key . '.html';
+}
+
+function cache_last_modified(string $key): ?int
+{
+    $path = cache_path($key);
+
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $mtime = filemtime($path);
+
+    return $mtime === false ? null : (int) $mtime;
+}
+
 function cache_get(string $key, int $ttlSeconds): ?string
 {
     if ($ttlSeconds <= 0) {
         return null;
     }
 
-    $path = WIDGET_CACHE_DIR . '/' . $key . '.html';
+    $path = cache_path($key);
 
     if (!is_file($path)) {
         return null;
@@ -52,6 +70,6 @@ function cache_set(string $key, string $html): void
         return;
     }
 
-    $path = WIDGET_CACHE_DIR . '/' . $key . '.html';
+    $path = cache_path($key);
     file_put_contents($path, $html, LOCK_EX);
 }
