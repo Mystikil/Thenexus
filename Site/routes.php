@@ -35,34 +35,22 @@ $pdo = db();
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
     $override = nx_locate_template($pdo, $page);
 
-    include __DIR__ . '/includes/header.php';
-
     if ($override !== null) {
-        include $override;
-    } else {
-        include $routes[$page];
+        return $override;
     }
 
-    include __DIR__ . '/includes/footer.php';
-    return;
+    return $routes[$page];
 }
 
 http_response_code(404);
 $notFoundTemplate = nx_locate_template($pdo, '404');
 
-include __DIR__ . '/includes/header.php';
-
 if ($notFoundTemplate !== null) {
-    include $notFoundTemplate;
-} elseif (file_exists(__DIR__ . '/pages/404.php')) {
-    include __DIR__ . '/pages/404.php';
-} else {
-    ?>
-    <section class="page page--404">
-        <h2>Page not found</h2>
-        <p>The page you requested could not be located.</p>
-    </section>
-    <?php
+    return $notFoundTemplate;
 }
 
-include __DIR__ . '/includes/footer.php';
+if (file_exists(__DIR__ . '/pages/404.php')) {
+    return __DIR__ . '/pages/404.php';
+}
+
+return __DIR__ . '/includes/404-fallback.php';
