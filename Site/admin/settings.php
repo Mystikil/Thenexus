@@ -6,6 +6,7 @@ $adminPageTitle = 'Settings';
 $adminNavActive = 'settings';
 
 require __DIR__ . '/partials/header.php';
+require_once __DIR__ . '/../includes/theme.php';
 
 $settingsMap = [
     'default_theme' => 'Default Theme',
@@ -21,6 +22,24 @@ $currentSettings = [
     'BRIDGE_SECRET' => BRIDGE_SECRET,
 ];
 
+$availableThemes = nx_all_themes();
+
+if (!isset($availableThemes['default'])) {
+    $availableThemes['default'] = [
+        'slug' => 'default',
+        'name' => 'Default',
+        'type' => 'skin',
+        'version' => '',
+        'path' => nx_theme_path('default'),
+        'manifest' => [],
+    ];
+}
+
+$availableThemes = array_replace([], $availableThemes);
+ksort($availableThemes);
+
+$availableThemeSlugs = array_keys($availableThemes);
+
 $errors = [];
 $successMessage = null;
 
@@ -35,6 +54,14 @@ while ($row = $stmt->fetch()) {
     }
 }
 
+if (!in_array('default', $availableThemeSlugs, true)) {
+    $availableThemeSlugs[] = 'default';
+}
+
+if (!in_array($currentSettings['default_theme'], $availableThemeSlugs, true)) {
+    $currentSettings['default_theme'] = 'default';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errors[] = 'The request could not be validated. Please try again.';
@@ -47,6 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         foreach ($settingsMap as $key => $label) {
             $newValue = trim((string) ($_POST[$key] ?? ''));
+
+            if ($key === 'default_theme') {
+                if ($newValue === '' || !in_array($newValue, $availableThemeSlugs, true)) {
+                    $newValue = 'default';
+                }
+            }
             $previousValue = $currentSettings[$key] ?? '';
 
             if ($newValue === $previousValue) {
@@ -96,12 +129,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php foreach ($settingsMap as $key => $label): ?>
             <div class="admin-form__group">
                 <label for="<?php echo sanitize($key); ?>"><?php echo sanitize($label); ?></label>
-                <input
-                    type="text"
-                    id="<?php echo sanitize($key); ?>"
-                    name="<?php echo sanitize($key); ?>"
-                    value="<?php echo sanitize($currentSettings[$key] ?? ''); ?>"
-                >
+                <?php if ($key === 'default_theme'): ?>
+                    <select id="<?php echo sanitize($key); ?>" name="<?php echo sanitize($key); ?>">
+                        <?php foreach ($availableThemeSlugs as $slug): ?>
+                            <option value="<?php echo sanitize($slug); ?>"<?php echo ($currentSettings[$key] ?? '') === $slug ? ' selected' : ''; ?>>
+                                <?php
+                                    $theme = $availableThemes[$slug] ?? null;
+                                    $labelText = $theme && isset($theme['name']) ? (string) $theme['name'] : ucfirst($slug);
+                                    echo sanitize($labelText . ' (' . $slug . ')');
+                                ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php else: ?>
+                    <input
+                        type="text"
+                        id="<?php echo sanitize($key); ?>"
+                        name="<?php echo sanitize($key); ?>"
+                        value="<?php echo sanitize($currentSettings[$key] ?? ''); ?>"
+                    >
+                <?php endif; ?>
             </div>
         <?php endforeach; ?>
         <button type="submit" class="admin-button">Save Settings</button>

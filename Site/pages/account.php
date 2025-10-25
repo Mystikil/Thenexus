@@ -1,11 +1,15 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/theme.php';
+
 $loginErrors = [];
 $registerErrors = [];
 $passwordErrors = [];
+$themeErrors = [];
 $loginEmail = '';
 $registerEmail = '';
+$themes = nx_all_themes();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -112,6 +116,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 break;
+
+            case 'theme':
+                if (!is_logged_in()) {
+                    flash('error', 'You must be logged in to update your theme preference.');
+                    redirect('?p=account');
+                }
+
+                $selectedTheme = trim((string) ($_POST['theme'] ?? ''));
+
+                if ($selectedTheme === '' || isset($themes[$selectedTheme])) {
+                    $user = current_user();
+
+                    if ($user !== null) {
+                        $pdo = db();
+
+                        if ($selectedTheme === '') {
+                            $stmt = $pdo->prepare('UPDATE website_users SET theme_preference = NULL WHERE id = :id');
+                            $stmt->execute(['id' => (int) $user['id']]);
+                        } else {
+                            $stmt = $pdo->prepare('UPDATE website_users SET theme_preference = :theme WHERE id = :id');
+                            $stmt->execute([
+                                'theme' => $selectedTheme,
+                                'id' => (int) $user['id'],
+                            ]);
+                        }
+
+                        flash('success', 'Your theme preference has been updated.');
+                        redirect('?p=account');
+                    }
+                } else {
+                    $themeErrors[] = 'The selected theme is not available.';
+                }
+
+                break;
         }
     }
 }
@@ -120,6 +158,11 @@ $csrfToken = csrf_token();
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');
 $user = current_user();
+$selectedThemeSlug = $user !== null ? (string) ($user['theme_preference'] ?? '') : '';
+
+if ($themeErrors !== []) {
+    $selectedThemeSlug = trim((string) ($_POST['theme'] ?? ''));
+}
 ?>
 <section class="page page--account">
     <h2>Account</h2>
@@ -244,15 +287,34 @@ $user = current_user();
 
         <div class="account-theme-placeholder">
             <h3>Theme Preference</h3>
-            <div class="form-group">
-                <label for="theme-preference">Preferred Theme</label>
-                <select id="theme-preference" disabled>
-                    <option value="default">Default</option>
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                </select>
-            </div>
-            <p>Theme selection is coming soon.</p>
+            <form class="account-form" method="post" action="?p=account">
+                <input type="hidden" name="action" value="theme">
+                <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+
+                <?php if ($themeErrors): ?>
+                    <ul class="form-errors">
+                        <?php foreach ($themeErrors as $error): ?>
+                            <li><?php echo sanitize($error); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+
+                <div class="form-group">
+                    <label for="theme-preference">Preferred Theme</label>
+                    <select id="theme-preference" name="theme">
+                        <option value=""<?php echo $selectedThemeSlug === '' ? ' selected' : ''; ?>>Use site default</option>
+                        <?php foreach ($themes as $slug => $theme): ?>
+                            <option value="<?php echo sanitize($slug); ?>"<?php echo $selectedThemeSlug === $slug ? ' selected' : ''; ?>>
+                                <?php echo sanitize(($theme['name'] ?? $slug) . ' (' . $slug . ')'); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Save Preference</button>
+                </div>
+            </form>
         </div>
     <?php endif; ?>
 </section>

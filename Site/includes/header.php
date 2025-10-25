@@ -1,4 +1,19 @@
-<?php require_once __DIR__ . '/theme.php'; ?>
+<?php require_once __DIR__ . '/theme.php';
+
+$pdo = db();
+$themeSlug = nx_current_theme_slug($pdo);
+$themeCssFiles = [];
+
+$variablesPath = nx_theme_path($themeSlug, 'css/variables.css');
+if (is_file($variablesPath)) {
+    $themeCssFiles[] = base_url('themes/' . rawurlencode($themeSlug) . '/css/variables.css');
+}
+
+$themeStylesPath = nx_theme_path($themeSlug, 'css/theme.css');
+if (is_file($themeStylesPath)) {
+    $themeCssFiles[] = base_url('themes/' . rawurlencode($themeSlug) . '/css/theme.css');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +21,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo sanitize(SITE_TITLE); ?></title>
     <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/styles.css')); ?>">
-    <link rel="stylesheet" href="<?php echo sanitize(theme_url('css/variables.css')); ?>">
-    <link rel="stylesheet" href="<?php echo sanitize(theme_url('css/theme.css')); ?>">
+    <?php foreach ($themeCssFiles as $cssHref): ?>
+        <link rel="stylesheet" href="<?php echo sanitize($cssHref); ?>">
+    <?php endforeach; ?>
 </head>
 <body>
 <header class="site-header">
