@@ -19,6 +19,10 @@ function cache_key(string $name, array $paramsArray = []): string
 
 function cache_get(string $key, int $ttlSeconds): ?string
 {
+    if ($ttlSeconds <= 0) {
+        return null;
+    }
+
     $path = WIDGET_CACHE_DIR . '/' . $key . '.html';
 
     if (!is_file($path)) {

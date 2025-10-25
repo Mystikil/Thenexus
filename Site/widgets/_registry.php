@@ -4,6 +4,18 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/_cache.php';
 
+if (!defined('DB_HOST')) {
+    require_once __DIR__ . '/../config.php';
+}
+
+if (!function_exists('db')) {
+    require_once __DIR__ . '/../db.php';
+}
+
+if (!function_exists('sanitize')) {
+    require_once __DIR__ . '/../functions.php';
+}
+
 if (!function_exists('vocation_name_widget')) {
     function vocation_name_widget(int $vocationId): string
     {
@@ -185,8 +197,11 @@ function widget_vote_links(PDO $pdo, int $limit = 5): string
         return '<p class="widget-empty">No vote links available.</p>';
     }
 
+    $limit = max(0, $limit);
+    $visibleLinks = $limit > 0 ? array_slice($links, 0, $limit) : $links;
+
     $html = '<ul class="widget-links">';
-    foreach ($links as $link) {
+    foreach ($visibleLinks as $link) {
         $html .= '<li><a href="' . htmlspecialchars($link['url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" rel="noopener" target="_blank">' . sanitize($link['label']) . '</a></li>';
     }
     $html .= '</ul>';
@@ -220,6 +235,9 @@ function render_widget_box(string $slug, int $limit = 5): string
 
     $pdo = db();
     $innerHtml = call_user_func($renderer, $pdo, $limit);
+    if (!is_string($innerHtml)) {
+        $innerHtml = (string) $innerHtml;
+    }
     $title = htmlspecialchars($widget['title'] ?? $slug, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $box = '<section class="widget"><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
 
