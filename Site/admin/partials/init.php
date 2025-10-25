@@ -29,6 +29,7 @@ function admin_nav_items(): array
         ['href' => 'news.php', 'label' => 'News', 'slug' => 'news'],
         ['href' => 'changelog.php', 'label' => 'Changelog', 'slug' => 'changelog'],
         ['href' => 'cms.php', 'label' => 'CMS', 'slug' => 'cms'],
+        ['href' => 'widgets.php', 'label' => 'Widgets', 'slug' => 'widgets'],
         ['href' => 'shop.php', 'label' => 'Shop', 'slug' => 'shop'],
         ['href' => 'logs.php', 'label' => 'Logs', 'slug' => 'logs'],
         ['href' => 'settings.php', 'label' => 'Settings', 'slug' => 'settings'],

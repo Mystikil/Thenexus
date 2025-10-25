@@ -30,6 +30,8 @@ if ($page === '') {
     $page = 'home';
 }
 
+$GLOBALS['nx_current_page_slug'] = $page;
+
 $pdo = db();
 
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
@@ -43,6 +45,7 @@ if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
 }
 
 http_response_code(404);
+$GLOBALS['nx_current_page_slug'] = '404';
 $notFoundTemplate = nx_locate_template($pdo, '404');
 
 if ($notFoundTemplate !== null) {
