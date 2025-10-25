@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/includes/theme.php';
+
 $routes = [
     'home' => __DIR__ . '/pages/home.php',
     'news' => __DIR__ . '/pages/news.php',
@@ -29,8 +31,17 @@ if (!$page) {
 }
 
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
+    $pdo = db();
+    $override = nx_locate_template($pdo, $page);
+
     include __DIR__ . '/includes/header.php';
-    include $routes[$page];
+
+    if ($override !== null) {
+        include $override;
+    } else {
+        include $routes[$page];
+    }
+
     include __DIR__ . '/includes/footer.php';
     return;
 }
