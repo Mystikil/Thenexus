@@ -13,6 +13,51 @@ $adminNavActive = 'widgets';
 require __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../widgets/_registry.php';
 
+// -- Helpers --------------------------------------------------------------
+
+/** Return a safe page slug (letters/numbers/underscore/dash), never numeric-only. */
+function nx_page_slug(?string $raw): string {
+    $raw = (string)($raw ?? '');
+    $slug = preg_replace('/[^a-z0-9_-]/i', '', strtolower($raw)) ?: 'default';
+    // avoid pure numeric slugs turning into ints in some flows
+    if (preg_match('/^\d+$/', $slug)) {
+        $slug = 'p' . $slug;
+    }
+
+    return $slug;
+}
+
+/** Build a query string safely (casts to string, rawurlencodes keys/values). */
+function nx_qs(array $params, bool $mergeCurrent = true): string {
+    $base = $mergeCurrent ? $_GET : [];
+
+    foreach ($params as $k => $v) {
+        $base[(string) $k] = is_array($v) ? json_encode($v) : (string) $v;
+    }
+
+    // Use http_build_query over raw urlencode glue
+    return http_build_query($base, arg_separator: '&', encoding_type: PHP_QUERY_RFC3986);
+}
+
+/** Echo an href with merged query params. */
+function nx_href(array $params = [], bool $mergeCurrent = true): string {
+    return '?' . nx_qs($params, $mergeCurrent);
+}
+
+/** Coerce an index to a non-negative int. */
+function nx_int_index($v): int {
+    $i = (int) $v;
+
+    return $i < 0 ? 0 : $i;
+}
+
+$currentPage = nx_page_slug($_GET['page'] ?? 'default');
+$side        = in_array($_GET['side'] ?? 'left', ['left', 'right'], true) ? $_GET['side'] : 'left';
+
+$idx    = nx_int_index($_GET['idx'] ?? 0);
+$move   = ($_GET['move'] ?? ''); // 'up' | 'down'
+$enable = isset($_GET['enable']) ? (($_GET['enable'] === '1') ? '1' : '0') : null;
+
 function nx_admin_widget_page_slugs(): array
 {
     static $cache;
@@ -119,14 +164,19 @@ $successMessage = take_flash('success');
 $errorMessage = take_flash('error');
 $allWidgets = nx_widget_registry();
 $availablePages = nx_admin_widget_page_slugs();
-$selectedPage = $_GET['page'] ?? '';
-$selectedPage = nx_widget_normalize_page_slug($selectedPage);
-
-if ($selectedPage === '' || ($availablePages !== [] && !in_array($selectedPage, $availablePages, true))) {
-    $selectedPage = $availablePages[0] ?? '';
+$pageSlugMap = ['default' => ''];
+foreach ($availablePages as $pageSlug) {
+    $pageSlugMap[nx_page_slug($pageSlug)] = $pageSlug;
 }
 
-$redirectBase = 'widgets.php' . ($selectedPage !== '' ? '?page=' . urlencode($selectedPage) : '');
+$selectedPage = $pageSlugMap[$currentPage] ?? '';
+
+if ($selectedPage === '' && $availablePages !== []) {
+    $selectedPage = $availablePages[0];
+    $currentPage = nx_page_slug($selectedPage);
+}
+
+$redirectBase = 'widgets.php' . ($selectedPage !== '' ? nx_href(['page' => $currentPage], false) : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $context = $_POST['context'] ?? '';
@@ -215,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             nx_widget_delete_configuration($pdo, 'left', $page);
             nx_widget_delete_configuration($pdo, 'right', $page);
             flash('success', 'Override removed. This page now follows the default layout.');
-            redirect('widgets.php?page=' . urlencode($page));
+            redirect('widgets.php' . nx_href(['page' => nx_page_slug($page)], false));
         }
 
         $moveAction = false;
@@ -263,7 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('success', 'Page override saved.');
         }
 
-        redirect('widgets.php?page=' . urlencode($page));
+        redirect('widgets.php' . nx_href(['page' => nx_page_slug($page)], false));
     }
 }
 
@@ -307,7 +357,7 @@ foreach ($allWidgets as $slug => $meta) {
     <p>The default layout is used on all pages that do not have a custom override.</p>
 
     <form method="post" class="admin-form">
-        <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo sanitize((string) $csrfToken); ?>">
         <input type="hidden" name="context" value="default">
         <div class="admin-widget-layout">
             <div class="admin-widget-column">
@@ -316,7 +366,7 @@ foreach ($allWidgets as $slug => $meta) {
                     <?php foreach ($defaultLeftWidgets as $index => $widget): ?>
                         <?php $slug = $widget['slug']; ?>
                         <li class="admin-widget-item">
-                            <input type="hidden" name="left_order[]" value="<?php echo sanitize($slug); ?>">
+                            <input type="hidden" name="left_order[]" value="<?php echo sanitize((string) $slug); ?>">
                             <div class="admin-widget-item__body">
                                 <div class="admin-widget-item__info">
                                     <strong><?php echo sanitize($widgetTitles[$slug] ?? ucfirst($slug)); ?></strong>
@@ -328,7 +378,7 @@ foreach ($allWidgets as $slug => $meta) {
                                         <button type="submit" name="move[left][<?php echo sanitize($slug); ?>]" value="down" class="admin-widget-move__button" <?php echo $index === count($defaultLeftWidgets) - 1 ? 'disabled' : ''; ?> aria-label="Move <?php echo sanitize($slug); ?> down">▼</button>
                                     </div>
                                     <label class="admin-widget-toggle">
-                                        <input type="checkbox" name="left_enabled[<?php echo sanitize($slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
+                                        <input type="checkbox" name="left_enabled[<?php echo sanitize((string) $slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
                                         <span>Enabled</span>
                                     </label>
                                 </div>
@@ -343,7 +393,7 @@ foreach ($allWidgets as $slug => $meta) {
                     <?php foreach ($defaultRightWidgets as $index => $widget): ?>
                         <?php $slug = $widget['slug']; ?>
                         <li class="admin-widget-item">
-                            <input type="hidden" name="right_order[]" value="<?php echo sanitize($slug); ?>">
+                            <input type="hidden" name="right_order[]" value="<?php echo sanitize((string) $slug); ?>">
                             <div class="admin-widget-item__body">
                                 <div class="admin-widget-item__info">
                                     <strong><?php echo sanitize($widgetTitles[$slug] ?? ucfirst($slug)); ?></strong>
@@ -355,7 +405,7 @@ foreach ($allWidgets as $slug => $meta) {
                                         <button type="submit" name="move[right][<?php echo sanitize($slug); ?>]" value="down" class="admin-widget-move__button" <?php echo $index === count($defaultRightWidgets) - 1 ? 'disabled' : ''; ?> aria-label="Move <?php echo sanitize($slug); ?> down">▼</button>
                                     </div>
                                     <label class="admin-widget-toggle">
-                                        <input type="checkbox" name="right_enabled[<?php echo sanitize($slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
+                                        <input type="checkbox" name="right_enabled[<?php echo sanitize((string) $slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
                                         <span>Enabled</span>
                                     </label>
                                 </div>
@@ -382,9 +432,9 @@ foreach ($allWidgets as $slug => $meta) {
         <form method="get" class="admin-form admin-form--inline">
             <div class="admin-form__group">
                 <label for="selected_page">Select Page</label>
-                <select id="selected_page" name="page">
-                    <?php foreach ($availablePages as $page): ?>
-                        <option value="<?php echo sanitize($page); ?>"<?php echo $page === $selectedPage ? ' selected' : ''; ?>><?php echo sanitize(ucfirst(str_replace('_', ' ', $page))); ?></option>
+                <select id="selected_page" name="page" onchange="location.href='<?php echo nx_href(['page' => '__REPL__'], false); ?>'.replace('__REPL__', encodeURIComponent(this.value))">
+                    <?php foreach ($availablePages as $page): $ps = nx_page_slug($page); ?>
+                        <option value="<?php echo htmlspecialchars($ps, ENT_QUOTES, 'UTF-8'); ?>"<?php echo $ps === $currentPage ? ' selected' : ''; ?>><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $page)), ENT_QUOTES, 'UTF-8'); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -404,9 +454,9 @@ foreach ($allWidgets as $slug => $meta) {
         </p>
 
         <form method="post" class="admin-form">
-            <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+            <input type="hidden" name="csrf_token" value="<?php echo sanitize((string) $csrfToken); ?>">
             <input type="hidden" name="context" value="override">
-            <input type="hidden" name="page" value="<?php echo sanitize($selectedPage); ?>">
+            <input type="hidden" name="page" value="<?php echo sanitize((string) $selectedPage); ?>">
             <div class="admin-widget-layout">
                 <div class="admin-widget-column">
                     <h4>Left Sidebar</h4>
@@ -414,7 +464,7 @@ foreach ($allWidgets as $slug => $meta) {
                         <?php foreach ($pageLeftWidgets as $index => $widget): ?>
                             <?php $slug = $widget['slug']; ?>
                             <li class="admin-widget-item">
-                                <input type="hidden" name="left_order[]" value="<?php echo sanitize($slug); ?>">
+                                <input type="hidden" name="left_order[]" value="<?php echo sanitize((string) $slug); ?>">
                                 <div class="admin-widget-item__body">
                                     <div class="admin-widget-item__info">
                                         <strong><?php echo sanitize($widgetTitles[$slug] ?? ucfirst($slug)); ?></strong>
@@ -426,7 +476,7 @@ foreach ($allWidgets as $slug => $meta) {
                                             <button type="submit" name="move[left][<?php echo sanitize($slug); ?>]" value="down" class="admin-widget-move__button" <?php echo $index === count($pageLeftWidgets) - 1 ? 'disabled' : ''; ?> aria-label="Move <?php echo sanitize($slug); ?> down">▼</button>
                                         </div>
                                         <label class="admin-widget-toggle">
-                                            <input type="checkbox" name="left_enabled[<?php echo sanitize($slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
+                                            <input type="checkbox" name="left_enabled[<?php echo sanitize((string) $slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
                                             <span>Enabled</span>
                                         </label>
                                     </div>
@@ -441,7 +491,7 @@ foreach ($allWidgets as $slug => $meta) {
                         <?php foreach ($pageRightWidgets as $index => $widget): ?>
                             <?php $slug = $widget['slug']; ?>
                             <li class="admin-widget-item">
-                                <input type="hidden" name="right_order[]" value="<?php echo sanitize($slug); ?>">
+                                <input type="hidden" name="right_order[]" value="<?php echo sanitize((string) $slug); ?>">
                                 <div class="admin-widget-item__body">
                                     <div class="admin-widget-item__info">
                                         <strong><?php echo sanitize($widgetTitles[$slug] ?? ucfirst($slug)); ?></strong>
@@ -453,7 +503,7 @@ foreach ($allWidgets as $slug => $meta) {
                                             <button type="submit" name="move[right][<?php echo sanitize($slug); ?>]" value="down" class="admin-widget-move__button" <?php echo $index === count($pageRightWidgets) - 1 ? 'disabled' : ''; ?> aria-label="Move <?php echo sanitize($slug); ?> down">▼</button>
                                         </div>
                                         <label class="admin-widget-toggle">
-                                            <input type="checkbox" name="right_enabled[<?php echo sanitize($slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
+                                            <input type="checkbox" name="right_enabled[<?php echo sanitize((string) $slug); ?>]" <?php echo !empty($widget['enabled']) ? 'checked' : ''; ?>>
                                             <span>Enabled</span>
                                         </label>
                                     </div>
