@@ -27,6 +27,7 @@ $u = current_user();
             <li><a class="dropdown-item" href="?p=highscores">Highscores</a></li>
             <li><a class="dropdown-item" href="?p=whoisonline">Who’s Online</a></li>
             <li><a class="dropdown-item" href="?p=deaths">Deaths</a></li>
+            <li><a class="dropdown-item" href="?p=events">Events</a></li>
             <li><a class="dropdown-item" href="?p=market">Market</a></li>
           </ul>
         </li>

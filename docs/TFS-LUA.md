@@ -1,123 +1,61 @@
-# TFS Bridge Lua Examples
+# TFS Webhook Integration Examples
 
-The snippets below illustrate how to publish webhook events and process bridge
-jobs from an OTServ/TFS Lua environment. Adapt the HTTP helper functions to the
-facilities that your server distribution provides.
+> **Note:** These snippets are examples only. They should be reviewed and adapted before use on your TFS server. Do **not** execute them on the web application server.
 
-Set `WEBHOOK_SECRET` and `BRIDGE_SECRET` inside `Site/config.php` on the website
-before using these examples. Both values must match the secrets that your Lua
-scripts rely on when signing requests or authenticating with the bridge.
-
-## Sending Webhook Events
-
+## Webhook sender stub (`data/scripts/webhook.lua`)
 ```lua
-local json = require('json') -- Replace with your JSON encoder
-local http = require('http') -- Replace with your HTTP client
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+local cjson = require("cjson")
 
-local WEBHOOK_SECRET = 'replace-with-webhook-secret'
+local secret = "{{WEBHOOK_SECRET}}"
+local url = "{{SITE_URL}}/api/webhooks/tfs.php"
 
-local function hmac_sha256(key, message)
-    -- Use your Lua distribution's crypto bindings
-    return crypto.hmac.sha256(key, message)
+local function hmac_sha256(key, data)
+    -- Replace this with a real HMAC-SHA256 implementation, such as one provided
+    -- by luasocket's crypto module or a custom binding.
+    return some_hmac(key, data)
 end
 
-local function send_webhook(event_name, event_data)
-    local payload = {
-        event = event_name,
-        data = event_data,
-        ts = os.time(),
-    }
+local function send(evt, data)
+    local body = cjson.encode({ event = evt, data = data, ts = os.time() })
+    local sig = hmac_sha256(secret, body)
+    local response = {}
 
-    local body = json.encode(payload)
-    local signature = hmac_sha256(WEBHOOK_SECRET, body)
-
-    local response = http.post('https://example.com/api/webhook.php', body, {
-        ['Content-Type'] = 'application/json',
-        ['X-Signature'] = signature,
+    http.request({
+        url = url,
+        method = "POST",
+        headers = {
+            ["Content-Type"] = "application/json",
+            ["X-TFS-Signature"] = sig,
+            ["Content-Length"] = tostring(#body),
+        },
+        source = ltn12.source.string(body),
+        sink = ltn12.sink.table(response),
     })
-
-    if response.status ~= 200 then
-        print('Webhook failed: ' .. response.status .. ' ' .. response.body)
-    end
 end
 
--- Example usage:
 function onLogin(player)
-    send_webhook('player_login', {
-        guid = player:getGuid(),
-        name = player:getName(),
-    })
+    send("player_login", { name = player:getName(), level = player:getLevel() })
 end
 
 function onLogout(player)
-    send_webhook('player_logout', {
-        guid = player:getGuid(),
-        name = player:getName(),
-    })
+    send("player_logout", { name = player:getName() })
 end
+
+-- Example custom event trigger:
+-- send("raid_start", { raid = "Orshabaal", position = { x = 1000, y = 1000, z = 7 } })
 ```
 
-## Polling and Completing Jobs
-
+## Status snapshot globalevent
 ```lua
-local json = require('json')
-local http = require('http')
-
-local BRIDGE_SECRET = 'replace-with-bridge-secret'
-
-local BASE_URL = 'https://example.com/api/jobs_pull.php'
-
-local function poll_jobs()
-    local response = http.get(BASE_URL .. '?limit=5', {
-        ['Authorization'] = 'Bearer ' .. BRIDGE_SECRET,
+local function report_status()
+    send("status_snapshot", {
+        online = getPlayersOnline(),
+        uptime = os.clock(),
+        tps = getServerTPS(),
     })
-
-    if response.status ~= 200 then
-        print('Job poll failed: ' .. response.status .. ' ' .. response.body)
-        return {}
-    end
-
-    local decoded = json.decode(response.body)
-    return decoded.jobs or {}
 end
 
-local function complete_job(job, status, result_text)
-    local response = http.post(BASE_URL .. '?complete=1', json.encode({
-        job_id = job.id,
-        status = status,
-        result_text = result_text,
-    }), {
-        ['Content-Type'] = 'application/json',
-        ['Authorization'] = 'Bearer ' .. BRIDGE_SECRET,
-    })
-
-    if response.status ~= 200 then
-        print('Job completion failed: ' .. response.status .. ' ' .. response.body)
-    end
-end
-
-local function process_jobs()
-    for _, job in ipairs(poll_jobs()) do
-        -- Replace with your own dispatcher per job.type
-        print('Executing job ' .. job.id .. ' of type ' .. job.type)
-        local success, message = dispatch_job(job)
-        if success then
-            complete_job(job, 'ok', message or 'Job executed successfully')
-        else
-            complete_job(job, 'error', message or 'Job failed to execute')
-        end
-    end
-end
-
--- Example: poll every minute
-addEvent(process_jobs, 60 * 1000)
-
--- Replace this stub with your own job handlers
-function dispatch_job(job)
-    -- return true/false and an optional message
-    return true, 'Job executed successfully'
-end
+-- Register this function with a globalevent that fires every N seconds.
 ```
-
-Remember to replace the placeholders with the actual secrets and HTTP helper
-implementations that are available in your environment.

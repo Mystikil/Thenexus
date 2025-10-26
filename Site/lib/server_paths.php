@@ -65,6 +65,8 @@ function nx_server_paths(): array
 
     $spellsPath = nx_normalize_path($dataPath . '/spells');
     $questsPath = nx_normalize_path($dataPath . '/quests');
+    $raidsPath = nx_normalize_path($dataPath . '/raids');
+    $globaleventsFile = nx_normalize_path($dataPath . '/globalevents/globalevents.xml');
 
     $paths = [
         'server_root' => $root,
@@ -77,6 +79,14 @@ function nx_server_paths(): array
 
     if (is_dir($questsPath)) {
         $paths['quests'] = $questsPath;
+    }
+
+    if (is_dir($raidsPath)) {
+        $paths['raids_dir'] = $raidsPath;
+    }
+
+    if (is_file($globaleventsFile)) {
+        $paths['globalevents'] = $globaleventsFile;
     }
 
     $cache = $paths;

@@ -10,6 +10,7 @@ $routes = [
     'whoisonline' => __DIR__ . '/pages/whoisonline.php',
     'deaths' => __DIR__ . '/pages/deaths.php',
     'market' => __DIR__ . '/pages/market.php',
+    'events' => __DIR__ . '/pages/events.php',
     'guilds' => __DIR__ . '/pages/guilds.php',
     'houses' => __DIR__ . '/pages/houses.php',
     'character' => __DIR__ . '/pages/character.php',

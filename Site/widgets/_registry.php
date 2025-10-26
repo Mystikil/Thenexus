@@ -43,6 +43,7 @@ $WIDGETS = [
     'online' => ['title' => 'Who’s Online', 'renderer' => 'widget_online', 'ttl' => 20],
     'recent_deaths' => ['title' => 'Recent Deaths', 'renderer' => 'widget_recent_deaths', 'ttl' => 60],
     'server_status' => ['title' => 'Server Status', 'renderer' => 'widget_server_status', 'ttl' => 15],
+    'server_events' => ['title' => 'Upcoming / Recent Events', 'renderer' => 'widget_server_events', 'ttl' => 60],
     'vote_links' => ['title' => 'Vote & Support', 'renderer' => 'widget_vote_links', 'ttl' => 3600],
 ];
 
@@ -137,7 +138,7 @@ function nx_widget_default_layout(): array
 {
     return [
         'left' => ['top_levels', 'top_guilds', 'vote_links'],
-        'right' => ['online', 'server_status', 'recent_deaths'],
+        'right' => ['online', 'server_status', 'server_events', 'recent_deaths'],
     ];
 }
 
@@ -148,6 +149,7 @@ function nx_widget_default_limits(): array
         'top_guilds' => 8,
         'online' => 10,
         'recent_deaths' => 8,
+        'server_events' => 10,
     ];
 }
 
@@ -504,6 +506,174 @@ function widget_top_levels(PDO $pdo, int $limit = 10): string
     $html .= '</ol>';
 
     return $html;
+}
+
+function widget_server_events(PDO $pdo, int $limit = 10): string
+{
+    $limit = max(1, min(50, $limit));
+    $recentLimit = $limit;
+    $upcomingLimit = min(5, $limit);
+    $now = new DateTimeImmutable('now');
+
+    $statusRow = null;
+    try {
+        $statusStmt = $pdo->query('SELECT online_count, uptime_seconds, tps, world_time, created_at FROM server_status_snapshot ORDER BY created_at DESC LIMIT 1');
+        $statusRow = $statusStmt !== false ? $statusStmt->fetch(PDO::FETCH_ASSOC) : null;
+    } catch (Throwable $exception) {
+        $statusRow = null;
+    }
+
+    $upcoming = [];
+    try {
+        $upcomingStmt = $pdo->prepare('SELECT name, source, next_run FROM server_schedule WHERE next_run IS NOT NULL AND next_run >= :now ORDER BY next_run ASC LIMIT :limit');
+        $upcomingStmt->bindValue(':now', $now->format('Y-m-d H:i:s'));
+        $upcomingStmt->bindValue(':limit', $upcomingLimit, PDO::PARAM_INT);
+        $upcomingStmt->execute();
+        $upcoming = $upcomingStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $exception) {
+        $upcoming = [];
+    }
+
+    if ($upcoming === []) {
+        try {
+            $fallbackStmt = $pdo->prepare('SELECT name, source, next_run FROM server_schedule ORDER BY next_run IS NULL ASC, next_run ASC LIMIT :limit');
+            $fallbackStmt->bindValue(':limit', $upcomingLimit, PDO::PARAM_INT);
+            $fallbackStmt->execute();
+            $upcoming = $fallbackStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $exception) {
+            $upcoming = [];
+        }
+    }
+
+    $recentEvents = [];
+    try {
+        $recentStmt = $pdo->prepare('SELECT event_type, payload, occurred_at FROM server_events ORDER BY occurred_at DESC LIMIT :limit');
+        $recentStmt->bindValue(':limit', $recentLimit, PDO::PARAM_INT);
+        $recentStmt->execute();
+        $recentEvents = $recentStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $exception) {
+        $recentEvents = [];
+    }
+
+    $parts = [];
+
+    if (is_array($statusRow) && $statusRow !== []) {
+        $onlineCount = (int) ($statusRow['online_count'] ?? 0);
+        $statusPieces = ['<div class="small">Online: <span class="fw-semibold">' . widget_escape((string) $onlineCount) . '</span></div>'];
+
+        if (isset($statusRow['tps']) && $statusRow['tps'] !== null) {
+            $statusPieces[] = '<div class="small">TPS: ' . widget_escape(number_format((float) $statusRow['tps'], 2)) . '</div>';
+        }
+
+        if (isset($statusRow['uptime_seconds']) && $statusRow['uptime_seconds'] !== null) {
+            $statusPieces[] = '<div class="small">Uptime: ' . widget_escape(nx_widget_format_duration((int) $statusRow['uptime_seconds'])) . '</div>';
+        }
+
+        if (!empty($statusRow['world_time'])) {
+            $statusPieces[] = '<div class="small">World: ' . widget_escape((string) $statusRow['world_time']) . '</div>';
+        }
+
+        $parts[] = '<div class="mb-2">' . implode('', $statusPieces) . '</div>';
+    }
+
+    if ($upcoming !== []) {
+        $html = '<div class="mb-2"><div class="fw-semibold text-uppercase text-muted small">Upcoming</div><ul class="list-unstyled mb-0 small">';
+        foreach ($upcoming as $item) {
+            $name = widget_escape((string) ($item['name'] ?? 'Event'));
+            $source = widget_escape(ucfirst((string) ($item['source'] ?? 'schedule')));
+            $label = $name;
+            if ($source !== '') {
+                $label .= ' <span class="text-muted">(' . $source . ')</span>';
+            }
+
+            $timeLabel = 'TBD';
+            if (!empty($item['next_run'])) {
+                $timestamp = strtotime((string) $item['next_run']);
+                if ($timestamp !== false) {
+                    $formatted = date('M j H:i', $timestamp);
+                    $relative = widget_relative_time($timestamp);
+                    $timeLabel = widget_escape($formatted) . ' <span class="text-muted">(' . widget_escape($relative) . ')</span>';
+                }
+            }
+
+            $html .= '<li class="d-flex justify-content-between"><span>' . $label . '</span><span class="text-end">' . $timeLabel . '</span></li>';
+        }
+        $html .= '</ul></div>';
+        $parts[] = $html;
+    }
+
+    if ($recentEvents !== []) {
+        $html = '<div><div class="fw-semibold text-uppercase text-muted small">Recent</div><ul class="list-unstyled mb-0 small">';
+        foreach ($recentEvents as $event) {
+            $type = widget_escape((string) ($event['event_type'] ?? 'event'));
+            $occurred = isset($event['occurred_at']) ? strtotime((string) $event['occurred_at']) : false;
+            $timeHtml = $occurred !== false ? widget_escape(widget_relative_time($occurred)) : 'unknown';
+            $summary = widget_escape(nx_widget_payload_summary($event['payload'] ?? null));
+
+            $html .= '<li class="mb-1"><div class="d-flex justify-content-between"><span>' . $type . '</span><span class="text-muted">' . $timeHtml . '</span></div>';
+            if ($summary !== '') {
+                $html .= '<div class="text-muted">' . $summary . '</div>';
+            }
+            $html .= '</li>';
+        }
+        $html .= '</ul></div>';
+        $parts[] = $html;
+    }
+
+    if ($parts === []) {
+        return '<p class="text-muted mb-0">No event data available.</p>';
+    }
+
+    return implode('', $parts);
+}
+
+function nx_widget_format_duration(int $seconds): string
+{
+    $seconds = max(0, $seconds);
+    $hours = intdiv($seconds, 3600);
+    $minutes = intdiv($seconds % 3600, 60);
+    $parts = [];
+
+    if ($hours > 0) {
+        $parts[] = $hours . 'h';
+    }
+
+    if ($minutes > 0) {
+        $parts[] = $minutes . 'm';
+    }
+
+    if ($parts === []) {
+        $parts[] = ($seconds % 60) . 's';
+    }
+
+    return implode(' ', $parts);
+}
+
+function nx_widget_payload_summary($payload): string
+{
+    if (is_string($payload)) {
+        $decoded = json_decode($payload, true);
+        if (is_array($decoded)) {
+            $payload = $decoded;
+        }
+    }
+
+    if (!is_array($payload)) {
+        return '';
+    }
+
+    $parts = [];
+    foreach ($payload as $key => $value) {
+        if (is_scalar($value)) {
+            $parts[] = $key . '=' . (string) $value;
+        }
+
+        if (count($parts) >= 4) {
+            break;
+        }
+    }
+
+    return implode(', ', $parts);
 }
 
 function widget_top_guilds(PDO $pdo, int $limit = 8): string
