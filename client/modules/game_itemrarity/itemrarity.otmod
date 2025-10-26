@@ -1,0 +1,8 @@
+Module
+  name: game_itemrarity
+  description: Item rarity shaders
+  author:
+  scripts: [ shaders.lua ]
+  sandboxed: true
+  @onLoad: init()
+  @onUnload: terminate()

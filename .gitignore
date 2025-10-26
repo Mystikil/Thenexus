@@ -1,0 +1,53 @@
+﻿.vs/
+# VS build outputs & caches
+*.obj
+*.iobj
+*.pdb
+*.ipch
+*.pch
+*.tlog
+*.log
+*.ilk
+*.iopt
+*.idb
+*.LastBuildState
+*.recipe
+*.res
+*.exe
+*.dll
+*.lib
+*.exp
+
+# Local build trees
+vc22/.vs/
+vc22/x64/
+vc22/theforgo.A10F9657/
+vcpkg_installed/
+
+# OS/editor
+Thumbs.db
+.DS_Store
+
+
+# server secrets & runtime
+config.lua
+server/config.lua
+data/logs/
+data/tmp/
+data/cache/
+*.sqlite
+
+# PHP/Laravel (if present)
+.env
+/vendor/
+/storage/logs/
+
+# Build
+node_modules/
+
+# OS/editor junk
+.DS_Store
+Thumbs.db
+
+# private keys
+key.pem
