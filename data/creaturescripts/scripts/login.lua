@@ -25,9 +25,10 @@ function onLogin(player)
 	player:updateClientExpDisplay()
 
 	-- Events
-	player:registerEvent("nx_rank_look")
-	player:registerEvent("PlayerDeath")
-	player:registerEvent("DropLoot")
-	player:registerEvent("SerialOnLook")
-	return true
+        player:registerEvent("nx_rank_look")
+        player:registerEvent("PlayerDeath")
+        player:registerEvent("DropLoot")
+        player:registerEvent("SerialOnLook")
+        player:registerEvent("FactionReputationKill")
+        return true
 end

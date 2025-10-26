@@ -10,10 +10,13 @@
 	<!-- Market -->
 	<action itemid="14405" function="market" />
 
-	<!-- Quests -->
-	<action itemid="1740" script="quests/quests.lua" />
-	<action fromid="1747" toid="1749" script="quests/quests.lua" />
-	<action uniqueid="30015" script="quests/annihilator.lua" />
+        <!-- Quests -->
+        <action uniqueid="47001" script="reputation_donation.lua" />
+        <action uniqueid="47002" script="reputation_donation.lua" />
+        <action uniqueid="47010" script="reputation_quest.lua" />
+        <action itemid="1740" script="quests/quests.lua" />
+        <action fromid="1747" toid="1749" script="quests/quests.lua" />
+        <action uniqueid="30015" script="quests/annihilator.lua" />
 
 	<!-- Tools -->
 	<action itemid="2120" script="tools/rope.lua" />

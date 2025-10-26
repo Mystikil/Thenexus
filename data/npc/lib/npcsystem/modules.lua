@@ -805,55 +805,68 @@ if not Modules then
 	--	cost = The price of one single item
 	--	subType - The subType of each rune or fluidcontainer item. Can be left out if it is not a rune/fluidcontainer. Default value is 1.
 	--	realName - The real, full name for the item. Will be used as ITEMNAME in MESSAGE_ONBUY and MESSAGE_ONSELL if defined. Default value is nil (ItemType(itemId):getName() will be used)
-	function ShopModule:addBuyableItem(names, itemid, cost, itemSubType, realName)
-		if SHOPMODULE_MODE ~= SHOPMODULE_MODE_TALK then
-			if not itemSubType then
-				itemSubType = 1
-			end
-			local it = ItemType(itemid)
-			if it:getId() ~= 0 then
-				local shopItem = self:getShopItem(itemid, itemSubType)
-				local it = ItemType(itemid)
-				if it:getId() ~= 0 then
-					local shopItem = self:getShopItem(itemid, itemSubType)
-					if not shopItem then
-						self.npcHandler.shopItems[#self.npcHandler.shopItems + 1] = {id = itemid, buy = cost, sell = 0, subType = itemSubType, name = realName or it:getName()}
-					else
-						if cost < shopItem.sell then
-							print("[Warning : " .. Npc():getName() .. "] NpcSystem: Buy price lower than sell price: (" .. shopItem.name .. ")")
-						end
-						shopItem.buy = cost
-					end
-				end
-			end
-		end
+        function ShopModule:addBuyableItem(names, itemid, cost, itemSubType, realName)
+                local priceMeta
+                local baseCost = cost
+                if type(cost) == 'table' then
+                        priceMeta = cost.meta or cost.flags
+                        baseCost = cost.price or cost.buy or cost.cost or cost[1] or 0
+                        if cost.realName and not realName then
+                                realName = cost.realName
+                        end
+                        if cost.subType and not itemSubType then
+                                itemSubType = cost.subType
+                        end
+                end
 
-		if names and SHOPMODULE_MODE ~= SHOPMODULE_MODE_TRADE then
-			for i, name in pairs(names) do
-				local parameters = {
-						itemid = itemid,
-						cost = cost,
-						eventType = SHOPMODULE_BUY_ITEM,
-						module = self,
-						realName = realName or ItemType(itemid):getName(),
-						subType = itemSubType or 1
-					}
+                if SHOPMODULE_MODE ~= SHOPMODULE_MODE_TALK then
+                        if not itemSubType then
+                                itemSubType = 1
+                        end
+                        local it = ItemType(itemid)
+                        if it:getId() ~= 0 then
+                                local shopItem = self:getShopItem(itemid, itemSubType)
+                                if not shopItem then
+                                        self.npcHandler.shopItems[#self.npcHandler.shopItems + 1] = {id = itemid, buy = baseCost, sell = 0, subType = itemSubType, name = realName or it:getName()}
+                                else
+                                        if baseCost < shopItem.sell then
+                                                print("[Warning : " .. Npc():getName() .. "] NpcSystem: Buy price lower than sell price: (" .. shopItem.name .. ")")
+                                        end
+                                        shopItem.buy = baseCost
+                                end
+                        end
+                end
 
-				keywords = {}
-				keywords[#keywords + 1] = "buy"
-				keywords[#keywords + 1] = name
-				local node = self.npcHandler.keywordHandler:addKeyword(keywords, ShopModule.tradeItem, parameters)
-				node:addChildKeywordNode(self.yesNode)
-				node:addChildKeywordNode(self.noNode)
-			end
-		end
+                if names and SHOPMODULE_MODE ~= SHOPMODULE_MODE_TRADE then
+                        for i, name in pairs(names) do
+                                local parameters = {
+                                                itemid = itemid,
+                                                cost = baseCost,
+                                                eventType = SHOPMODULE_BUY_ITEM,
+                                                module = self,
+                                                realName = realName or ItemType(itemid):getName(),
+                                                subType = itemSubType or 1
+                                        }
 
-		if not npcs_loaded_shop[getNpcCid()] then
-			npcs_loaded_shop[getNpcCid()] = getNpcCid()
-			self.npcHandler.keywordHandler:addKeyword({'yes'}, ShopModule.onConfirm, {module = self})
-			self.npcHandler.keywordHandler:addKeyword({'no'}, ShopModule.onDecline, {module = self})
-		end
-	end
+                                keywords = {}
+                                keywords[#keywords + 1] = "buy"
+                                keywords[#keywords + 1] = name
+                                local node = self.npcHandler.keywordHandler:addKeyword(keywords, ShopModule.tradeItem, parameters)
+                                node:addChildKeywordNode(self.yesNode)
+                                node:addChildKeywordNode(self.noNode)
+                        end
+                end
+
+                if not npcs_loaded_shop[getNpcCid()] then
+                        npcs_loaded_shop[getNpcCid()] = getNpcCid()
+                        self.npcHandler.keywordHandler:addKeyword({'yes'}, ShopModule.onConfirm, {module = self})
+                        self.npcHandler.keywordHandler:addKeyword({'no'}, ShopModule.onDecline, {module = self})
+                end
+
+                if priceMeta and ReputationEconomy then
+                        ReputationEconomy.registerShopItemMetadata(self.npcHandler, 'buy', itemid, itemSubType or 1, priceMeta)
+                end
+        end
 
 	function ShopModule:getShopItem(itemId, itemSubType)
 		if ItemType(itemId):isFluidContainer() then
@@ -909,48 +922,62 @@ if not Modules then
 	--	itemid = The itemid of the sellable item
 	--	cost = The price of one single item
 	--	realName - The real, full name for the item. Will be used as ITEMNAME in MESSAGE_ONBUY and MESSAGE_ONSELL if defined. Default value is nil (ItemType(itemId):getName() will be used)
-	function ShopModule:addSellableItem(names, itemid, cost, realName, itemSubType)
-		if SHOPMODULE_MODE ~= SHOPMODULE_MODE_TALK then
-			if not itemSubType then
-				itemSubType = 0
-			end
-			local it = ItemType(itemid)
-			if it:getId() ~= 0 then
-				local it = ItemType(itemid)
-				if it:getId() ~= 0 then
-					local shopItem = self:getShopItem(itemid, itemSubType)
-					if not shopItem then
-						self.npcHandler.shopItems[#self.npcHandler.shopItems + 1] = {id = itemid, buy = 0, sell = cost, subType = itemSubType, name = realName or it:getName()}
-					else
-						if shopItem.buy > 0 and cost > shopItem.buy then
-							print("[Warning : " .. Npc():getName() .. "] NpcSystem: Sell price higher than buy price: (" .. shopItem.name .. ")")
-						end
-						shopItem.sell = cost
-					end
-				end
-			end
-		end
+        function ShopModule:addSellableItem(names, itemid, cost, realName, itemSubType)
+                local priceMeta
+                local baseCost = cost
+                if type(cost) == 'table' then
+                        priceMeta = cost.meta or cost.flags
+                        baseCost = cost.price or cost.sell or cost.cost or cost[1] or 0
+                        if cost.realName and not realName then
+                                realName = cost.realName
+                        end
+                        if cost.subType and not itemSubType then
+                                itemSubType = cost.subType
+                        end
+                end
 
-		if names and SHOPMODULE_MODE ~= SHOPMODULE_MODE_TRADE then
-			for i, name in pairs(names) do
-				local parameters = {
-					itemid = itemid,
-					cost = cost,
-					eventType = SHOPMODULE_SELL_ITEM,
-					module = self,
-					realName = realName or ItemType(itemid):getName()
-				}
+                if SHOPMODULE_MODE ~= SHOPMODULE_MODE_TALK then
+                        if not itemSubType then
+                                itemSubType = 0
+                        end
+                        local it = ItemType(itemid)
+                        if it:getId() ~= 0 then
+                                local shopItem = self:getShopItem(itemid, itemSubType)
+                                if not shopItem then
+                                        self.npcHandler.shopItems[#self.npcHandler.shopItems + 1] = {id = itemid, buy = 0, sell = baseCost, subType = itemSubType, name = realName or it:getName()}
+                                else
+                                        if shopItem.buy > 0 and baseCost > shopItem.buy then
+                                                print("[Warning : " .. Npc():getName() .. "] NpcSystem: Sell price higher than buy price: (" .. shopItem.name .. ")")
+                                        end
+                                        shopItem.sell = baseCost
+                                end
+                        end
+                end
 
-				keywords = {}
-				keywords[#keywords + 1] = "sell"
-				keywords[#keywords + 1] = name
+                if names and SHOPMODULE_MODE ~= SHOPMODULE_MODE_TRADE then
+                        for i, name in pairs(names) do
+                                local parameters = {
+                                        itemid = itemid,
+                                        cost = baseCost,
+                                        eventType = SHOPMODULE_SELL_ITEM,
+                                        module = self,
+                                        realName = realName or ItemType(itemid):getName()
+                                }
 
-				local node = self.npcHandler.keywordHandler:addKeyword(keywords, ShopModule.tradeItem, parameters)
-				node:addChildKeywordNode(self.yesNode)
-				node:addChildKeywordNode(self.noNode)
-			end
-		end
-	end
+                                keywords = {}
+                                keywords[#keywords + 1] = "sell"
+                                keywords[#keywords + 1] = name
+
+                                local node = self.npcHandler.keywordHandler:addKeyword(keywords, ShopModule.tradeItem, parameters)
+                                node:addChildKeywordNode(self.yesNode)
+                                node:addChildKeywordNode(self.noNode)
+                        end
+                end
+
+                if priceMeta and ReputationEconomy then
+                        ReputationEconomy.registerShopItemMetadata(self.npcHandler, 'sell', itemid, itemSubType or 0, priceMeta)
+                end
+        end
 
 	-- onModuleReset callback function. Calls ShopModule:reset()
 	function ShopModule:callbackOnModuleReset()
@@ -959,29 +986,42 @@ if not Modules then
 	end
 
 	-- Callback onBuy() function. If you wish, you can change certain Npc to use your onBuy().
-	function ShopModule:callbackOnBuy(cid, itemid, subType, amount, ignoreCap, inBackpacks)
-		local shopItem = self:getShopItem(itemid, subType)
-		if not shopItem then
-			error("[ShopModule.onBuy] shopItem == nil")
-			return false
-		end
+        function ShopModule:callbackOnBuy(cid, itemid, subType, amount, ignoreCap, inBackpacks)
+                local shopItem = self:getShopItem(itemid, subType)
+                if not shopItem then
+                        error("[ShopModule.onBuy] shopItem == nil")
+                        return false
+                end
 
-		if shopItem.buy == 0 then
-			error("[ShopModule.onSell] attempt to buy a non-buyable item")
-			return false
-		end
+                if shopItem.buy == 0 then
+                        error("[ShopModule.onSell] attempt to buy a non-buyable item")
+                        return false
+                end
 
-		local totalCost = amount * shopItem.buy
-		if inBackpacks then
-			totalCost = ItemType(itemid):isStackable() and totalCost + 20 or totalCost + (math.max(1, math.floor(amount / ItemType(ITEM_SHOPPING_BAG):getCapacity())) * 20)
-		end
+                local totalCost = amount * shopItem.buy
+                local priceInfo
+                local npcContext = ReputationEconomy and ReputationEconomy.getNpcContext(self.npcHandler)
+                local player = Player(cid)
+                if ReputationEconomy and npcContext then
+                        priceInfo = ReputationEconomy.calculateNpcPrice(player, npcContext, {
+                                type = 'buy',
+                                basePrice = shopItem.buy,
+                                amount = amount,
+                                itemId = itemid,
+                                subType = subType
+                        })
+                        totalCost = priceInfo.netTotal
+                end
+                if inBackpacks then
+                        local containerCost = ItemType(itemid):isStackable() and 20 or (math.max(1, math.floor(amount / ItemType(ITEM_SHOPPING_BAG):getCapacity())) * 20)
+                        totalCost = totalCost + containerCost
+                end
 
-		local player = Player(cid)
-		local parseInfo = {
-			[TAG_PLAYERNAME] = player:getName(),
-			[TAG_ITEMCOUNT] = amount,
-			[TAG_TOTALCOST] = totalCost,
-			[TAG_ITEMNAME] = shopItem.name
+                local parseInfo = {
+                        [TAG_PLAYERNAME] = player:getName(),
+                        [TAG_ITEMCOUNT] = amount,
+                        [TAG_TOTALCOST] = totalCost,
+                        [TAG_ITEMNAME] = shopItem.name
 		}
 
 		if player:getTotalMoney() < totalCost then
@@ -1014,23 +1054,33 @@ if not Modules then
 
 			return false
 		else
-			local msg = self.npcHandler:getMessage(MESSAGE_BOUGHT)
-			msg = self.npcHandler:parseMessage(msg, parseInfo)
-			player:sendTextMessage(MESSAGE_INFO_DESCR, msg)
-			if not player:removeTotalMoney(totalCost) then
-				return false
-			end
-			self.npcHandler.talkStart[cid] = os.time()
-			return true
-		end
-	end
+                        local msg = self.npcHandler:getMessage(MESSAGE_BOUGHT)
+                        msg = self.npcHandler:parseMessage(msg, parseInfo)
+                        player:sendTextMessage(MESSAGE_INFO_DESCR, msg)
+                        if not player:removeTotalMoney(totalCost) then
+                                return false
+                        end
+                        if ReputationEconomy and npcContext and priceInfo then
+                                ReputationEconomy.onNpcTrade(player, npcContext, {
+                                        type = 'buy',
+                                        itemId = itemid,
+                                        amount = amount,
+                                        totalNet = priceInfo.netTotal,
+                                        totalFee = priceInfo.totalFee,
+                                        priceInfo = priceInfo
+                                })
+                        end
+                        self.npcHandler.talkStart[cid] = os.time()
+                        return true
+                end
+        end
 
 	-- Callback onSell() function. If you wish, you can change certain Npc to use your onSell().
-	function ShopModule:callbackOnSell(cid, itemid, subType, amount, ignoreEquipped, _)
-		local shopItem = self:getShopItem(itemid, subType)
-		if not shopItem then
-			error("[ShopModule.onSell] items[itemid] == nil")
-			return false
+        function ShopModule:callbackOnSell(cid, itemid, subType, amount, ignoreEquipped, _)
+                local shopItem = self:getShopItem(itemid, subType)
+                if not shopItem then
+                        error("[ShopModule.onSell] items[itemid] == nil")
+                        return false
 		end
 
 		if shopItem.sell == 0 then
@@ -1046,56 +1096,91 @@ if not Modules then
 			[TAG_ITEMNAME] = shopItem.name
 		}
 
-		if not ItemType(itemid):isFluidContainer() then
-			subType = -1
-		end
+                if not ItemType(itemid):isFluidContainer() then
+                        subType = -1
+                end
 
-		if player:removeItem(itemid, amount, subType, ignoreEquipped) then
-			local msg = self.npcHandler:getMessage(MESSAGE_SOLD)
-			msg = self.npcHandler:parseMessage(msg, parseInfo)
-			player:sendTextMessage(MESSAGE_INFO_DESCR, msg)
-			player:addMoney(amount * shopItem.sell)
-			self.npcHandler.talkStart[cid] = os.time()
-			return true
-		end
-		local msg = self.npcHandler:getMessage(MESSAGE_NEEDITEM)
-		msg = self.npcHandler:parseMessage(msg, parseInfo)
+                local priceInfo
+                local npcContext = ReputationEconomy and ReputationEconomy.getNpcContext(self.npcHandler)
+                if ReputationEconomy and npcContext then
+                        priceInfo = ReputationEconomy.calculateNpcPrice(player, npcContext, {
+                                type = 'sell',
+                                basePrice = shopItem.sell,
+                                amount = amount,
+                                itemId = itemid,
+                                subType = subType
+                        })
+                        parseInfo[TAG_TOTALCOST] = priceInfo.netTotal
+                else
+                        parseInfo[TAG_TOTALCOST] = amount * shopItem.sell
+                end
+
+                if player:removeItem(itemid, amount, subType, ignoreEquipped) then
+                        local msg = self.npcHandler:getMessage(MESSAGE_SOLD)
+                        msg = self.npcHandler:parseMessage(msg, parseInfo)
+                        player:sendTextMessage(MESSAGE_INFO_DESCR, msg)
+                        local payout = priceInfo and priceInfo.netTotal or (amount * shopItem.sell)
+                        player:addMoney(payout)
+                        if ReputationEconomy and npcContext and priceInfo then
+                                ReputationEconomy.onNpcTrade(player, npcContext, {
+                                        type = 'sell',
+                                        itemId = itemid,
+                                        amount = amount,
+                                        totalNet = payout,
+                                        totalFee = priceInfo.totalFee,
+                                        priceInfo = priceInfo
+                                })
+                        end
+                        self.npcHandler.talkStart[cid] = os.time()
+                        return true
+                end
+                local msg = self.npcHandler:getMessage(MESSAGE_NEEDITEM)
+                msg = self.npcHandler:parseMessage(msg, parseInfo)
 		player:sendCancelMessage(msg)
 		self.npcHandler.talkStart[cid] = os.time()
 		return false
 	end
 
 	-- Callback for requesting a trade window with the NPC.
-	function ShopModule.requestTrade(cid, message, keywords, parameters, node)
-		local module = parameters.module
-		if not module.npcHandler:isFocused(cid) then
-			return false
-		end
+        function ShopModule.requestTrade(cid, message, keywords, parameters, node)
+                local module = parameters.module
+                if not module.npcHandler:isFocused(cid) then
+                        return false
+                end
 
-		if not module.npcHandler:onTradeRequest(cid) then
-			return false
-		end
+                if not module.npcHandler:onTradeRequest(cid) then
+                        return false
+                end
 
-		local itemWindow = {}
-		for i = 1, #module.npcHandler.shopItems do
-			itemWindow[#itemWindow + 1] = module.npcHandler.shopItems[i]
-		end
+                local player = Player(cid)
+                local npcContext = ReputationEconomy and ReputationEconomy.getNpcContext(module.npcHandler)
+                local itemWindow = {}
+                if ReputationEconomy and npcContext then
+                        itemWindow = ReputationEconomy.filterShopItems(player, module.npcHandler, npcContext)
+                else
+                        for i = 1, #module.npcHandler.shopItems do
+                                itemWindow[#itemWindow + 1] = module.npcHandler.shopItems[i]
+                        end
+                end
 
-		if not itemWindow[1] then
-			local parseInfo = {[TAG_PLAYERNAME] = Player(cid):getName()}
-			local msg = module.npcHandler:parseMessage(module.npcHandler:getMessage(MESSAGE_NOSHOP), parseInfo)
-			module.npcHandler:say(msg, cid)
-			return true
-		end
+                if not itemWindow[1] then
+                        local parseInfo = {[TAG_PLAYERNAME] = player:getName()}
+                        local msg = module.npcHandler:parseMessage(module.npcHandler:getMessage(MESSAGE_NOSHOP), parseInfo)
+                        module.npcHandler:say(msg, cid)
+                        return true
+                end
 
-		local parseInfo = {[TAG_PLAYERNAME] = Player(cid):getName()}
-		local msg = module.npcHandler:parseMessage(module.npcHandler:getMessage(MESSAGE_SENDTRADE), parseInfo)
-		openShopWindow(cid, itemWindow,
-			function(cid, itemid, subType, amount, ignoreCap, inBackpacks) module.npcHandler:onBuy(cid, itemid, subType, amount, ignoreCap, inBackpacks) end,
-			function(cid, itemid, subType, amount, ignoreCap, inBackpacks) module.npcHandler:onSell(cid, itemid, subType, amount, ignoreCap, inBackpacks) end)
-		module.npcHandler:say(msg, cid)
-		return true
-	end
+                local parseInfo = {[TAG_PLAYERNAME] = player:getName()}
+                local msg = module.npcHandler:parseMessage(module.npcHandler:getMessage(MESSAGE_SENDTRADE), parseInfo)
+                openShopWindow(cid, itemWindow,
+                        function(cid, itemid, subType, amount, ignoreCap, inBackpacks) module.npcHandler:onBuy(cid, itemid, subType, amount, ignoreCap, inBackpacks) end,
+                        function(cid, itemid, subType, amount, ignoreCap, inBackpacks) module.npcHandler:onSell(cid, itemid, subType, amount, ignoreCap, inBackpacks) end)
+                module.npcHandler:say(msg, cid)
+                if ReputationEconomy and npcContext then
+                        ReputationEconomy.sendShopHint(player, npcContext)
+                end
+                return true
+        end
 
 	-- onConfirm keyword callback function. Sells/buys the actual item.
 	function ShopModule.onConfirm(cid, message, keywords, parameters, node)
@@ -1106,30 +1191,46 @@ if not Modules then
 		shop_npcuid[cid] = 0
 
 		local parentParameters = node:getParent():getParameters()
-		local player = Player(cid)
-		local parseInfo = {
-			[TAG_PLAYERNAME] = player:getName(),
-			[TAG_ITEMCOUNT] = shop_amount[cid],
-			[TAG_TOTALCOST] = shop_cost[cid] * shop_amount[cid],
-			[TAG_ITEMNAME] = shop_rlname[cid]
-		}
+                local player = Player(cid)
+                local parseInfo = {
+                        [TAG_PLAYERNAME] = player:getName(),
+                        [TAG_ITEMCOUNT] = shop_amount[cid],
+                        [TAG_TOTALCOST] = shop_cost[cid] * shop_amount[cid],
+                        [TAG_ITEMNAME] = shop_rlname[cid]
+                }
 
-		if shop_eventtype[cid] == SHOPMODULE_SELL_ITEM then
-			local ret = doPlayerSellItem(cid, shop_itemid[cid], shop_amount[cid], shop_cost[cid] * shop_amount[cid])
-			if ret then
-				local msg = module.npcHandler:getMessage(MESSAGE_ONSELL)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-			else
-				local msg = module.npcHandler:getMessage(MESSAGE_MISSINGITEM)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-			end
-		elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM then
-			local cost = shop_cost[cid] * shop_amount[cid]
-			if player:getTotalMoney() < cost then
-				local msg = module.npcHandler:getMessage(MESSAGE_MISSINGMONEY)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
+                local priceInfo = shop_priceinfo[cid]
+                local npcContext = ReputationEconomy and ReputationEconomy.getNpcContext(module.npcHandler)
+                if priceInfo then
+                        parseInfo[TAG_TOTALCOST] = priceInfo.netTotal
+                end
+
+                if shop_eventtype[cid] == SHOPMODULE_SELL_ITEM then
+                        local ret = doPlayerSellItem(cid, shop_itemid[cid], shop_amount[cid], shop_cost[cid] * shop_amount[cid])
+                        if ret then
+                                local msg = module.npcHandler:getMessage(MESSAGE_ONSELL)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
+                                module.npcHandler:say(msg, cid)
+                                if ReputationEconomy and npcContext and priceInfo then
+                                        ReputationEconomy.onNpcTrade(player, npcContext, {
+                                                type = 'sell',
+                                                itemId = shop_itemid[cid],
+                                                amount = shop_amount[cid],
+                                                totalNet = priceInfo.netTotal,
+                                                totalFee = priceInfo.totalFee,
+                                                priceInfo = priceInfo
+                                        })
+                                end
+                        else
+                                local msg = module.npcHandler:getMessage(MESSAGE_MISSINGITEM)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
+                                module.npcHandler:say(msg, cid)
+                        end
+                elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM then
+                        local cost = shop_cost[cid] * shop_amount[cid]
+                        if player:getTotalMoney() < cost then
+                                local msg = module.npcHandler:getMessage(MESSAGE_MISSINGMONEY)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
 				module.npcHandler:say(msg, cid)
 				return false
 			end
@@ -1143,45 +1244,78 @@ if not Modules then
 
 				local msg = module.npcHandler:getMessage(msgId)
 				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-				if a > 0 then
-					if not player:removeTotalMoney(a * shop_cost[cid]) then
-						return false
-					end
-					if shop_itemid[cid] == ITEM_PARCEL then
-						doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
-					end
-					return true
-				end
-				return false
-			else
-				local msg = module.npcHandler:getMessage(MESSAGE_ONBUY)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-				if not player:removeTotalMoney(cost) then
-					return false
-				end
-				if shop_itemid[cid] == ITEM_PARCEL then
-					doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
-				end
-				return true
-			end
-		elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM_CONTAINER then
-			local ret = doPlayerBuyItemContainer(cid, shop_container[cid], shop_itemid[cid], shop_amount[cid], shop_cost[cid] * shop_amount[cid], shop_subtype[cid])
-			if ret then
-				local msg = module.npcHandler:getMessage(MESSAGE_ONBUY)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-			else
-				local msg = module.npcHandler:getMessage(MESSAGE_MISSINGMONEY)
-				msg = module.npcHandler:parseMessage(msg, parseInfo)
-				module.npcHandler:say(msg, cid)
-			end
+                                module.npcHandler:say(msg, cid)
+                                if a > 0 then
+                                        local partialCost = a * shop_cost[cid]
+                                        if not player:removeTotalMoney(partialCost) then
+                                                return false
+                                        end
+                                        if shop_itemid[cid] == ITEM_PARCEL then
+                                                doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
+                                        end
+                                        if ReputationEconomy and npcContext and priceInfo then
+                                                local unitFee = priceInfo.unitFee or 0
+                                                ReputationEconomy.onNpcTrade(player, npcContext, {
+                                                        type = 'buy',
+                                                        itemId = shop_itemid[cid],
+                                                        amount = a,
+                                                        totalNet = partialCost,
+                                                        totalFee = unitFee * a,
+                                                        priceInfo = priceInfo
+                                                })
+                                        end
+                                        return true
+                                end
+                                return false
+                        else
+                                local msg = module.npcHandler:getMessage(MESSAGE_ONBUY)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
+                                module.npcHandler:say(msg, cid)
+                                if not player:removeTotalMoney(cost) then
+                                        return false
+                                end
+                                if shop_itemid[cid] == ITEM_PARCEL then
+                                        doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
+                                end
+                                if ReputationEconomy and npcContext and priceInfo then
+                                        ReputationEconomy.onNpcTrade(player, npcContext, {
+                                                type = 'buy',
+                                                itemId = shop_itemid[cid],
+                                                amount = shop_amount[cid],
+                                                totalNet = cost,
+                                                totalFee = priceInfo.unitFee * shop_amount[cid],
+                                                priceInfo = priceInfo
+                                        })
+                                end
+                                return true
+                        end
+                elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM_CONTAINER then
+                        local ret = doPlayerBuyItemContainer(cid, shop_container[cid], shop_itemid[cid], shop_amount[cid], shop_cost[cid] * shop_amount[cid], shop_subtype[cid])
+                        if ret then
+                                local msg = module.npcHandler:getMessage(MESSAGE_ONBUY)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
+                                module.npcHandler:say(msg, cid)
+                                if ReputationEconomy and npcContext and priceInfo then
+                                        ReputationEconomy.onNpcTrade(player, npcContext, {
+                                                type = 'buy',
+                                                itemId = shop_itemid[cid],
+                                                amount = shop_amount[cid],
+                                                totalNet = shop_cost[cid] * shop_amount[cid],
+                                                totalFee = priceInfo.unitFee * shop_amount[cid],
+                                                priceInfo = priceInfo
+                                        })
+                                end
+                        else
+                                local msg = module.npcHandler:getMessage(MESSAGE_MISSINGMONEY)
+                                msg = module.npcHandler:parseMessage(msg, parseInfo)
+                                module.npcHandler:say(msg, cid)
+                        end
 		end
 
-		module.npcHandler:resetNpc(cid)
-		return true
-	end
+                module.npcHandler:resetNpc(cid)
+                shop_priceinfo[cid] = nil
+                return true
+        end
 
 	-- onDecline keyword callback function. Generally called when the player sais "no" after wanting to buy an item.
 	function ShopModule.onDecline(cid, message, keywords, parameters, node)
@@ -1199,11 +1333,12 @@ if not Modules then
 			[TAG_ITEMNAME] = shop_rlname[cid]
 		}
 
-		local msg = module.npcHandler:parseMessage(module.noText, parseInfo)
-		module.npcHandler:say(msg, cid)
-		module.npcHandler:resetNpc(cid)
-		return true
-	end
+                local msg = module.npcHandler:parseMessage(module.noText, parseInfo)
+                module.npcHandler:say(msg, cid)
+                module.npcHandler:resetNpc(cid)
+                shop_priceinfo[cid] = nil
+                return true
+        end
 
 	-- tradeItem callback function. Makes the npc say the message defined by MESSAGE_BUY or MESSAGE_SELL
 	function ShopModule.tradeItem(cid, message, keywords, parameters, node)
@@ -1220,25 +1355,43 @@ if not Modules then
 		module.amount = count
 
 		shop_amount[cid] = module.amount
-		shop_cost[cid] = parameters.cost
-		shop_rlname[cid] = parameters.realName
-		shop_itemid[cid] = parameters.itemid
-		shop_container[cid] = parameters.container
-		shop_npcuid[cid] = getNpcCid()
-		shop_eventtype[cid] = parameters.eventType
-		shop_subtype[cid] = parameters.subType
+                shop_cost[cid] = parameters.cost
+                shop_rlname[cid] = parameters.realName
+                shop_itemid[cid] = parameters.itemid
+                shop_container[cid] = parameters.container
+                shop_npcuid[cid] = getNpcCid()
+                shop_eventtype[cid] = parameters.eventType
+                shop_subtype[cid] = parameters.subType
 
-		local parseInfo = {
-			[TAG_PLAYERNAME] = Player(cid):getName(),
-			[TAG_ITEMCOUNT] = shop_amount[cid],
-			[TAG_TOTALCOST] = shop_cost[cid] * shop_amount[cid],
-			[TAG_ITEMNAME] = shop_rlname[cid]
-		}
+                local parseInfo = {
+                        [TAG_PLAYERNAME] = Player(cid):getName(),
+                        [TAG_ITEMCOUNT] = shop_amount[cid],
+                        [TAG_TOTALCOST] = shop_cost[cid] * shop_amount[cid],
+                        [TAG_ITEMNAME] = shop_rlname[cid]
+                }
 
-		if shop_eventtype[cid] == SHOPMODULE_SELL_ITEM then
-			local msg = module.npcHandler:getMessage(MESSAGE_SELL)
-			msg = module.npcHandler:parseMessage(msg, parseInfo)
-			module.npcHandler:say(msg, cid)
+                local npcContext = ReputationEconomy and ReputationEconomy.getNpcContext(module.npcHandler)
+                if ReputationEconomy and npcContext then
+                        local priceType = (shop_eventtype[cid] == SHOPMODULE_SELL_ITEM) and 'sell' or 'buy'
+                        local shopItem = module:getShopItem(parameters.itemid, parameters.subType)
+                        if shopItem then
+                                local priceInfo = ReputationEconomy.calculateNpcPrice(Player(cid), npcContext, {
+                                        type = priceType,
+                                        basePrice = priceType == 'buy' and shopItem.buy or shopItem.sell,
+                                        amount = shop_amount[cid],
+                                        itemId = parameters.itemid,
+                                        subType = parameters.subType
+                                })
+                                shop_priceinfo[cid] = priceInfo
+                                shop_cost[cid] = priceInfo.unitPrice
+                                parseInfo[TAG_TOTALCOST] = priceInfo.netTotal
+                        end
+                end
+
+                if shop_eventtype[cid] == SHOPMODULE_SELL_ITEM then
+                        local msg = module.npcHandler:getMessage(MESSAGE_SELL)
+                        msg = module.npcHandler:parseMessage(msg, parseInfo)
+                        module.npcHandler:say(msg, cid)
 		elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM then
 			local msg = module.npcHandler:getMessage(MESSAGE_BUY)
 			msg = module.npcHandler:parseMessage(msg, parseInfo)
