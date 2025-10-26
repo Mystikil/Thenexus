@@ -52,7 +52,7 @@ $players = $stmt->fetchAll();
             <tbody>
                 <?php foreach ($players as $player): ?>
                     <tr>
-                        <td><?php echo sanitize($player['name']); ?></td>
+                        <td><?php echo char_link((string) $player['name']); ?></td>
                         <td><?php echo (int) $player['level']; ?></td>
                         <td><?php echo sanitize(vocation_name((int) $player['vocation'])); ?></td>
                     </tr>

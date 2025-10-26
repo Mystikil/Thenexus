@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/lib/http.php';
+require_once __DIR__ . '/lib/links.php';
 
 function flash(string $key, string $message): void
 {
