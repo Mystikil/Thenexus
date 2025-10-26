@@ -7,7 +7,7 @@ require_once __DIR__ . '/../auth_recovery.php';
 
 $loggedOutNotice = !empty($_GET['loggedout']);
 $loginErrors = [];
-$registerErrors = [];
+$registerErrorMessage = null;
 $passwordErrors = [];
 $themeErrors = [];
 $linkErrors = [];
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'login') {
                 $loginErrors[] = 'Invalid request. Please try again.';
             } elseif ($action === 'register') {
-                $registerErrors[] = 'Invalid request. Please try again.';
+                $registerErrorMessage = 'Invalid request. Please try again.';
             } elseif ($action === 'password') {
                 $passwordErrors[] = 'Invalid request. Please try again.';
             } elseif ($action === 'generate_recovery_key') {
@@ -84,18 +84,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $accountName = trim((string) ($_POST['account_name'] ?? ''));
 
                 if ($password !== $confirm) {
-                    $registerErrors[] = 'Passwords do not match.';
+                    $registerErrorMessage = 'Passwords do not match.';
                     break;
                 }
 
-                $result = register($registerEmail, $password, $accountName);
+                [$ok, $msg] = register($registerEmail, $password, $accountName);
 
-                if ($result['success'] ?? false) {
-                    flash('success', 'Your account has been created.');
-                    redirect('?p=account');
+                if ($ok) {
+                    header('Location: ?p=account&welcome=1');
+                    exit;
                 }
 
-                $registerErrors = $result['errors'] ?? ['Unable to register at this time.'];
+                $registerErrorMessage = $msg !== '' ? $msg : 'Unable to register at this time.';
                 break;
 
             case 'password':
@@ -327,6 +327,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $csrfToken = csrf_token();
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');
+$welcomeMessage = !empty($_GET['welcome']) ? 'Account created successfully.' : null;
 $user = current_user();
 $selectedThemeSlug = $user !== null ? (string) ($user['theme_preference'] ?? '') : '';
 
@@ -392,6 +393,10 @@ if ($user !== null) {
                     <div class="alert alert--success"><?php echo sanitize($successMessage); ?></div>
                 <?php endif; ?>
 
+                <?php if ($welcomeMessage): ?>
+                    <div class="alert alert-success"><?php echo sanitize($welcomeMessage); ?></div>
+                <?php endif; ?>
+
                 <?php if ($loggedOutNotice): ?>
                     <div class="alert alert--success">You’ve been logged out.</div>
                 <?php endif; ?>
@@ -431,12 +436,8 @@ if ($user !== null) {
                         <form class="account-form" method="post" action="?p=account" id="register">
                             <h5 class="mb-3 text-uppercase text-muted" style="letter-spacing:.08em">Register</h5>
 
-                            <?php if ($registerErrors): ?>
-                                <ul class="form-errors">
-                                    <?php foreach ($registerErrors as $error): ?>
-                                        <li><?php echo sanitize($error); ?></li>
-                                    <?php endforeach; ?>
-                                </ul>
+                            <?php if ($registerErrorMessage): ?>
+                                <div class="alert alert-danger"><?php echo sanitize($registerErrorMessage); ?></div>
                             <?php endif; ?>
 
                             <input type="hidden" name="action" value="register">
