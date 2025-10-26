@@ -1,65 +1,129 @@
-:root{
-  --nx-bg: #0c0f14;
-  --nx-surface: #141a22;
-  --nx-text: #e6edf5;       /* bright text */
-  --nx-muted: #b6c2d0;      /* muted text */
-  --nx-primary: #58a6ff;    /* link/button */
-  --nx-danger: #ff6b6b;
-  --nx-warning: #f6c36b;
-  --nx-success: #2dcf9a;
+:root {
+  --nx-bg: #0b0f14;
+  --nx-surface: #111722;
+  --nx-surface-alt: #161d2b;
+  --nx-border: rgba(255,255,255,.08);
+  --nx-text: #e6edf5;
+  --nx-muted: #9fb1c7;
+  --nx-primary: #58a6ff;
+  --nx-glow: rgba(88,166,255,.25);
 }
 
-/* Global readable text */
-html,body{ color:var(--nx-text)!important; background:var(--nx-bg)!important; }
-p,li,dt,dd,small,span,th,td,label,legend{ color:var(--nx-text)!important; }
-.text-muted,.form-text{ color:var(--nx-muted)!important; }
+/* Global body/background */
+html, body {
+  background-color: var(--nx-bg) !important;
+  color: var(--nx-text) !important;
+}
 
-/* Containers */
-.card,.dropdown-menu,.navbar,.offcanvas,.modal-content,.list-group-item{
-  background: var(--nx-surface)!important;
-  color: var(--nx-text)!important;
-  border: 1px solid rgba(255,255,255,.08)!important;
+/* General containers/cards */
+.card, .panel, .content-box, .container-page {
+  background-color: var(--nx-surface) !important;
+  color: var(--nx-text) !important;
+  border: 1px solid var(--nx-border) !important;
+  box-shadow: 0 0 10px var(--nx-glow);
+  border-radius: 10px;
+}
+
+/* Tables */
+.table, table {
+  background-color: var(--nx-surface-alt) !important;
+  color: var(--nx-text) !important;
+  border-color: var(--nx-border) !important;
+}
+.table th, .table td {
+  color: var(--nx-text) !important;
+  background-color: transparent !important;
+  border-color: var(--nx-border) !important;
+}
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(255,255,255,.02) !important;
+}
+
+/* Buttons */
+.btn, button, input[type=submit] {
+  background-color: var(--nx-primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px;
+  transition: background .2s;
+}
+.btn:hover {
+  background-color: #4a92f0 !important;
+}
+
+/* Links */
+a {
+  color: var(--nx-primary) !important;
+  text-decoration: none;
+}
+a:hover {
+  color: #4a92f0 !important;
 }
 
 /* Headings */
-h1,h2,h3,h4,h5,h6{ color:var(--nx-text)!important; }
-
-/* Links & nav */
-a{ color:var(--nx-primary)!important; }
-a:hover{ color:#4a92f0!important; }
-.nav-link,.dropdown-item{ color:var(--nx-text)!important; }
-.nav-link:hover,.dropdown-item:hover{ background: rgba(255,255,255,.06)!important; }
-
-/* Forms */
-.form-control,.form-select,.form-check-input,.input-group-text{
-  background:#0f141b!important;
-  color:var(--nx-text)!important;
-  border:1px solid rgba(255,255,255,.12)!important;
+h1, h2, h3, h4, h5, h6 {
+  color: var(--nx-text) !important;
 }
-.form-control::placeholder{ color:#94a3b8!important; }
 
-/* Tables */
-.table{ color:var(--nx-text)!important; }
-.table thead th{ color:var(--nx-muted)!important; }
-
-/* Buttons */
-.btn-primary{
-  --bs-btn-bg: var(--nx-primary);
-  --bs-btn-border-color: var(--nx-primary);
-  --bs-btn-hover-bg: #4a92f0;
-  --bs-btn-hover-border-color:#4a92f0;
-  --bs-btn-color:#0b1220;
+/* Inputs & selects */
+input, select, textarea {
+  background-color: var(--nx-surface-alt) !important;
+  color: var(--nx-text) !important;
+  border: 1px solid var(--nx-border) !important;
 }
-.btn-outline-primary{ --bs-btn-color:var(--nx-primary); --bs-btn-border-color:var(--nx-primary); }
 
-/* Widgets */
-.widget, .nx-card { background:var(--nx-surface)!important; color:var(--nx-text)!important; }
+/* Sidebar widgets */
+#left .card, #right .card {
+  background-color: var(--nx-surface-alt) !important;
+  color: var(--nx-text) !important;
+  border: 1px solid var(--nx-border) !important;
+  box-shadow: none !important;
+}
 
-/* Ensure sidebars and main box do not apply low-opacity overlays */
-#left .card, #right .card, main .card{ opacity:1!important; }
+/* Admin tables */
+.admin-table, .admin-list {
+  background-color: var(--nx-surface-alt) !important;
+  color: var(--nx-text) !important;
+}
 
-body.contrast-safe, body.contrast-safe *{
-  color: #ffffff !important;
-  background: #0b0f14 !important;
-  border-color: rgba(255,255,255,.18) !important;
+/* Ensure dropdowns/modals/navbars are dark too */
+.dropdown-menu, .modal-content, .navbar, .offcanvas {
+  background-color: var(--nx-surface) !important;
+  color: var(--nx-text) !important;
+  border-color: var(--nx-border) !important;
+}
+
+/* Highlight glow */
+.nx-glow {
+  box-shadow: 0 0 12px var(--nx-glow);
+}
+
+/* Fix white Bootstrap focus outlines */
+.form-control:focus, .btn:focus {
+  box-shadow: 0 0 5px var(--nx-primary) !important;
+  border-color: var(--nx-primary) !important;
+}
+
+/* Dark pagination */
+.pagination li a {
+  background-color: var(--nx-surface-alt) !important;
+  color: var(--nx-text) !important;
+  border-color: var(--nx-border) !important;
+}
+.pagination li.active a {
+  background-color: var(--nx-primary) !important;
+  color: #fff !important;
+}
+
+/* Alerts */
+.alert {
+  background-color: rgba(255,255,255,.05) !important;
+  border: 1px solid var(--nx-border) !important;
+  color: var(--nx-text) !important;
+}
+
+/* Remove any bright backgrounds injected inline */
+*[style*="background: white"], *[style*="background-color: white"] {
+  background-color: var(--nx-surface) !important;
+  color: var(--nx-text) !important;
 }
