@@ -66,126 +66,143 @@ if (!empty($monster['race'])) {
     ]);
     $related = $relatedStmt->fetchAll();
 }
+$location = isset($monster['location']) ? trim((string) $monster['location']) : '';
+$strategy = isset($monster['strategy']) ? trim((string) $monster['strategy']) : '';
 ?>
-<section class="page monster-detail">
-    <header>
-        <h2><?php echo sanitize($monster['name']); ?></h2>
-        <?php if (!empty($monster['race'])): ?>
-            <p class="monster-detail__race">Race: <?php echo sanitize($monster['race']); ?></p>
-        <?php endif; ?>
-    </header>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0"><i class="bi bi-shield-shaded me-2"></i><?php echo sanitize($monster['name']); ?></h4>
+    <?php if (!empty($monster['race'])): ?>
+        <span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2">Race: <?php echo sanitize($monster['race']); ?></span>
+    <?php endif; ?>
+</div>
 
-    <div class="monster-detail__layout">
-        <div class="monster-detail__panel">
-            <h3>Stats</h3>
-            <div class="monster-detail__stats">
-                <span><strong>Experience:</strong> <?php echo (int) $monster['experience']; ?></span>
-                <span><strong>Health:</strong> <?php echo (int) $monster['health']; ?></span>
-                <span><strong>Speed:</strong> <?php echo (int) $monster['speed']; ?></span>
-                <span><strong>Summonable:</strong> <?php echo ((int) $monster['summonable']) === 1 ? 'Yes' : 'No'; ?></span>
-                <span><strong>Convinceable:</strong> <?php echo ((int) $monster['convinceable']) === 1 ? 'Yes' : 'No'; ?></span>
-                <span><strong>Illusionable:</strong> <?php echo ((int) $monster['illusionable']) === 1 ? 'Yes' : 'No'; ?></span>
+<div class="row g-3">
+    <div class="col-12 col-lg-4">
+        <div class="card nx-glow h-100">
+            <div class="card-body">
+                <h6 class="mb-3 text-uppercase text-muted small">Core Stats</h6>
+                <dl class="row mb-0">
+                    <dt class="col-6">Experience</dt><dd class="col-6 text-end fw-semibold"><?php echo number_format((int) $monster['experience']); ?></dd>
+                    <dt class="col-6">Health</dt><dd class="col-6 text-end"><?php echo number_format((int) $monster['health']); ?></dd>
+                    <dt class="col-6">Speed</dt><dd class="col-6 text-end"><?php echo number_format((int) $monster['speed']); ?></dd>
+                    <dt class="col-6">Summonable</dt><dd class="col-6 text-end"><?php echo ((int) $monster['summonable']) === 1 ? 'Yes' : 'No'; ?></dd>
+                    <dt class="col-6">Convinceable</dt><dd class="col-6 text-end"><?php echo ((int) $monster['convinceable']) === 1 ? 'Yes' : 'No'; ?></dd>
+                    <dt class="col-6">Illusionable</dt><dd class="col-6 text-end"><?php echo ((int) $monster['illusionable']) === 1 ? 'Yes' : 'No'; ?></dd>
+                </dl>
+                <?php if ($outfit !== []): ?>
+                    <hr>
+                    <div class="text-muted small">
+                        <span class="fw-semibold text-light">Outfit</span>
+                        <div class="mt-1">
+                            <?php
+                                $parts = [];
+                                foreach ($outfit as $key => $value) {
+                                    $parts[] = sanitize($key . ': ' . $value);
+                                }
+                                echo implode('<br>', $parts);
+                            ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
-            <?php if ($outfit !== []): ?>
-                <p><strong>Outfit:</strong>
-                    <?php
-                        $parts = [];
-                        foreach ($outfit as $key => $value) {
-                            $parts[] = sanitize($key . ': ' . $value);
-                        }
-                        echo implode(' &middot; ', $parts);
-                    ?>
-                </p>
-            <?php endif; ?>
         </div>
+    </div>
 
-        <div class="monster-detail__panel monster-detail__elements">
-            <h3>Elemental Profile</h3>
-            <?php if ($elemental === []): ?>
-                <p>No elemental data available.</p>
-            <?php else: ?>
-                <table>
+    <div class="col-12 col-lg-4">
+        <div class="card nx-glow h-100">
+            <div class="card-body">
+                <h6 class="mb-3 text-uppercase text-muted small">Elemental Profile</h6>
+                <?php if ($elemental === []): ?>
+                    <p class="text-muted mb-0">No elemental data available.</p>
+                <?php else: ?>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <?php foreach ($elemental as $element => $value): ?>
+                            <?php $valueInt = (int) $value; ?>
+                            <?php
+                                $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
+                                if ($valueInt >= 100) {
+                                    $badgeClass = 'bg-success-subtle text-success-emphasis';
+                                } elseif ($valueInt > 0) {
+                                    $badgeClass = 'bg-warning-subtle text-warning-emphasis';
+                                } elseif ($valueInt < 0) {
+                                    $badgeClass = 'bg-danger-subtle text-danger-emphasis';
+                                }
+                            ?>
+                            <span class="badge <?php echo $badgeClass; ?> px-3 py-2"><?php echo sanitize(ucfirst($element)); ?> <?php echo $valueInt; ?>%</span>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($immunities !== [] || $flags !== []): ?>
+                    <h6 class="mt-3 mb-2 text-uppercase text-muted small">Immunities & Traits</h6>
+                    <ul class="list-unstyled mb-0 small">
+                        <?php foreach ($immunities as $key => $value): ?>
+                            <li><i class="bi bi-shield-check me-1 text-success"></i><?php echo sanitize(ucwords($key) . ': ' . (is_bool($value) ? ($value ? 'Yes' : 'No') : $value)); ?></li>
+                        <?php endforeach; ?>
+                        <?php foreach ($flags as $key => $value): ?>
+                            <li><i class="bi bi-flag me-1 text-primary"></i><?php echo sanitize(ucwords($key) . ': ' . (is_bool($value) ? ($value ? 'Yes' : 'No') : $value)); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card nx-glow h-100">
+            <div class="card-body">
+                <h6 class="mb-3 text-uppercase text-muted small">Quick Facts</h6>
+                <ul class="list-unstyled mb-3 small">
+                    <li><i class="bi bi-geo-fill me-1 text-warning"></i>Spawn: <?php echo $location !== '' ? sanitize($location) : 'Unknown'; ?></li>
+                    <li><i class="bi bi-emoji-smile me-1 text-info"></i>Strategy: <?php echo $strategy !== '' ? sanitize($strategy) : 'Unrecorded'; ?></li>
+                </ul>
+                <?php if ($related !== []): ?>
+                    <h6 class="mb-2 text-uppercase text-muted small">Related Monsters</h6>
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php foreach ($related as $rel): ?>
+                            <a class="badge bg-primary-subtle text-primary-emphasis text-decoration-none" href="?p=monster&amp;id=<?php echo (int) $rel['id']; ?>"><?php echo sanitize($rel['name']); ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card nx-glow mt-3">
+    <div class="card-body">
+        <h6 class="mb-3 text-uppercase text-muted small">Loot Table</h6>
+        <?php if ($loot === []): ?>
+            <p class="text-muted mb-0">No loot data recorded.</p>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th>Element</th>
-                            <th>Percent</th>
+                            <th>Item</th>
+                            <th class="text-end">Chance</th>
+                            <th class="text-end">Quantity</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($elemental as $element => $value): ?>
+                        <?php foreach ($loot as $entry): ?>
+                            <?php
+                                $chance = $entry['chance'] !== null ? (int) $entry['chance'] : null;
+                                $chanceDisplay = $chance === null ? '—' : sprintf('%.1f%%', $chance / 1000);
+                                $countMin = (int) ($entry['count_min'] ?? 1);
+                                $countMax = (int) ($entry['count_max'] ?? 1);
+                                $quantity = $countMin === $countMax ? $countMin : $countMin . ' - ' . $countMax;
+                                $itemName = $entry['index_name'] ?? $entry['item_name'] ?? 'Unknown Item';
+                            ?>
                             <tr>
-                                <td><?php echo sanitize(ucfirst($element)); ?></td>
-                                <td><?php echo (int) $value; ?>%</td>
+                                <td><?php echo sanitize($itemName); ?><?php if (!empty($entry['item_id'])): ?> <span class="text-muted small">(ID <?php echo (int) $entry['item_id']; ?>)</span><?php endif; ?></td>
+                                <td class="text-end"><?php echo sanitize($chanceDisplay); ?></td>
+                                <td class="text-end"><?php echo sanitize($quantity); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            <?php endif; ?>
-        </div>
-
-        <div class="monster-detail__panel">
-            <h3>Traits</h3>
-            <?php if ($immunities !== []): ?>
-                <p><strong>Immunities</strong></p>
-                <ul class="monster-detail__list">
-                    <?php foreach ($immunities as $key => $value): ?>
-                        <li><?php echo sanitize(ucwords($key) . ': ' . (is_bool($value) ? ($value ? 'Yes' : 'No') : $value)); ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-            <?php if ($flags !== []): ?>
-                <p><strong>Flags</strong></p>
-                <ul class="monster-detail__list">
-                    <?php foreach ($flags as $key => $value): ?>
-                        <li><?php echo sanitize(ucwords($key) . ': ' . (is_bool($value) ? ($value ? 'Yes' : 'No') : $value)); ?></li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </div>
-    </div>
-
-    <section class="monster-detail__panel">
-        <h3>Loot</h3>
-        <?php if ($loot === []): ?>
-            <p>No loot data recorded.</p>
-        <?php else: ?>
-            <table class="monster-detail__loot-table">
-                <thead>
-                    <tr>
-                        <th>Item</th>
-                        <th>Chance</th>
-                        <th>Quantity</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($loot as $entry): ?>
-                        <?php
-                            $chance = $entry['chance'] !== null ? (int) $entry['chance'] : null;
-                            $chanceDisplay = $chance === null ? '—' : sprintf('%.1f%%', $chance / 1000);
-                            $countMin = (int) ($entry['count_min'] ?? 1);
-                            $countMax = (int) ($entry['count_max'] ?? 1);
-                            $quantity = $countMin === $countMax ? $countMin : $countMin . ' - ' . $countMax;
-                            $itemName = $entry['index_name'] ?? $entry['item_name'] ?? 'Unknown Item';
-                        ?>
-                        <tr>
-                            <td><?php echo sanitize($itemName); ?><?php if (!empty($entry['item_id'])): ?> (ID <?php echo (int) $entry['item_id']; ?>)<?php endif; ?></td>
-                            <td><?php echo sanitize($chanceDisplay); ?></td>
-                            <td><?php echo sanitize($quantity); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
-    </section>
-
-    <?php if ($related !== []): ?>
-        <section class="monster-detail__panel">
-            <h3>Related Monsters</h3>
-            <div class="monster-detail__related">
-                <?php foreach ($related as $rel): ?>
-                    <a href="?p=monster&amp;id=<?php echo (int) $rel['id']; ?>"><?php echo sanitize($rel['name']); ?></a>
-                <?php endforeach; ?>
             </div>
-        </section>
-    <?php endif; ?>
-</section>
+        <?php endif; ?>
+    </div>
+</div>

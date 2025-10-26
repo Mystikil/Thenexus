@@ -181,96 +181,99 @@ if ($user !== null) {
     $coinBalance = $coinsRow !== false ? (int) $coinsRow['coins'] : 0;
 }
 ?>
-<section class="page page--shop">
-    <h2>Shop</h2>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0"><i class="bi bi-bag-heart me-2"></i>Shop</h4>
+    <div class="text-muted small">Spend your Nexus coins</div>
+</div>
 
-    <?php if ($errorMessage): ?>
-        <div class="alert alert--error"><?php echo sanitize($errorMessage); ?></div>
-    <?php endif; ?>
+<?php if ($errorMessage): ?>
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <?php echo sanitize($errorMessage); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
 
-    <?php if ($successMessage): ?>
-        <div class="alert alert--success"><?php echo sanitize($successMessage); ?></div>
-    <?php endif; ?>
+<?php if ($successMessage): ?>
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <?php echo sanitize($successMessage); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
 
-    <?php if (!$user): ?>
-        <p>You need to <a href="?p=account">log in</a> to buy products from the shop.</p>
-    <?php else: ?>
-        <div class="shop__balance">Current balance: <strong><?php echo sanitize(number_format($coinBalance)); ?></strong> coins</div>
-
-        <?php if ($purchaseErrors): ?>
-            <div class="alert alert--error">
-                <ul class="form-errors">
-                    <?php foreach ($purchaseErrors as $error): ?>
-                        <li><?php echo sanitize($error); ?></li>
-                    <?php endforeach; ?>
-                </ul>
+<?php if (!$user): ?>
+    <div class="alert alert-info">You need to <a class="alert-link" href="?p=account">log in</a> to buy products from the shop.</div>
+<?php else: ?>
+    <div class="card nx-glow mb-3">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <div class="text-muted small">Current balance</div>
+                <div class="h5 mb-0"><i class="bi bi-coin me-2"></i><?php echo sanitize(number_format($coinBalance)); ?> coins</div>
             </div>
-        <?php endif; ?>
+            <span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2">Happy shopping!</span>
+        </div>
+    </div>
 
-        <?php if ($products === []): ?>
-            <p>The shop is currently closed. Please check back later.</p>
-        <?php else: ?>
-            <div class="shop-grid">
-                <?php foreach ($products as $product): ?>
-                    <?php
-                        $productId = (int) $product['id'];
-                        $meta = $product['meta_decoded'];
-                        $deliveryCount = (int) ($meta['count'] ?? 1);
-                        $description = (string) ($meta['description'] ?? ($product['index_description'] ?? ''));
-                        $itemName = $product['index_name'] ?? $product['name'];
-                        $stackable = isset($product['index_stackable']) ? ((int) $product['index_stackable'] === 1) : null;
-                        $weight = isset($product['index_weight']) ? (int) $product['index_weight'] : null;
-                    ?>
-                    <article class="shop-card">
-                        <header class="shop-card__header">
-                            <h3 class="shop-card__title"><?php echo sanitize($product['name']); ?></h3>
-                            <div class="shop-card__price"><?php echo sanitize(number_format((int) $product['price_coins'])); ?> coins</div>
-                        </header>
-                        <div class="shop-card__body">
-                            <p class="shop-card__description"><?php echo sanitize($description); ?></p>
-                            <dl class="shop-card__meta">
-                                <div>
-                                    <dt>Item</dt>
-                                    <dd><?php echo sanitize($itemName); ?> (ID <?php echo (int) $product['item_id']; ?>)</dd>
-                                </div>
-                                <div>
-                                    <dt>Quantity</dt>
-                                    <dd><?php echo $deliveryCount; ?></dd>
-                                </div>
-                                <?php if ($stackable !== null): ?>
-                                    <div>
-                                        <dt>Stackable</dt>
-                                        <dd><?php echo $stackable ? 'Yes' : 'No'; ?></dd>
-                                    </div>
-                                <?php endif; ?>
-                                <?php if ($weight !== null): ?>
-                                    <div>
-                                        <dt>Weight</dt>
-                                        <dd><?php echo $weight; ?></dd>
-                                    </div>
-                                <?php endif; ?>
-                            </dl>
-                        </div>
-                        <footer class="shop-card__footer">
-                            <?php $formId = 'shop-order-' . $productId; ?>
-                            <form method="post" id="<?php echo sanitize($formId); ?>" class="shop-card__form">
-                                <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
-                                <input type="hidden" name="product_id" value="<?php echo $productId; ?>">
-                                <label class="visually-hidden" for="character-<?php echo $productId; ?>">Character Name</label>
-                                <input
-                                    type="text"
-                                    id="character-<?php echo $productId; ?>"
-                                    name="character_name"
-                                    value="<?php echo $selectedProductId === $productId ? sanitize($characterNameInput) : ''; ?>"
-                                    placeholder="Character name"
-                                    required
-                                >
-                                <button type="submit" class="shop-card__button">Buy</button>
-                            </form>
-                        </footer>
-                    </article>
+    <?php if ($purchaseErrors): ?>
+        <div class="alert alert-danger">
+            <ul class="mb-0 ps-3">
+                <?php foreach ($purchaseErrors as $error): ?>
+                    <li><?php echo sanitize($error); ?></li>
                 <?php endforeach; ?>
-            </div>
-        <?php endif; ?>
+            </ul>
+        </div>
     <?php endif; ?>
-</section>
+
+    <?php if ($products === []): ?>
+        <p class="text-muted">The shop is currently closed. Please check back later.</p>
+    <?php else: ?>
+        <div class="row g-3">
+          <?php foreach ($products as $product): ?>
+            <?php
+                $productId = (int) $product['id'];
+                $meta = $product['meta_decoded'];
+                $deliveryCount = (int) ($meta['count'] ?? 1);
+                $description = (string) ($meta['description'] ?? ($product['index_description'] ?? ''));
+                $itemName = $product['index_name'] ?? $product['name'];
+                $image = $product['image'] ?? null;
+                $imageUrl = $image !== null && $image !== '' ? $image : '/assets/img/item-default.png';
+            ?>
+            <div class="col-12 col-sm-6 col-lg-4">
+              <div class="card nx-glow h-100">
+                <div class="card-body">
+                  <div class="d-flex align-items-center mb-2">
+                    <img src="<?php echo htmlspecialchars($imageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" class="me-2" style="height:32px;width:32px;border-radius:8px" alt="">
+                    <div>
+                      <h6 class="mb-0 text-light"><?php echo sanitize($product['name']); ?></h6>
+                      <div class="text-muted small"><?php echo sanitize($itemName); ?> × <?php echo $deliveryCount; ?></div>
+                    </div>
+                  </div>
+                  <?php if ($description !== ''): ?>
+                    <p class="text-muted small mb-2"><?php echo sanitize($description); ?></p>
+                  <?php endif; ?>
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2"><i class="bi bi-coin me-1"></i><?php echo (int) $product['price_coins']; ?> coins</span>
+                    <span class="badge bg-secondary-subtle text-secondary-emphasis px-3 py-2">ID <?php echo (int) $product['item_id']; ?></span>
+                  </div>
+                  <?php if (isset($product['index_weight']) || isset($product['index_stackable'])): ?>
+                    <div class="d-flex gap-2 mb-3">
+                      <?php if (isset($product['index_weight'])): ?>
+                        <span class="badge bg-dark-subtle text-light-emphasis">Weight: <?php echo (int) $product['index_weight']; ?></span>
+                      <?php endif; ?>
+                      <?php if (isset($product['index_stackable'])): ?>
+                        <span class="badge bg-dark-subtle text-light-emphasis"><?php echo ((int) $product['index_stackable']) === 1 ? 'Stackable' : 'Single'; ?></span>
+                      <?php endif; ?>
+                    </div>
+                  <?php endif; ?>
+                  <form method="post" class="d-grid gap-2">
+                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+                    <input type="hidden" name="product_id" value="<?php echo $productId; ?>">
+                    <input type="text" class="form-control form-control-sm" name="character_name" placeholder="Character name" value="<?php echo $selectedProductId === $productId ? sanitize($characterNameInput) : ''; ?>" required>
+                    <button class="btn btn-primary btn-sm" type="submit">Buy</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+<?php endif; ?>

@@ -1,0 +1,14 @@
+.preset-cyan {
+  --nx-primary: #38bdf8;
+  --nx-glow: 0 0 .6rem rgba(56,189,248,.25), 0 0 1.2rem rgba(56,189,248,.12);
+}
+
+.preset-violet {
+  --nx-primary: #a78bfa;
+  --nx-glow: 0 0 .6rem rgba(167,139,250,.25), 0 0 1.2rem rgba(167,139,250,.12);
+}
+
+.preset-emerald {
+  --nx-primary: #34d399;
+  --nx-glow: 0 0 .6rem rgba(52,211,153,.25), 0 0 1.2rem rgba(52,211,153,.12);
+}

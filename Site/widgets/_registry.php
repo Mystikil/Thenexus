@@ -484,17 +484,21 @@ function widget_top_levels(PDO $pdo, int $limit = 10): string
     $players = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if ($players === [] || $players === false) {
-        return '<p class="widget-empty">No players found.</p>';
+        return '<p class="text-muted mb-0">No players found.</p>';
     }
 
-    $html = '<ol class="widget-list widget-list--top-levels">';
+    $html = '<ol class="list-group list-group-numbered list-group-flush">';
     foreach ($players as $player) {
         $name = (string) ($player['name'] ?? '');
         $level = (int) ($player['level'] ?? 0);
         $vocation = (int) ($player['vocation'] ?? 0);
-        $html .= '<li>';
-        $html .= '<a class="widget-item__name" href="?p=character&amp;name=' . rawurlencode($name) . '">' . widget_escape($name) . '</a>';
-        $html .= '<span class="widget-item__meta">Lvl ' . $level . ' ' . widget_escape(vocation_short_code_widget($vocation)) . '</span>';
+        $href = '?p=character&amp;name=' . rawurlencode($name);
+        $html .= '<li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">';
+        $html .= '<div>';
+        $html .= '<a class="text-decoration-none fw-semibold text-light" href="' . $href . '">' . widget_escape($name) . '</a>';
+        $html .= '<div class="text-muted small">Level ' . $level . '</div>';
+        $html .= '</div>';
+        $html .= '<span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2">' . widget_escape(vocation_name_widget($vocation)) . '</span>';
         $html .= '</li>';
     }
     $html .= '</ol>';
@@ -549,23 +553,26 @@ function widget_top_guilds(PDO $pdo, int $limit = 8): string
     }
 
     if ($guilds === [] || $guilds === false) {
-        return '<p class="widget-empty">No guilds found.</p>';
+        return '<p class="text-muted mb-0">No guilds found.</p>';
     }
 
-    $html = '<ol class="widget-list widget-list--top-guilds">';
+    $html = '<ol class="list-group list-group-numbered list-group-flush">';
     foreach ($guilds as $guild) {
         $name = (string) ($guild['name'] ?? '');
         $members = (int) ($guild['members'] ?? 0);
         $url = '?p=guilds&amp;name=' . rawurlencode($name);
-        $html .= '<li>';
-        $html .= '<a class="widget-item__name" href="' . $url . '">' . widget_escape($name) . '</a>';
+        $html .= '<li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">';
+        $html .= '<div>';
+        $html .= '<a class="text-decoration-none fw-semibold text-light" href="' . $url . '">' . widget_escape($name) . '</a>';
         if ($scoreColumn !== null) {
             $scoreValue = (int) ($guild['score'] ?? 0);
-            $html .= '<span class="widget-item__meta">' . $members . ' members • ' . widget_escape($scoreLabel) . ': ' . $scoreValue . '</span>';
+            $html .= '<div class="text-muted small">' . $members . ' members • ' . widget_escape($scoreLabel) . ': ' . $scoreValue . '</div>';
         } else {
             $avg = number_format((float) ($guild['avg_level'] ?? 0), 1);
-            $html .= '<span class="widget-item__meta">Avg Lv ' . $avg . ' • ' . $members . ' members</span>';
+            $html .= '<div class="text-muted small">Avg Lv ' . $avg . ' • ' . $members . ' members</div>';
         }
+        $html .= '</div>';
+        $html .= '<span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2"><i class="bi bi-people-fill me-1"></i>' . $members . '</span>';
         $html .= '</li>';
     }
     $html .= '</ol>';
@@ -603,18 +610,22 @@ function widget_online(PDO $pdo, int $limit = 10): string
     $totalOnline = $countStmt !== false ? (int) $countStmt->fetchColumn() : count($players);
 
     if ($players === []) {
-        return '<p class="widget-empty">No players online. (' . $totalOnline . ')</p>';
+        return '<div class="d-flex justify-content-between align-items-center"><span class="text-muted">No players online.</span><span class="badge rounded-pill bg-secondary">' . $totalOnline . '</span></div>';
     }
 
-    $html = '<p class="widget-summary">' . $totalOnline . ' online</p>';
-    $html .= '<ul class="widget-list widget-list--online">';
+    $html = '<div class="d-flex justify-content-between align-items-center mb-2"><span class="text-muted small">Players online</span><span class="badge rounded-pill bg-success">' . $totalOnline . '</span></div>';
+    $html .= '<ul class="list-group list-group-flush">';
     foreach ($players as $player) {
         $name = (string) ($player['name'] ?? '');
         $level = (int) ($player['level'] ?? 0);
         $vocation = (int) ($player['vocation'] ?? 0);
-        $html .= '<li>';
-        $html .= '<a class="widget-item__name" href="?p=character&amp;name=' . rawurlencode($name) . '">' . widget_escape($name) . '</a>';
-        $html .= '<span class="widget-item__meta">Lvl ' . $level . ' ' . widget_escape(vocation_short_code_widget($vocation)) . '</span>';
+        $url = '?p=character&amp;name=' . rawurlencode($name);
+        $html .= '<li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">';
+        $html .= '<div>';
+        $html .= '<a class="text-decoration-none fw-semibold text-light" href="' . $url . '">' . widget_escape($name) . '</a>';
+        $html .= '<div class="text-muted small">Level ' . $level . ' • ' . widget_escape(vocation_name_widget($vocation)) . '</div>';
+        $html .= '</div>';
+        $html .= '<span class="badge rounded-pill bg-success-subtle text-success-emphasis">Online</span>';
         $html .= '</li>';
     }
     $html .= '</ul>';
@@ -639,24 +650,28 @@ function widget_recent_deaths(PDO $pdo, int $limit = 8): string
     $deaths = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if ($deaths === [] || $deaths === false) {
-        return '<p class="widget-empty">No recent deaths.</p>';
+        return '<p class="text-muted mb-0">No recent deaths.</p>';
     }
 
-    $html = '<ul class="widget-list widget-list--recent-deaths">';
+    $html = '<ul class="list-group list-group-flush">';
     foreach ($deaths as $death) {
         $name = (string) ($death['name'] ?? '');
         $level = (int) ($death['level'] ?? 0);
         $killer = (string) ($death['killer'] ?? 'Unknown');
         $time = isset($death['time']) ? (int) $death['time'] : 0;
         $relative = $time > 0 ? widget_relative_time($time) : 'Unknown time';
-        $html .= '<li>';
-        $html .= '<span class="widget-item__text"><strong>' . widget_escape($name) . '</strong> (Lv ' . $level . ') – slain by ' . widget_escape($killer) . ' – ';
+        $html .= '<li class="list-group-item bg-transparent">';
+        $html .= '<div class="d-flex justify-content-between align-items-start">';
+        $html .= '<div>';
+        $html .= '<div class="fw-semibold text-light">' . widget_escape($name) . ' <span class="text-muted small">Lv ' . $level . '</span></div>';
+        $html .= '<div class="text-muted small">Slain by ' . widget_escape($killer) . '</div>';
+        $html .= '</div>';
         if ($time > 0) {
-            $html .= '<time datetime="' . widget_escape(date('c', $time)) . '">' . widget_escape($relative) . '</time>';
+            $html .= '<time class="text-muted small" datetime="' . widget_escape(date('c', $time)) . '">' . widget_escape($relative) . '</time>';
         } else {
-            $html .= widget_escape($relative);
+            $html .= '<span class="text-muted small">' . widget_escape($relative) . '</span>';
         }
-        $html .= '</span>';
+        $html .= '</div>';
         $html .= '</li>';
     }
     $html .= '</ul>';
@@ -699,13 +714,16 @@ function widget_server_status(PDO $pdo): string
     }
 
     $status = $onlineCount > 0 ? 'Online' : 'Offline';
+    $statusBadge = $onlineCount > 0
+        ? '<span class="badge rounded-pill bg-success">Online</span>'
+        : '<span class="badge rounded-pill bg-danger">Offline</span>';
 
-    $html = '<table class="widget-status">';
-    $html .= '<tr><th>Status</th><td>' . widget_escape($status) . '</td></tr>';
-    $html .= '<tr><th>Players Online</th><td>' . $onlineCount . '</td></tr>';
-    $html .= '<tr><th>Peak Online</th><td>' . $record . '</td></tr>';
-    $html .= '<tr><th>Logins (24h)</th><td>' . $logins . '</td></tr>';
-    $html .= '</table>';
+    $html = '<dl class="row mb-0">';
+    $html .= '<dt class="col-6">Status</dt><dd class="col-6 text-end">' . $statusBadge . '</dd>';
+    $html .= '<dt class="col-6">Online Now</dt><dd class="col-6 text-end fw-semibold">' . $onlineCount . '</dd>';
+    $html .= '<dt class="col-6">Peak Today</dt><dd class="col-6 text-end">' . $record . '</dd>';
+    $html .= '<dt class="col-6">Logins (24h)</dt><dd class="col-6 text-end">' . $logins . '</dd>';
+    $html .= '</dl>';
 
     return $html;
 }
@@ -757,21 +775,29 @@ function widget_vote_links(PDO $pdo, int $limit = 0): string
     }
 
     if ($links === []) {
-        return '<p class="widget-empty">No vote links available.</p>';
+        return '<p class="text-muted mb-0">No vote links available.</p>';
     }
 
-    $html = '<ul class="widget-links">';
+    $html = '<div class="d-grid gap-2">';
     foreach ($links as $link) {
         $label = widget_escape($link['label']);
         $url = htmlspecialchars($link['url'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $html .= '<li><a href="' . $url . '" rel="noopener noreferrer" target="_blank">' . $label . '</a></li>';
+        $html .= '<a class="btn btn-outline-primary btn-sm" href="' . $url . '" rel="noopener noreferrer" target="_blank"><i class="bi bi-box-arrow-up-right me-1"></i>' . $label . '</a>';
     }
-    $html .= '</ul>';
+    $html .= '</div>';
 
     return $html;
 }
 
-function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverrides = null): string
+function widget_render_box_html(array $widget, string $slug, array $attributes, string $innerHtml): string
+{
+    $title = htmlspecialchars($widget['title'] ?? $slug, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $attrString = widget_resolve_attributes($attributes);
+
+    return '<section class="widget"' . $attrString . '><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
+}
+
+function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverrides = null, bool $wrap = true): string
 {
     global $WIDGETS;
 
@@ -787,13 +813,15 @@ function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverri
 
     $limit = max(1, $limit);
     $attributes = widget_collect_attributes($slug, $limit, $attributeOverrides);
+    $cacheAttributes = $attributes;
+    $cacheAttributes['_wrap_v'] = '2';
     $ttl = isset($widget['ttl']) ? (int) $widget['ttl'] : 0;
-    $key = widget_cache_key($slug, $limit, $attributes);
+    $key = widget_cache_key($slug, $limit, $cacheAttributes);
 
     if ($ttl > 0) {
         $cached = cache_get($key, $ttl);
         if ($cached !== null) {
-            return $cached;
+            return $wrap ? widget_render_box_html($widget, $slug, $attributes, $cached) : $cached;
         }
     }
 
@@ -802,13 +830,10 @@ function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverri
     if (!is_string($innerHtml)) {
         $innerHtml = (string) $innerHtml;
     }
-    $title = htmlspecialchars($widget['title'] ?? $slug, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $attrString = widget_resolve_attributes($attributes);
-    $box = '<section class="widget"' . $attrString . '><h3>' . $title . '</h3><div class="widget-body">' . $innerHtml . '</div></section>';
 
     if ($ttl > 0) {
-        cache_set($key, $box);
+        cache_set($key, $innerHtml);
     }
 
-    return $box;
+    return $wrap ? widget_render_box_html($widget, $slug, $attributes, $innerHtml) : $innerHtml;
 }
