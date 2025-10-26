@@ -6,6 +6,32 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth_passwords.php';
 
+function nx_logout(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        @session_start();
+    }
+
+    $_SESSION = [];
+
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params['path'],
+            $params['domain'],
+            $params['secure'],
+            $params['httponly']
+        );
+    }
+
+    @session_destroy();
+    @session_start();
+    @session_regenerate_id(true);
+}
+
 /** Normalize emails for comparison (lowercase, trim) */
 function nx_norm_email(?string $e): string
 {
@@ -783,8 +809,7 @@ function logout(): void
         audit_log((int) $user['id'], 'logout');
     }
 
-    unset($_SESSION['user_id']);
-    session_regenerate_id(true);
+    nx_logout();
 }
 
 function audit_log(?int $userId, string $action, ?array $before = null, ?array $after = null): void

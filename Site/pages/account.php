@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/theme.php';
 
 require_once __DIR__ . '/../auth_recovery.php';
 
+$loggedOutNotice = !empty($_GET['loggedout']);
 $loginErrors = [];
 $registerErrors = [];
 $passwordErrors = [];
@@ -24,6 +25,22 @@ if (!nx_database_available()) {
     return;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
+    if (!csrf_validate($_POST['csrf'] ?? '')) {
+        flash('error', 'Invalid request. Please try again.');
+        redirect('?p=account');
+    }
+
+    $user = current_user();
+    if ($user !== null) {
+        audit_log((int) $user['id'], 'logout');
+    }
+
+    nx_logout();
+    header('Location: ?p=account&loggedout=1', true, 302);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $token = $_POST['csrf_token'] ?? null;
@@ -37,21 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $registerAccountName = trim((string) ($_POST['account_name'] ?? ''));
     }
 
-    if (!csrf_validate($token)) {
-        if ($action === 'login') {
-            $loginErrors[] = 'Invalid request. Please try again.';
-        } elseif ($action === 'register') {
-            $registerErrors[] = 'Invalid request. Please try again.';
-        } elseif ($action === 'password') {
-            $passwordErrors[] = 'Invalid request. Please try again.';
-        } elseif ($action === 'generate_recovery_key') {
-            $recoveryErrors[] = 'Invalid request. Please try again.';
-        } elseif ($action === 'logout') {
-            flash('error', 'Invalid request. Please try again.');
-            redirect('?p=account');
-        }
-    } else {
-        switch ($action) {
+        if (!csrf_validate($token)) {
+            if ($action === 'login') {
+                $loginErrors[] = 'Invalid request. Please try again.';
+            } elseif ($action === 'register') {
+                $registerErrors[] = 'Invalid request. Please try again.';
+            } elseif ($action === 'password') {
+                $passwordErrors[] = 'Invalid request. Please try again.';
+            } elseif ($action === 'generate_recovery_key') {
+                $recoveryErrors[] = 'Invalid request. Please try again.';
+            }
+        } else {
+            switch ($action) {
             case 'login':
                 $password = (string) ($_POST['password'] ?? '');
                 $result = login($loginIdentifier, $password);
@@ -82,12 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $registerErrors = $result['errors'] ?? ['Unable to register at this time.'];
-                break;
-
-            case 'logout':
-                logout();
-                flash('success', 'You have been logged out.');
-                redirect('?p=account');
                 break;
 
             case 'password':
@@ -384,6 +392,10 @@ if ($user !== null) {
                     <div class="alert alert--success"><?php echo sanitize($successMessage); ?></div>
                 <?php endif; ?>
 
+                <?php if ($loggedOutNotice): ?>
+                    <div class="alert alert--success">You’ve been logged out.</div>
+                <?php endif; ?>
+
                 <?php if (!$user): ?>
                     <div class="account-forms" id="login">
                         <form class="account-form" method="post" action="?p=account">
@@ -464,6 +476,14 @@ if ($user !== null) {
                         </form>
                     </div>
                 <?php else: ?>
+                    <form class="account-form account-form--logout" method="post" action="?p=account">
+                        <input type="hidden" name="action" value="logout">
+                        <input type="hidden" name="csrf" value="<?php echo sanitize($csrfToken); ?>">
+                        <div class="form-actions">
+                            <button type="submit" class="text-danger">Log out</button>
+                        </div>
+                    </form>
+
                     <?php if ($showRecoveryKeyModal && $generatedRecoveryKey !== null): ?>
                         <div class="alert alert--info alert--dismissible" role="alert">
                             <button type="button" class="alert__close" aria-label="Dismiss" onclick="this.closest('.alert').remove();">&times;</button>
