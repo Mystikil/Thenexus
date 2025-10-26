@@ -23,6 +23,16 @@ CREATE TABLE IF NOT EXISTS website_users (
     KEY idx_wu_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS web_accounts (
+    account_id INT NOT NULL PRIMARY KEY,
+    email VARCHAR(190) NOT NULL,
+    created INT NOT NULL DEFAULT (UNIX_TIMESTAMP()),
+    points INT NOT NULL DEFAULT 0,
+    country VARCHAR(2) NULL,
+    flags JSON NULL,
+    UNIQUE KEY uq_web_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS theme_options (
     theme_slug VARCHAR(64) NOT NULL,
     opt_key VARCHAR(64) NOT NULL,
