@@ -8,6 +8,21 @@ CREATE TABLE IF NOT EXISTS accounts (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS website_users (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) DEFAULT NULL,
+    pass_hash VARCHAR(255) DEFAULT NULL,
+    account_id INT UNSIGNED DEFAULT NULL,
+    role VARCHAR(16) NOT NULL DEFAULT 'user',
+    theme_preference VARCHAR(64) DEFAULT NULL,
+    twofa_secret VARCHAR(64) DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_wu_email (email),
+    UNIQUE KEY uniq_wu_account_id (account_id),
+    KEY idx_wu_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS theme_options (
     theme_slug VARCHAR(64) NOT NULL,
     opt_key VARCHAR(64) NOT NULL,
