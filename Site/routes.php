@@ -2,6 +2,17 @@
 
 require_once __DIR__ . '/includes/theme.php';
 
+if (isset($_GET['action']) && $_GET['action'] === 'logout') {
+    require_once __DIR__ . '/auth.php';
+    $user = current_user();
+    if ($user !== null) {
+        audit_log((int) $user['id'], 'logout');
+    }
+    nx_logout();
+    header('Location: ?p=account&loggedout=1', true, 302);
+    exit;
+}
+
 $routes = [
     'home' => __DIR__ . '/pages/home.php',
     'news' => __DIR__ . '/pages/news.php',

@@ -61,7 +61,7 @@ $u = current_user();
                 <li><a class="dropdown-item" href="/admin/">Admin Panel</a></li>
               <?php endif; ?>
               <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item text-danger" href="?p=account&action=logout"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></li>
+              <li><a class="dropdown-item text-danger" href="?action=logout"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></li>
             </ul>
           </li>
         <?php else: ?>
