@@ -2,20 +2,8 @@
 
 declare(strict_types=1);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-
-require_once __DIR__ . '/../../config.php';
-require_once __DIR__ . '/../../db.php';
-require_once __DIR__ . '/../../functions.php';
-require_once __DIR__ . '/../../csrf.php';
+require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/../../auth.php';
-
-if (!is_role('admin')) {
-    flash('error', 'You do not have permission to access the admin area.');
-    redirect('../?p=account');
-}
 
 function admin_nav_items(): array
 {

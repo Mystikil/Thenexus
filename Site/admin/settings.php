@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Settings';
 $adminNavActive = 'settings';
 
@@ -53,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $upsert = $pdo->prepare('INSERT INTO settings (`key`, value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE value = VALUES(value)');
         $user = current_user();
         $userId = $user !== null ? (int) $user['id'] : null;
+        $actorIsMaster = $user !== null && is_master($user);
         $changes = 0;
 
         foreach ($settingsMap as $key => $label) {
@@ -73,7 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'value' => $newValue,
             ]);
 
-            audit_log($userId, 'update_setting', ['key' => $key, 'value' => $previousValue], ['key' => $key, 'value' => $newValue]);
+            audit_log($userId, 'update_setting', ['key' => $key, 'value' => $previousValue], [
+                'key' => $key,
+                'value' => $newValue,
+                'a_is_master' => $actorIsMaster ? 1 : 0,
+            ]);
             $currentSettings[$key] = $newValue;
             $changes++;
         }

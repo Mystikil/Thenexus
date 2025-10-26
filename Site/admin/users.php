@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Users';
 $adminNavActive = 'users';
 
@@ -17,8 +22,10 @@ $successes = [];
 $revealedRecoveryKey = null;
 $accountRow = null;
 $websiteUser = null;
+$targetIsMaster = false;
 $recoveryMeta = ['has_key' => false, 'created_at' => null];
 $adminPlainAllowed = nx_recovery_admin_plain_allowed($pdo);
+$actorIsMaster = $currentAdmin !== null && is_master($currentAdmin);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
@@ -37,8 +44,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $recoveryMeta = nx_fetch_recovery_key_meta($pdo, $accountId);
 
-            switch ($action) {
-                case 'invalidate_recovery_key':
+            if ($websiteUser === null) {
+                $websiteStmt = $pdo->prepare('SELECT * FROM website_users WHERE account_id = :account_id LIMIT 1');
+                $websiteStmt->execute(['account_id' => $accountId]);
+                $websiteRow = $websiteStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($websiteRow !== false) {
+                    $websiteUser = $websiteRow;
+                }
+            }
+
+            $targetUser = $websiteUser;
+
+            if ($targetUser === null && isset($accountRow['email']) && $accountRow['email'] !== '') {
+                $targetUser = [
+                    'email' => nx_norm_email((string) $accountRow['email']),
+                    'role' => 'owner',
+                ];
+            }
+
+            $targetIsMaster = $targetUser !== null && is_master($targetUser);
+
+            if ($targetIsMaster) {
+                $errors[] = 'This is a MASTER account and cannot be modified here.';
+            } else {
+                switch ($action) {
+                    case 'invalidate_recovery_key':
                     if (!$recoveryMeta['has_key']) {
                         $errors[] = 'No recovery key is currently assigned to this account.';
                         break;
@@ -59,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'account_id' => $accountId,
                         'had_key' => $afterMeta['has_key'],
                         'created_at' => $afterMeta['created_at'],
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
                     ]);
                     $recoveryMeta = $afterMeta;
                     break;
@@ -90,13 +122,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ], [
                         'account_id' => $accountId,
                         'created_at' => $afterMeta['created_at'],
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
                     ]);
                     $recoveryMeta = $afterMeta;
                     break;
 
-                default:
-                    $errors[] = 'Unknown admin action requested.';
-                    break;
+                    default:
+                        $errors[] = 'Unknown admin action requested.';
+                        break;
+                }
             }
         }
     }
@@ -106,7 +140,7 @@ if ($accountRow === null && $searchQuery !== '') {
     $accountRow = nx_fetch_account_by_name($pdo, $searchQuery);
 
     if ($accountRow === null) {
-        $normalizedEmail = strtolower($searchQuery);
+        $normalizedEmail = nx_norm_email($searchQuery);
 
         if ($normalizedEmail !== '') {
             $websiteStmt = $pdo->prepare('SELECT * FROM website_users WHERE LOWER(email) = :email LIMIT 1');
@@ -145,6 +179,17 @@ if ($accountRow !== null) {
         }
     }
 }
+
+$targetUser = $websiteUser;
+
+if ($targetUser === null && $accountRow !== null && isset($accountRow['email']) && $accountRow['email'] !== '') {
+    $targetUser = [
+        'email' => nx_norm_email((string) $accountRow['email']),
+        'role' => 'owner',
+    ];
+}
+
+$targetIsMaster = $targetUser !== null && is_master($targetUser);
 
 $csrfToken = csrf_token();
 ?>
@@ -208,29 +253,36 @@ $csrfToken = csrf_token();
                 <p><strong>Linked Website User:</strong> <?php echo sanitize((string) ($websiteUser['email'] ?? '')); ?></p>
             <?php endif; ?>
 
-            <div class="admin-form__actions">
-                <form method="post" action="users.php">
-                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
-                    <input type="hidden" name="action" value="invalidate_recovery_key">
-                    <input type="hidden" name="account_id" value="<?php echo $accountId; ?>">
-                    <input type="hidden" name="search_query" value="<?php echo sanitize($searchQuery); ?>">
-                    <button type="submit" class="admin-button admin-button--secondary"<?php echo $recoveryMeta['has_key'] ? '' : ' disabled'; ?>>Invalidate Recovery Key</button>
-                </form>
+            <?php if ($targetIsMaster): ?>
+                <div class="admin-alert admin-alert--warning">
+                    <p class="admin-alert__title">Master Account</p>
+                    <p>This is a MASTER account and cannot be modified here.</p>
+                </div>
+            <?php else: ?>
+                <div class="admin-form__actions">
+                    <form method="post" action="users.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+                        <input type="hidden" name="action" value="invalidate_recovery_key">
+                        <input type="hidden" name="account_id" value="<?php echo $accountId; ?>">
+                        <input type="hidden" name="search_query" value="<?php echo sanitize($searchQuery); ?>">
+                        <button type="submit" class="admin-button admin-button--secondary"<?php echo $recoveryMeta['has_key'] ? '' : ' disabled'; ?>>Invalidate Recovery Key</button>
+                    </form>
 
-                <form method="post" action="users.php">
-                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
-                    <input type="hidden" name="action" value="rotate_recovery_key">
-                    <input type="hidden" name="account_id" value="<?php echo $accountId; ?>">
-                    <input type="hidden" name="search_query" value="<?php echo sanitize($searchQuery); ?>">
-                    <label class="admin-checkbox-inline">
-                        <input type="checkbox" name="confirm_delivery" value="1"> I will deliver to verified owner
-                    </label>
-                    <button type="submit" class="admin-button"<?php echo $adminPlainAllowed ? '' : ' disabled'; ?>>Force Rotation (Generate New)</button>
-                </form>
-            </div>
+                    <form method="post" action="users.php">
+                        <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+                        <input type="hidden" name="action" value="rotate_recovery_key">
+                        <input type="hidden" name="account_id" value="<?php echo $accountId; ?>">
+                        <input type="hidden" name="search_query" value="<?php echo sanitize($searchQuery); ?>">
+                        <label class="admin-checkbox-inline">
+                            <input type="checkbox" name="confirm_delivery" value="1"> I will deliver to verified owner
+                        </label>
+                        <button type="submit" class="admin-button"<?php echo $adminPlainAllowed ? '' : ' disabled'; ?>>Force Rotation (Generate New)</button>
+                    </form>
+                </div>
 
-            <?php if (!$adminPlainAllowed): ?>
-                <p class="admin-table__meta">Plain recovery keys cannot be shown while "Allow Admin Plain Recovery View" is disabled in settings.</p>
+                <?php if (!$adminPlainAllowed): ?>
+                    <p class="admin-table__meta">Plain recovery keys cannot be shown while "Allow Admin Plain Recovery View" is disabled in settings.</p>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     <?php elseif ($searchQuery !== ''): ?>

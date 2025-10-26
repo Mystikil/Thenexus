@@ -104,7 +104,11 @@ few minutes.
    - `sql/patch_001_website.sql`
 3. **Update `Site/config.php`** with your MySQL credentials. While editing the
    file, set fresh values for `WEBHOOK_SECRET` and `BRIDGE_SECRET`; these are
-   required for secure webhook ingestion and job polling.
+   required for secure webhook ingestion and job polling. Configure the new
+   `MASTER_ACCOUNTS` array with one or more lowercase email addresses for master
+   accounts. These users are always treated as owners, bypass RBAC checks when
+   `MASTER_BYPASS_RBAC` is `true`, and cannot be demoted or deleted through the
+   UI—keep at least one master email defined to avoid lockout.
 4. **Create the first website owner account.** Generate a password hash
    (`php -r "echo password_hash('ChangeMe123', PASSWORD_DEFAULT), PHP_EOL;"`) and
    insert it manually:

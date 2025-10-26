@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'register') {
-        $registerEmail = trim((string) ($_POST['email'] ?? ''));
+        $registerEmail = nx_norm_email($_POST['email'] ?? '');
         $registerAccountName = trim((string) ($_POST['account_name'] ?? ''));
     }
 

@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Themes';
 $adminNavActive = 'themes';
 
@@ -124,6 +129,7 @@ $pendingOptionValues = null;
 
 $user = current_user();
 $userId = $user !== null ? (int) $user['id'] : null;
+$actorIsMaster = $user !== null && is_master($user);
 
 $themes = nx_themes_list();
 $themeSlugs = array_keys($themes);
@@ -164,7 +170,10 @@ if (isset($_GET['preview_theme'])) {
     }
 
     $_SESSION['preview_theme'] = $previewRequest;
-    audit_log($userId, 'preview_theme', null, ['slug' => $previewRequest]);
+    audit_log($userId, 'preview_theme', null, [
+        'slug' => $previewRequest,
+        'a_is_master' => $actorIsMaster ? 1 : 0,
+    ]);
     $label = $themes[$previewRequest]['name'] ?? ucfirst($previewRequest);
     flash('success', 'Preview mode enabled for the “' . $label . '” theme.');
     redirect('themes.php?theme=' . urlencode($previewRequest));
@@ -203,7 +212,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId,
                     'activate_theme',
                     ['slug' => $activeSlug],
-                    ['slug' => $slug]
+                    [
+                        'slug' => $slug,
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
+                    ]
                 );
 
                 if ($previewSlug === $slug) {
@@ -230,7 +242,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId,
                     'apply_preview_theme',
                     ['slug' => $activeSlug],
-                    ['slug' => $previewSlug]
+                    [
+                        'slug' => $previewSlug,
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
+                    ]
                 );
                 unset($_SESSION['preview_theme']);
                 flash('success', 'Preview applied. The “' . ($themes[$previewSlug]['name'] ?? $previewSlug) . '” theme is now active.');
@@ -238,7 +253,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             case 'clear_preview':
                 if ($previewSlug !== null) {
-                    audit_log($userId, 'clear_preview_theme', ['slug' => $previewSlug], null);
+                    audit_log($userId, 'clear_preview_theme', ['slug' => $previewSlug], [
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
+                    ]);
                 }
                 unset($_SESSION['preview_theme']);
                 flash('success', 'Theme preview mode has been cleared.');
@@ -274,7 +291,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
 
-                audit_log($userId, 'delete_theme', ['slug' => $slug], null);
+                audit_log($userId, 'delete_theme', ['slug' => $slug], [
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
+                ]);
                 flash('success', 'The “' . ($themes[$slug]['name'] ?? $slug) . '” theme has been removed.');
                 redirect('themes.php');
 
@@ -464,7 +483,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $themes = nx_themes_list(true);
                 $label = $themes[$slug]['name'] ?? ucfirst($slug);
-                audit_log($userId, 'upload_theme', null, ['slug' => $slug]);
+                audit_log($userId, 'upload_theme', null, [
+                    'slug' => $slug,
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
+                ]);
                 flash('success', 'Theme uploaded successfully: “' . $label . '”.');
                 redirect('themes.php?theme=' . urlencode($slug));
 
@@ -591,6 +613,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errorsAfter = count($errors);
 
                 if ($changes > 0) {
+                    $after['a_is_master'] = $actorIsMaster ? 1 : 0;
                     audit_log($userId, 'update_theme_options', $before, $after);
                 }
 
