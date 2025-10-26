@@ -121,6 +121,14 @@ few minutes.
    `/api/public_read.php` endpoints and `/api/jobs_pull.php` bridge will now use
    the secrets defined in `config.php`.
 
+### 🔁 Re-indexing game data
+
+- Run nightly to refresh parsed items, monsters, and spells data:
+
+  ```bash
+  php scripts/reindex.php
+  ```
+
 New registrations completed through the website always create a matching entry
 in the legacy `accounts` table (`REQUIRE_GAME_ACCOUNT_ON_REGISTER = true` by
 default) and link it to the website profile. As soon as the form is submitted,

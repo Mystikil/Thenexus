@@ -34,7 +34,7 @@ function admin_nav_items(): array
         ['href' => 'merge_accounts.php', 'label' => 'Merge Accounts', 'slug' => 'merge_accounts'],
         ['href' => 'logs.php', 'label' => 'Logs', 'slug' => 'logs'],
         ['href' => 'settings.php', 'label' => 'Settings', 'slug' => 'settings'],
-        ['href' => 'server.php', 'label' => 'Server', 'slug' => 'server'],
+        ['href' => 'settings_server.php', 'label' => 'Server', 'slug' => 'server'],
     ];
 }
 
