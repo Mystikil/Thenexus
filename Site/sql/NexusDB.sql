@@ -1,0 +1,16 @@
+-- Placeholder SQL schema for Nexus AAC.
+
+CREATE TABLE IF NOT EXISTS accounts (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(32) NOT NULL UNIQUE,
+    email VARCHAR(255) DEFAULT NULL,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS theme_options (
+    theme_slug VARCHAR(64) NOT NULL,
+    opt_key VARCHAR(64) NOT NULL,
+    opt_value TEXT NULL,
+    PRIMARY KEY (theme_slug, opt_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
