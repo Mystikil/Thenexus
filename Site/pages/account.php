@@ -192,13 +192,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         nx_password_set($pdo, $accountId, $newPassword);
 
-                        if (defined('PASSWORD_MODE') && PASSWORD_MODE === 'dual') {
-                            $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
-                            $update->execute([
-                                'pass_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
-                                'id' => (int) $user['id'],
-                            ]);
-                        }
+                        $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
+                        $update->execute([
+                            'pass_hash' => password_hash($newPassword, PASSWORD_DEFAULT),
+                            'id' => (int) $user['id'],
+                        ]);
 
                         if ($startedTransaction && $pdo->inTransaction()) {
                             $pdo->commit();

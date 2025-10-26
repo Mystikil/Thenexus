@@ -373,11 +373,7 @@ function register(string $email, string $password, string $accountName): array
 
         $websiteUserId = null;
         if ($hasWebsiteUsersTable) {
-            $webPasswordHash = null;
-
-            if (function_exists('nx_password_mode') && nx_password_mode() === 'dual') {
-                $webPasswordHash = nx_hash_web_secure($password);
-            }
+            $webPasswordHash = password_hash($password, PASSWORD_DEFAULT);
 
             $webUpsert = $pdo->prepare(
                 'INSERT INTO website_users (email, pass_hash, account_id, role, created_at) '
@@ -541,9 +537,7 @@ function login(string $accountNameOrEmail, string $password): array
                 ];
             }
 
-            $webHash = nx_password_mode() === 'dual'
-                ? nx_hash_web_secure($password)
-                : null;
+            $webHash = password_hash($password, PASSWORD_DEFAULT);
 
             $insert = $pdo->prepare(
                 'INSERT INTO website_users (email, pass_hash, account_id, role, created_at) '
@@ -572,12 +566,30 @@ function login(string $accountNameOrEmail, string $password): array
     }
 
     $webHash = (string) ($websiteUser['pass_hash'] ?? '');
-    $modernOk = $webHash !== '' && nx_verify_web_secure($password, $webHash);
+    $modernOk = false;
+
+    if ($webHash !== '') {
+        $modernOk = password_verify($password, $webHash);
+
+        if ($modernOk && password_needs_rehash($webHash, PASSWORD_DEFAULT)) {
+            try {
+                $rehash = password_hash($password, PASSWORD_DEFAULT);
+                $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
+                $update->execute([
+                    'pass_hash' => $rehash,
+                    'id' => (int) $websiteUser['id'],
+                ]);
+                $websiteUser['pass_hash'] = $rehash;
+            } catch (Throwable $exception) {
+                // Ignore rehash failures.
+            }
+        }
+    }
 
     $legacyOk = false;
     $accountId = isset($websiteUser['account_id']) ? (int) $websiteUser['account_id'] : 0;
 
-    if ($accountRow !== null) {
+    if (!$modernOk && $accountRow !== null) {
         $legacyOk = nx_verify_account_password($accountRow, $password);
 
         if ($legacyOk && $accountId === 0) {
@@ -612,10 +624,10 @@ function login(string $accountNameOrEmail, string $password): array
         $used = 'web';
     }
 
-    if (!$modernOk && nx_password_mode() === 'dual') {
-        // Upgrade stored hash for dual mode users logging in via TFS password.
+    if (!$modernOk && $legacyOk) {
+        // Upgrade stored hash for users logging in via legacy credentials.
         try {
-            $newHash = nx_hash_web_secure($password);
+            $newHash = password_hash($password, PASSWORD_DEFAULT);
             $update = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE id = :id');
             $update->execute([
                 'pass_hash' => $newHash,
