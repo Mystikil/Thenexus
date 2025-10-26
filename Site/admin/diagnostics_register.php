@@ -6,6 +6,36 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 
+function nx_table_exists(PDO $pdo, string $table): bool {
+    $sql = "SELECT 1
+            FROM information_schema.tables
+           WHERE table_schema = DATABASE() AND table_name = :t
+           LIMIT 1";
+    $st = $pdo->prepare($sql);
+    $st->execute([':t' => $table]);
+
+    return (bool) $st->fetchColumn();
+}
+
+function nx_columns(PDO $pdo, string $table): array {
+    $sql = "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+            FROM information_schema.columns
+           WHERE table_schema = DATABASE() AND table_name = :t
+           ORDER BY ORDINAL_POSITION";
+    $st = $pdo->prepare($sql);
+    $st->execute([':t' => $table]);
+
+    return $st->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function nx_show_create(PDO $pdo, string $table): ?string {
+    // SHOW CREATE TABLE can’t be bound either; quote the identifier safely
+    $safe = '`' . str_replace('`', '``', $table) . '`';
+    $row = $pdo->query("SHOW CREATE TABLE $safe")->fetch(PDO::FETCH_NUM);
+
+    return $row[1] ?? null;
+}
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     @session_start();
 }
@@ -69,29 +99,88 @@ $runQuery = function (string $sql, ?callable $onSuccess = null) use ($pdo, $addL
 
 $accountsColumns = [];
 
-$runQuery('SELECT DATABASE()');
-$runQuery("SHOW TABLES LIKE 'accounts'");
-$runQuery('SHOW COLUMNS FROM accounts', function (array $rows) use (&$accountsColumns): void {
-    $accountsColumns = $rows;
+$databaseName = null;
+$runQuery('SELECT DATABASE()', function (array $rows) use (&$databaseName): void {
+    $databaseName = $rows[0]['DATABASE()'] ?? null;
 });
 
-$tableExists = static function (string $table) use ($pdo): bool {
-    $stmt = $pdo->prepare('SHOW TABLES LIKE :table');
-    $stmt->execute(['table' => $table]);
+$showTablesLike = static function (string $table) use ($pdo, $addLine, &$databaseName): void {
+    $addLine("> SHOW TABLES LIKE '$table'");
 
-    return (bool) $stmt->fetch(PDO::FETCH_NUM);
+    if (!nx_table_exists($pdo, $table)) {
+        $addLine('(no rows)');
+        $addLine();
+
+        return;
+    }
+
+    $columnName = $databaseName !== null
+        ? sprintf('Tables_in_%s (%s)', $databaseName, $table)
+        : sprintf('Tables_in_database (%s)', $table);
+    $addLine(rtrim(print_r([[
+        $columnName => $table,
+    ]], true)));
+    $addLine();
 };
 
-if ($tableExists('website_users')) {
-    $runQuery('SHOW COLUMNS FROM website_users');
+$normalizeColumns = static function (array $columns): array {
+    return array_map(static function (array $column): array {
+        return [
+            'Field' => $column['COLUMN_NAME'] ?? null,
+            'Type' => $column['COLUMN_TYPE'] ?? null,
+            'Null' => $column['IS_NULLABLE'] ?? null,
+            'Default' => $column['COLUMN_DEFAULT'] ?? null,
+            'Extra' => $column['EXTRA'] ?? null,
+        ];
+    }, $columns);
+};
+
+$showColumns = static function (string $table) use ($pdo, $addLine, $normalizeColumns): array {
+    $addLine("> SHOW COLUMNS FROM $table");
+
+    if (!nx_table_exists($pdo, $table)) {
+        $addLine('(table not found)');
+        $addLine();
+
+        return [];
+    }
+
+    $columns = $normalizeColumns(nx_columns($pdo, $table));
+
+    if ($columns === []) {
+        $addLine('(no rows)');
+    } else {
+        $addLine(rtrim(print_r($columns, true)));
+    }
+
+    $addLine();
+
+    return $columns;
+};
+
+$showTablesLike('accounts');
+$accountsColumns = $showColumns('accounts');
+
+if (nx_table_exists($pdo, 'website_users')) {
+    $showColumns('website_users');
 } else {
-    $addLine("SHOW COLUMNS FROM website_users");
+    $addLine('> SHOW COLUMNS FROM website_users');
     $addLine('(table not found)');
     $addLine();
 }
 
-$runQuery("SHOW TABLES LIKE 'web_accounts'");
-$runQuery('SHOW CREATE TABLE accounts');
+$showTablesLike('web_accounts');
+
+$addLine('> SHOW CREATE TABLE accounts');
+$createSql = nx_show_create($pdo, 'accounts');
+
+if ($createSql === null) {
+    $addLine('(table not found)');
+} else {
+    $addLine($createSql);
+}
+
+$addLine();
 
 $attemptSimpleInsert = static function () use ($pdo, $addLine, $formatException): bool {
     $sql = "INSERT INTO accounts (name, password) VALUES ('_probe_', 'sha1')";
