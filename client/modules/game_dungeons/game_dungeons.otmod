@@ -1,0 +1,9 @@
+name: game_dungeons
+description: Dungeon Browser window (skeleton) with discovery-gated availability.
+author: Nexus
+website: https://devnexus.online
+autoload: true
+enabled: true
+scripts: [ "dungeon_window.lua" ]
+@onLoad: init()
+@onUnload: terminate()
