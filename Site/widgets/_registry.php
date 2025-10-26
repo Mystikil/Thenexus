@@ -16,6 +16,32 @@ if (!function_exists('sanitize')) {
     require_once __DIR__ . '/../functions.php';
 }
 
+if (!function_exists('widget_char_link')) {
+    function widget_char_link(string $name, string $extraClasses = ''): string
+    {
+        $trimmed = trim($name);
+
+        if ($trimmed === '') {
+            $safe = htmlspecialchars('Unknown', ENT_QUOTES, 'UTF-8');
+            if ($extraClasses !== '') {
+                $class = trim($extraClasses);
+
+                return $class !== '' ? '<span class="' . $class . '">' . $safe . '</span>' : $safe;
+            }
+
+            return $safe;
+        }
+
+        $link = char_link($trimmed);
+
+        if ($extraClasses !== '') {
+            $link = str_replace('class="char-link"', 'class="char-link ' . trim($extraClasses) . '"', $link);
+        }
+
+        return $link;
+    }
+}
+
 if (!function_exists('vocation_name_widget')) {
     function vocation_name_widget(int $vocationId): string
     {
@@ -492,10 +518,9 @@ function widget_top_levels(PDO $pdo, int $limit = 10): string
         $name = (string) ($player['name'] ?? '');
         $level = (int) ($player['level'] ?? 0);
         $vocation = (int) ($player['vocation'] ?? 0);
-        $href = '?p=character&amp;name=' . rawurlencode($name);
         $html .= '<li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">';
         $html .= '<div>';
-        $html .= '<a class="text-decoration-none fw-semibold text-light" href="' . $href . '">' . widget_escape($name) . '</a>';
+        $html .= widget_char_link($name, 'text-decoration-none fw-semibold text-light');
         $html .= '<div class="text-muted small">Level ' . $level . '</div>';
         $html .= '</div>';
         $html .= '<span class="badge bg-primary-subtle text-primary-emphasis px-3 py-2">' . widget_escape(vocation_name_widget($vocation)) . '</span>';
@@ -619,10 +644,9 @@ function widget_online(PDO $pdo, int $limit = 10): string
         $name = (string) ($player['name'] ?? '');
         $level = (int) ($player['level'] ?? 0);
         $vocation = (int) ($player['vocation'] ?? 0);
-        $url = '?p=character&amp;name=' . rawurlencode($name);
         $html .= '<li class="list-group-item bg-transparent d-flex justify-content-between align-items-center">';
         $html .= '<div>';
-        $html .= '<a class="text-decoration-none fw-semibold text-light" href="' . $url . '">' . widget_escape($name) . '</a>';
+        $html .= widget_char_link($name, 'text-decoration-none fw-semibold text-light');
         $html .= '<div class="text-muted small">Level ' . $level . ' • ' . widget_escape(vocation_name_widget($vocation)) . '</div>';
         $html .= '</div>';
         $html .= '<span class="badge rounded-pill bg-success-subtle text-success-emphasis">Online</span>';
@@ -663,8 +687,9 @@ function widget_recent_deaths(PDO $pdo, int $limit = 8): string
         $html .= '<li class="list-group-item bg-transparent">';
         $html .= '<div class="d-flex justify-content-between align-items-start">';
         $html .= '<div>';
-        $html .= '<div class="fw-semibold text-light">' . widget_escape($name) . ' <span class="text-muted small">Lv ' . $level . '</span></div>';
-        $html .= '<div class="text-muted small">Slain by ' . widget_escape($killer) . '</div>';
+        $html .= '<div class="fw-semibold text-light">' . widget_char_link($name, 'text-light fw-semibold') . ' <span class="text-muted small">Lv ' . $level . '</span></div>';
+        $html .= '<div class="text-muted small">Slain by ' . widget_char_link($killer, 'text-muted small');
+        $html .= '</div>';
         $html .= '</div>';
         if ($time > 0) {
             $html .= '<time class="text-muted small" datetime="' . widget_escape(date('c', $time)) . '">' . widget_escape($relative) . '</time>';

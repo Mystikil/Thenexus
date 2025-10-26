@@ -183,11 +183,7 @@ $vocations = [
                     <tbody>
                         <?php foreach ($characters as $character): ?>
                             <tr>
-                                <td>
-                                    <a href="?p=character&amp;name=<?php echo urlencode($character['name']); ?>">
-                                        <?php echo sanitize($character['name']); ?>
-                                    </a>
-                                </td>
+                                <td><?php echo char_link((string) $character['name']); ?></td>
                                 <td><?php echo (int) ($character['level'] ?? 1); ?></td>
                                 <td><?php echo sanitize($vocations[(int) ($character['vocation'] ?? 0)] ?? 'Unknown'); ?></td>
                                 <td><?php echo (int) ($character['sex'] ?? 0) === 1 ? 'Male' : 'Female'; ?></td>

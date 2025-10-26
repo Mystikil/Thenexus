@@ -44,19 +44,29 @@ function format_timestamp(int $timestamp): string
             <tbody>
                 <?php foreach ($deaths as $death): ?>
                     <tr>
-                        <td><?php echo sanitize($death['name']); ?></td>
+                        <td><?php echo char_link((string) $death['name']); ?></td>
                         <td><?php echo (int) $death['level']; ?></td>
                         <td>
-                            <?php echo sanitize($death['killed_by']); ?>
-                            <?php if ((int) $death['is_player'] === 1): ?>
-                                (player)
-                            <?php endif; ?>
+                            <?php
+                                $killerName = (string) ($death['killed_by'] ?? '');
+                                if ($killerName !== '' && (int) $death['is_player'] === 1) {
+                                    echo char_link($killerName);
+                                    echo ' (player)';
+                                } else {
+                                    echo sanitize($killerName);
+                                }
+                            ?>
                         </td>
                         <td>
-                            <?php echo sanitize($death['mostdamage_by']); ?>
-                            <?php if ((int) $death['mostdamage_is_player'] === 1): ?>
-                                (player)
-                            <?php endif; ?>
+                            <?php
+                                $mostName = (string) ($death['mostdamage_by'] ?? '');
+                                if ($mostName !== '' && (int) $death['mostdamage_is_player'] === 1) {
+                                    echo char_link($mostName);
+                                    echo ' (player)';
+                                } else {
+                                    echo sanitize($mostName);
+                                }
+                            ?>
                         </td>
                         <td><?php echo sanitize(format_timestamp((int) $death['time'])); ?></td>
                     </tr>

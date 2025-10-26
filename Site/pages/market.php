@@ -144,7 +144,10 @@ function market_offer_type(int $sale): string
                             <?php if ((int) $offer['anonymous'] === 1): ?>
                                 <?php echo sanitize('Anonymous'); ?>
                             <?php else: ?>
-                                <?php echo sanitize($offer['seller_name'] ?? 'Unknown'); ?>
+                                <?php
+                                    $sellerName = trim((string) ($offer['seller_name'] ?? ''));
+                                    echo $sellerName !== '' ? char_link($sellerName) : sanitize('Unknown');
+                                ?>
                             <?php endif; ?>
                         </td>
                         <td><?php echo sanitize(format_timestamp((int) $offer['created'])); ?></td>

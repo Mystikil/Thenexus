@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../lib/char_profile.php';
 
 $pdo = db();
 
@@ -19,6 +20,9 @@ $normalizedQuery = $normalizedQuery !== '' ? ucwords(strtolower($normalizedQuery
 $character = null;
 $recentDeaths = [];
 $guildName = null;
+$guildRank = null;
+$skillValues = [];
+$hasSkillTable = false;
 $message = '';
 
 if ($normalizedQuery !== '') {
@@ -42,17 +46,14 @@ if ($normalizedQuery !== '') {
             $GLOBALS['nx_meta_title'] = $character['name'] . ' – Character';
         }
 
-        if (nx_table_exists($pdo, 'guild_membership') && nx_table_exists($pdo, 'guilds')) {
-            $guildStmt = $pdo->prepare(
-                'SELECT g.name
-                 FROM guild_membership gm
-                 JOIN guilds g ON g.id = gm.guild_id
-                 WHERE gm.player_id = ?
-                 LIMIT 1'
-            );
-            $guildStmt->execute([$playerId]);
-            $guildName = $guildStmt->fetchColumn();
+        $guildInfo = nx_fetch_guild($pdo, $playerId);
+        if ($guildInfo !== null) {
+            $guildName = isset($guildInfo['name']) ? (string) $guildInfo['name'] : null;
+            $guildRank = isset($guildInfo['rank']) ? (string) $guildInfo['rank'] : null;
         }
+
+        $hasSkillTable = nx_table_exists($pdo, 'player_skills');
+        $skillValues = nx_fetch_skills($pdo, $playerId);
 
         $deathSql = null;
         if (nx_table_exists($pdo, 'deaths')) {
@@ -180,7 +181,12 @@ function nx_format_timestamp(?int $timestamp): string
                             <dd class="col-7 text-reset"><?php echo sanitize((string) ($character['account_name'] ?? '')); ?></dd>
                             <?php if ($guildName): ?>
                                 <dt class="col-5">Guild</dt>
-                                <dd class="col-7 text-reset"><?php echo sanitize((string) $guildName); ?></dd>
+                                <dd class="col-7 text-reset">
+                                    <?php echo sanitize((string) $guildName); ?>
+                                    <?php if ($guildRank): ?>
+                                        <span class="text-muted small">(<?php echo sanitize((string) $guildRank); ?>)</span>
+                                    <?php endif; ?>
+                                </dd>
                             <?php endif; ?>
                         </dl>
                     </div>
@@ -211,13 +217,17 @@ function nx_format_timestamp(?int $timestamp): string
                                                     <?php
                                                         $killerName = (string) ($death['killer_name'] ?? $death['killer_player'] ?? 'Unknown');
                                                         $killerId = isset($death['killer_id']) ? (int) $death['killer_id'] : 0;
-                                                        if ($killerId > 0) {
-                                                            echo '<a href="?p=character&amp;name=' . urlencode($killerName) . '">' . sanitize($killerName) . '</a>';
+                                                        $isPlayerKill = (int) ($death['is_player'] ?? 0) === 1;
+                                                        if ($killerName !== '' && ($killerId > 0 || $isPlayerKill)) {
+                                                            echo char_link($killerName);
+                                                            if ($isPlayerKill && $killerId === 0) {
+                                                                echo ' (player)';
+                                                            }
                                                         } else {
                                                             echo sanitize($killerName);
-                                                        }
-                                                        if ((int) ($death['is_player'] ?? 0) === 1 && $killerId === 0) {
-                                                            echo ' (player)';
+                                                            if ($isPlayerKill && $killerId === 0) {
+                                                                echo ' (player)';
+                                                            }
                                                         }
                                                     ?>
                                                 </td>
@@ -254,22 +264,33 @@ function nx_format_timestamp(?int $timestamp): string
                             <?php endif; ?>
                             <?php
                                 $skillMap = [
-                                    'skill_fist' => 'Fist Fighting',
-                                    'skill_club' => 'Club Fighting',
-                                    'skill_sword' => 'Sword Fighting',
-                                    'skill_axe' => 'Axe Fighting',
-                                    'skill_dist' => 'Distance Fighting',
-                                    'skill_shielding' => 'Shielding',
-                                    'skill_fishing' => 'Fishing',
+                                    'fist' => ['label' => 'Fist Fighting', 'legacy' => 'skill_fist'],
+                                    'club' => ['label' => 'Club Fighting', 'legacy' => 'skill_club'],
+                                    'sword' => ['label' => 'Sword Fighting', 'legacy' => 'skill_sword'],
+                                    'axe' => ['label' => 'Axe Fighting', 'legacy' => 'skill_axe'],
+                                    'distance' => ['label' => 'Distance Fighting', 'legacy' => 'skill_dist'],
+                                    'shield' => ['label' => 'Shielding', 'legacy' => 'skill_shielding'],
+                                    'fish' => ['label' => 'Fishing', 'legacy' => 'skill_fishing'],
                                 ];
-                                foreach ($skillMap as $field => $label):
-                                    if (!isset($character[$field])) {
+                                foreach ($skillMap as $key => $info):
+                                    $value = $skillValues[$key] ?? null;
+                                    $legacyField = $info['legacy'];
+
+                                    if (!$hasSkillTable && isset($character[$legacyField])) {
+                                        $value = (int) $character[$legacyField];
+                                    } elseif ($value === null && isset($character[$legacyField])) {
+                                        $value = (int) $character[$legacyField];
+                                    }
+
+                                    if ($value === null) {
                                         continue;
                                     }
+
+                                    $value = (int) $value;
                             ?>
                                 <div class="col-6 mb-2">
-                                    <span class="text-reset"><?php echo sanitize($label); ?>:</span>
-                                    <?php echo (int) $character[$field]; ?>
+                                    <span class="text-reset"><?php echo sanitize($info['label']); ?>:</span>
+                                    <?php echo $value; ?>
                                 </div>
                             <?php endforeach; ?>
                         </div>

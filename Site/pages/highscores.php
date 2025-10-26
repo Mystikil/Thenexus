@@ -114,7 +114,7 @@ $rows = $stmt->fetchAll();
                 <?php foreach ($rows as $row): ?>
                     <tr>
                         <td><?php echo $rank++; ?></td>
-                        <td><?php echo sanitize($row['name']); ?></td>
+                        <td><?php echo char_link((string) $row['name']); ?></td>
                         <td><?php echo sanitize(vocation_name((int) $row['vocation'])); ?></td>
                         <td><?php echo (int) $row['level']; ?></td>
                         <td><?php echo (int) $row[$skillOptions[$selectedSkill]['column']]; ?></td>

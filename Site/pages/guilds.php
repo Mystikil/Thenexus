@@ -94,7 +94,7 @@ if ($guild === null && $nameQuery === '') {
                     <?php foreach ($guilds as $guildRow): ?>
                         <tr>
                             <td><a href="<?php echo sanitize(base_url('index.php?p=guilds&name=' . urlencode($guildRow['name']))); ?>"><?php echo sanitize($guildRow['name']); ?></a></td>
-                            <td><?php echo sanitize($guildRow['owner_name']); ?></td>
+                            <td><?php echo char_link((string) $guildRow['owner_name']); ?></td>
                             <td><?php echo (int) $guildRow['member_count']; ?></td>
                             <td><?php echo sanitize(format_timestamp((int) $guildRow['creationdata'])); ?></td>
                         </tr>
@@ -108,7 +108,7 @@ if ($guild === null && $nameQuery === '') {
         <?php else: ?>
             <article class="guild">
                 <h3><?php echo sanitize($guild['name']); ?></h3>
-                <p><strong>Leader:</strong> <?php echo sanitize($guild['owner_name']); ?></p>
+                <p><strong>Leader:</strong> <?php echo char_link((string) $guild['owner_name']); ?></p>
                 <p><strong>Message:</strong> <?php echo sanitize($guild['motd']); ?></p>
                 <p><strong>Created:</strong> <?php echo sanitize(format_timestamp((int) $guild['creationdata'])); ?></p>
             </article>
@@ -130,7 +130,7 @@ if ($guild === null && $nameQuery === '') {
                         <tbody>
                             <?php foreach ($members as $member): ?>
                                 <tr>
-                                    <td><?php echo sanitize($member['name']); ?></td>
+                                    <td><?php echo char_link((string) $member['name']); ?></td>
                                     <td><?php echo sanitize($member['rank_name']); ?></td>
                                     <td><?php echo (int) $member['level']; ?></td>
                                     <td><?php echo sanitize(vocation_name((int) $member['vocation'])); ?></td>
