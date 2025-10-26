@@ -3,10 +3,15 @@
   --nx-surface: #111722;
   --nx-surface-alt: #161d2b;
   --nx-border: rgba(255,255,255,.08);
-  --nx-text: #e6edf5;
-  --nx-muted: #9fb1c7;
-  --nx-primary: #58a6ff;
+  --nx-text: #ffffff;
+  --nx-muted: #ffffff;
+  --nx-primary: #ffffff;
   --nx-glow: rgba(88,166,255,.25);
+}
+
+/* Force every text node and pseudo-element to render white */
+*, *::before, *::after {
+  color: #ffffff !important;
 }
 
 /* Global body/background */
@@ -53,11 +58,11 @@ html, body {
 
 /* Links */
 a {
-  color: var(--nx-primary) !important;
+  color: #ffffff !important;
   text-decoration: none;
 }
 a:hover {
-  color: #4a92f0 !important;
+  color: #ffffff !important;
 }
 
 /* Headings */
@@ -70,6 +75,33 @@ input, select, textarea {
   background-color: var(--nx-surface-alt) !important;
   color: var(--nx-text) !important;
   border: 1px solid var(--nx-border) !important;
+}
+
+input::placeholder,
+textarea::placeholder,
+select::placeholder,
+.form-control::placeholder,
+.form-select::placeholder {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+.text-muted,
+.form-text,
+label,
+.form-label,
+.nav-link,
+.dropdown-item,
+.navbar-brand,
+.breadcrumb-item,
+.badge,
+small,
+span,
+p,
+li,
+dt,
+dd {
+  color: #ffffff !important;
 }
 
 /* Sidebar widgets */
