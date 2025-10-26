@@ -7,6 +7,7 @@ const DB_USER = 'root';
 const DB_PASS = '';
 
 const SITE_TITLE = 'Nexus AAC';
+const ADMIN_GROUP_ID = 3;
 const WEBHOOK_SECRET = 'replace-with-webhook-secret';
 const BRIDGE_SECRET = 'replace-with-bridge-secret';
 
