@@ -13,6 +13,13 @@ $adminNavActive = 'users';
 require __DIR__ . '/partials/header.php';
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="admin-section"><h2>Users</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
 $currentAdmin = current_user();
 $adminId = $currentAdmin !== null ? (int) $currentAdmin['id'] : null;
 

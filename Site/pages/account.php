@@ -18,6 +18,12 @@ $registerEmail = '';
 $registerAccountName = '';
 $themes = nx_all_themes();
 
+if (!nx_database_available()) {
+    echo '<section class="page page--account"><h2>Account</h2><p class="text-muted mb-0">Account services are currently unavailable. Please try again later.</p></section>';
+
+    return;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     $token = $_POST['csrf_token'] ?? null;

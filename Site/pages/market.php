@@ -1,6 +1,12 @@
 <?php
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--market"><h2>Market</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 function get_item_names(): array
 {
     static $cache = null;

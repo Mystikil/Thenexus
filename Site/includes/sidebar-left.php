@@ -3,6 +3,13 @@ require_once __DIR__ . '/../widgets/_registry.php';
 require_once __DIR__ . '/theme.php';
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<div class="card nx-glow mb-3"><div class="card-body"><p class="text-muted mb-0">Unavailable.</p></div></div>';
+
+    return;
+}
+
 $pageSlug = nx_current_page_slug();
 $widgets = nx_widget_order($pdo, 'left', $pageSlug);
 $registry = nx_widget_registry();

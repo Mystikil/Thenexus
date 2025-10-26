@@ -110,7 +110,13 @@ function current_user(): ?array
         TFS_ACCOUNTS_TABLE
     );
 
-    $stmt = db()->prepare($sql);
+    $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare($sql);
     $stmt->execute(['id' => $_SESSION['user_id']]);
     $user = $stmt->fetch();
 
@@ -169,6 +175,14 @@ function require_login(): void
 function register(string $email, string $password, string $accountName): array
 {
     $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        return [
+            'success' => false,
+            'errors' => ['Registration is currently unavailable. Please try again later.'],
+        ];
+    }
+
     $errors = [];
 
     $email = nx_norm_email($email);
@@ -340,6 +354,14 @@ function register(string $email, string $password, string $accountName): array
 function login(string $accountNameOrEmail, string $password): array
 {
     $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        return [
+            'success' => false,
+            'errors' => ['Login is currently unavailable. Please try again later.'],
+        ];
+    }
+
     $identifier = trim($accountNameOrEmail);
     $errors = [];
 
@@ -541,6 +563,14 @@ function login(string $accountNameOrEmail, string $password): array
 function link_account_manual(int $userId, string $accountName, string $password): array
 {
     $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        return [
+            'success' => false,
+            'errors' => ['Account linking is currently unavailable. Please try again later.'],
+        ];
+    }
+
     $errors = [];
 
     $accountName = trim($accountName);
@@ -760,7 +790,13 @@ function logout(): void
 function audit_log(?int $userId, string $action, ?array $before = null, ?array $after = null): void
 {
     try {
-        $stmt = db()->prepare('INSERT INTO audit_log (user_id, action, before_json, after_json, ip) VALUES (:user_id, :action, :before_json, :after_json, :ip)');
+        $pdo = db();
+
+        if (!$pdo instanceof PDO) {
+            return;
+        }
+
+        $stmt = $pdo->prepare('INSERT INTO audit_log (user_id, action, before_json, after_json, ip) VALUES (:user_id, :action, :before_json, :after_json, :ip)');
         $stmt->execute([
             'user_id' => $userId,
             'action' => $action,

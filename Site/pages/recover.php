@@ -4,6 +4,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/../auth_recovery.php';
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--recover"><h2>Account Recovery</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 $rotateOnUse = nx_recovery_rotate_on_use_enabled($pdo);
 
 $errors = [];

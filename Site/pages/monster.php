@@ -2,6 +2,12 @@
 declare(strict_types=1);
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--monster"><h2>Monster</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
 $monsterId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 if ($monsterId <= 0) {

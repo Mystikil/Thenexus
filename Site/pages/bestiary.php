@@ -5,6 +5,12 @@ require_once __DIR__ . '/../widgets/_cache.php';
 
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--bestiary"><h2>Bestiary</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 $search = trim((string) ($_GET['search'] ?? ''));
 $race = trim((string) ($_GET['race'] ?? ''));
 $elementRelation = $_GET['element_relation'] ?? '';

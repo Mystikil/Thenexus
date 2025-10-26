@@ -16,6 +16,13 @@ require_once __DIR__ . '/../lib/monster_indexer.php';
 require_once __DIR__ . '/../lib/spell_indexer.php';
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="admin-section"><h2>Indexers</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
 $action = $_GET['action'] ?? '';
 $returnTo = $_POST['return_to'] ?? $_GET['return_to'] ?? null;
 

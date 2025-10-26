@@ -5,6 +5,12 @@ require_once __DIR__ . '/../widgets/_cache.php';
 
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--spells"><h2>Spell Library</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 $search = trim((string) ($_GET['search'] ?? ''));
 $vocation = trim((string) ($_GET['vocation'] ?? ''));
 $type = trim((string) ($_GET['type'] ?? ''));

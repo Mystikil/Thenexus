@@ -12,6 +12,15 @@ $adminNavActive = 'settings';
 
 require __DIR__ . '/partials/header.php';
 
+$pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="admin-section"><h2>Settings</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
+
 $settingsMap = [
     'site_title' => 'Site Title',
     'WEBHOOK_SECRET' => 'Webhook Secret',
@@ -34,7 +43,7 @@ $errors = [];
 $successMessage = null;
 
 $placeholders = implode(', ', array_fill(0, count($settingsMap), '?'));
-$stmt = db()->prepare('SELECT `key`, value FROM settings WHERE `key` IN (' . $placeholders . ')');
+$stmt = $pdo->prepare('SELECT `key`, value FROM settings WHERE `key` IN (' . $placeholders . ')');
 $stmt->execute(array_keys($settingsMap));
 
 while ($row = $stmt->fetch()) {
@@ -54,7 +63,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errors[] = 'The request could not be validated. Please try again.';
     } else {
-        $pdo = db();
         $upsert = $pdo->prepare('INSERT INTO settings (`key`, value) VALUES (:key, :value) ON DUPLICATE KEY UPDATE value = VALUES(value)');
         $user = current_user();
         $userId = $user !== null ? (int) $user['id'] : null;

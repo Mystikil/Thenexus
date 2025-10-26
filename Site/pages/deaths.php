@@ -1,6 +1,12 @@
 <?php
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--deaths"><h2>Recent Deaths</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 $sql = "SELECT p.name, pd.level, pd.killed_by, pd.is_player, pd.time, pd.mostdamage_by, pd.mostdamage_is_player
     FROM player_deaths pd
     INNER JOIN players p ON p.id = pd.player_id

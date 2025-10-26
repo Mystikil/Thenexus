@@ -10,6 +10,11 @@ require __DIR__ . '/../includes/rate_limiter.php';
 
 $rawBody = file_get_contents('php://input') ?: '';
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    json_out(['status' => 'error', 'message' => 'Database unavailable'], 503);
+}
+
 rate_limit_check($pdo, client_rate_limit_key('webhook'), 60, 60);
 
 $payload = json_decode($rawBody, true);
