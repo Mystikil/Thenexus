@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Shop';
 $adminNavActive = 'shop';
 
@@ -9,6 +14,7 @@ require __DIR__ . '/partials/header.php';
 
 $pdo = db();
 $currentAdmin = current_user();
+$actorIsMaster = $currentAdmin !== null && is_master($currentAdmin);
 $tab = $_GET['tab'] ?? 'products';
 $tab = in_array($tab, ['products', 'orders'], true) ? $tab : 'products';
 $csrfToken = csrf_token();
@@ -98,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'price_coins' => $priceCoins,
                     'is_active' => $isActive,
                     'meta' => $meta,
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
                 ]);
 
                 flash('success', 'Product created successfully.');
@@ -184,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'price_coins' => $priceCoins,
                     'is_active' => $isActive,
                     'meta' => $meta,
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
                 ]);
 
                 flash('success', 'Product updated successfully.');
@@ -204,7 +212,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $deleteStmt = $pdo->prepare('DELETE FROM shop_products WHERE id = :id');
                 $deleteStmt->execute(['id' => $productId]);
 
-                audit_log($currentAdmin['id'] ?? null, 'admin_shop_product_delete', $product, null);
+                audit_log($currentAdmin['id'] ?? null, 'admin_shop_product_delete', $product, [
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
+                ]);
 
                 flash('success', 'Product deleted successfully.');
                 redirect('shop.php?tab=products');
@@ -280,6 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'order_id' => $orderId,
                     'job_id' => $jobId,
                     'args' => $args,
+                    'a_is_master' => $actorIsMaster ? 1 : 0,
                 ]);
 
                 flash('success', 'Delivery job queued successfully.');

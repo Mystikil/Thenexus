@@ -13,6 +13,14 @@ const BRIDGE_SECRET = 'replace-with-bridge-secret';
 const GAME_SERVER_STATUS_HOST = '127.0.0.1';
 const GAME_SERVER_STATUS_PORT = 7171;
 
+// One or more master accounts (lowercase emails). These users are always "owner".
+define('MASTER_ACCOUNTS', [
+    'joshwall488@gmail.com',   // <-- your email here
+]);
+
+// Optional safety fallback: allow login even if role table is broken
+define('MASTER_BYPASS_RBAC', true);
+
 // Password + authentication configuration
 const PASSWORD_MODE = 'tfs_sha1'; // 'tfs_sha1' | 'tfs_md5' | 'tfs_plain' | 'dual'
 const PASS_WITH_SALT = false;

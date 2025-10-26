@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Server Settings';
 $adminNavActive = 'server';
 
@@ -10,6 +15,7 @@ require_once __DIR__ . '/../lib/server_paths.php';
 
 $pdo = db();
 $currentAdmin = current_user();
+$actorIsMaster = $currentAdmin !== null && is_master($currentAdmin);
 $storedPath = trim((string) (get_setting('server_path') ?? ''));
 $currentPath = $storedPath !== '' ? $storedPath : SERVER_PATH;
 
@@ -57,7 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (function_exists('audit_log')) {
                     $before = $storedPath === '' ? null : ['server_path' => $storedPath];
-                    $after = ['server_path' => $candidate];
+                    $after = [
+                        'server_path' => $candidate,
+                        'a_is_master' => $actorIsMaster ? 1 : 0,
+                    ];
                     audit_log($currentAdmin['id'] ?? null, 'update_server_path', $before, $after);
                 }
 

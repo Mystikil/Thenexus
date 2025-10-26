@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+
+require_once __DIR__ . '/partials/bootstrap.php';
+require_once __DIR__ . '/../auth.php';
+require_admin('admin');
+
 $adminPageTitle = 'Merge Accounts';
 $adminNavActive = 'merge_accounts';
 
@@ -9,6 +14,7 @@ require __DIR__ . '/partials/header.php';
 
 $pdo = db();
 $currentAdmin = current_user();
+$actorIsMaster = $currentAdmin !== null && is_master($currentAdmin);
 $csrfToken = csrf_token();
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');
@@ -282,6 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'target' => nx_admin_merge_fetch_user($pdo, $websiteUserId),
                 'account' => nx_admin_merge_fetch_account($pdo, $accountId),
                 'linked_users' => [],
+                'a_is_master' => $actorIsMaster ? 1 : 0,
             ];
 
             $pdo->commit();

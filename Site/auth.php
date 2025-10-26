@@ -2,7 +2,90 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth_passwords.php';
+
+/** Normalize emails for comparison (lowercase, trim) */
+function nx_norm_email(?string $e): string
+{
+    $e = trim((string) $e);
+
+    return strtolower($e);
+}
+
+/** True if the current user (or given user row) is configured as master */
+function is_master(?array $user = null): bool
+{
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return false;
+    }
+
+    $email = nx_norm_email($user['email'] ?? '');
+
+    $masters = defined('MASTER_ACCOUNTS') ? MASTER_ACCOUNTS : [];
+
+    foreach ($masters as $m) {
+        if ($email && $email === nx_norm_email($m)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Role check (>= target role). Masters always pass.
+ * Role order: user < mod < gm < admin < owner
+ */
+function is_role(string $roleOrAbove, ?array $user = null): bool
+{
+    static $order = ['user' => 0, 'mod' => 1, 'gm' => 2, 'admin' => 3, 'owner' => 4];
+
+    if ($user === null) {
+        $user = current_user();
+    }
+
+    if (!$user) {
+        return false;
+    }
+
+    $isMaster = is_master($user);
+
+    if ($isMaster && (!defined('MASTER_BYPASS_RBAC') || MASTER_BYPASS_RBAC)) {
+        return true;
+    }
+
+    $have = $isMaster ? $order['owner'] : ($order[strtolower($user['role'] ?? 'user')] ?? 0);
+    $need = $order[strtolower($roleOrAbove)] ?? 0;
+
+    return $have >= $need;
+}
+
+/** Guard for admin pages. Masters bypass RBAC if enabled. */
+function require_admin(?string $minRole = 'admin'): void
+{
+    $u = current_user();
+
+    if (!$u) {
+        header('Location: ?p=account');
+        exit;
+    }
+
+    if (is_master($u) && (!defined('MASTER_BYPASS_RBAC') || MASTER_BYPASS_RBAC)) {
+        return;
+    }
+
+    if (!is_role($minRole, $u)) {
+        http_response_code(403);
+        echo '<div class="container-page"><div class="card nx-glow"><div class="card-body"><h4>Forbidden</h4><p>You do not have permission.</p></div></div></div>';
+        exit;
+    }
+}
 
 /**
  * Authentication helpers for linking website users to legacy TFS accounts.
@@ -53,40 +136,11 @@ function current_user(): ?array
     unset($user['linked_account_id'], $user['linked_account_name'], $user['linked_account_email']);
     unset($user['fallback_account_id'], $user['fallback_account_name'], $user['fallback_account_email']);
 
+    if (isset($user['email'])) {
+        $user['email'] = nx_norm_email((string) $user['email']);
+    }
+
     return $user;
-}
-
-function is_role(string $roleOrAbove): bool
-{
-    $roles = [
-        'user' => 0,
-        'mod' => 1,
-        'gm' => 2,
-        'admin' => 3,
-        'owner' => 4,
-    ];
-
-    $roleKey = strtolower($roleOrAbove);
-    $targetRank = $roles[$roleKey] ?? null;
-
-    if ($targetRank === null) {
-        return false;
-    }
-
-    $user = current_user();
-
-    if ($user === null) {
-        return false;
-    }
-
-    $userRole = strtolower((string) ($user['role'] ?? ''));
-    $userRank = $roles[$userRole] ?? null;
-
-    if ($userRank === null) {
-        return false;
-    }
-
-    return $userRank >= $targetRank;
 }
 
 function is_logged_in(): bool
@@ -117,7 +171,7 @@ function register(string $email, string $password, string $accountName): array
     $pdo = db();
     $errors = [];
 
-    $email = trim($email);
+    $email = nx_norm_email($email);
     $accountName = trim($accountName);
 
     if (!nx_password_rate_limit($pdo, 'register', 5, 60)) {
@@ -146,7 +200,7 @@ function register(string $email, string $password, string $accountName): array
         ];
     }
 
-    $userExists = $pdo->prepare('SELECT id FROM website_users WHERE email = :email LIMIT 1');
+    $userExists = $pdo->prepare('SELECT id FROM website_users WHERE LOWER(email) = :email LIMIT 1');
     $userExists->execute(['email' => $email]);
 
     if ($userExists->fetch()) {
@@ -312,6 +366,9 @@ function login(string $accountNameOrEmail, string $password): array
     }
 
     $isEmail = strpos($identifier, '@') !== false;
+    if ($isEmail) {
+        $identifier = nx_norm_email($identifier);
+    }
     $websiteUser = null;
     $accountRow = null;
     $used = 'tfs';
@@ -320,7 +377,7 @@ function login(string $accountNameOrEmail, string $password): array
         || ALLOW_AUTO_PROVISION_WEBSITE_USER === true;
 
     if ($isEmail) {
-        $stmt = $pdo->prepare('SELECT * FROM website_users WHERE email = :email LIMIT 1');
+        $stmt = $pdo->prepare('SELECT * FROM website_users WHERE LOWER(email) = :email LIMIT 1');
         $stmt->execute(['email' => $identifier]);
         $websiteUser = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
@@ -378,7 +435,7 @@ function login(string $accountNameOrEmail, string $password): array
             );
             $emailValue = $accountRow['email'] ?? null;
             $insert->execute([
-                'email' => $emailValue !== '' ? $emailValue : null,
+                'email' => $emailValue !== '' ? nx_norm_email((string) $emailValue) : null,
                 'pass_hash' => $webHash,
                 'account_id' => $accountId,
                 'role' => 'user',
@@ -566,13 +623,13 @@ function link_account_manual(int $userId, string $accountName, string $password)
 function nx_find_account_candidates(PDO $pdo, string $email): array
 {
     $candidates = [];
-    $email = trim($email);
+    $email = nx_norm_email($email);
 
     if ($email === '') {
         return $candidates;
     }
 
-    $sql = sprintf('SELECT * FROM %s WHERE email = :email', TFS_ACCOUNTS_TABLE);
+    $sql = sprintf('SELECT * FROM %s WHERE LOWER(email) = :email', TFS_ACCOUNTS_TABLE);
     $stmt = $pdo->prepare($sql);
     $stmt->execute(['email' => $email]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -640,7 +697,7 @@ function nx_fetch_account_by_name(PDO $pdo, string $accountName): ?array
 
 function nx_fetch_account_by_email(PDO $pdo, string $email): ?array
 {
-    $normalized = strtolower(trim($email));
+    $normalized = nx_norm_email($email);
 
     if ($normalized === '') {
         return null;

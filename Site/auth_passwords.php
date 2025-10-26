@@ -313,12 +313,13 @@ if (!function_exists('nx_password_set')) {
 
         $webHash = nx_hash_web_secure($plainPassword);
         $email = (string) ($accountRow['account_email'] ?? '');
+        $normalizedEmail = function_exists('nx_norm_email') ? nx_norm_email($email) : strtolower(trim($email));
 
-        if ($email !== '') {
-            $webUpdate = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE email = :email');
+        if ($normalizedEmail !== '') {
+            $webUpdate = $pdo->prepare('UPDATE website_users SET pass_hash = :pass_hash WHERE LOWER(email) = :email');
             $webUpdate->execute([
                 'pass_hash' => $webHash,
-                'email' => $email,
+                'email' => $normalizedEmail,
             ]);
         }
     }

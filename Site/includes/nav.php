@@ -45,8 +45,11 @@ $u = current_user();
       <ul class="navbar-nav ms-auto">
         <?php if ($u): ?>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
-              <i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($u['email'] ?? $u['account_name'] ?? 'Account') ?>
+            <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" data-bs-toggle="dropdown">
+              <span><i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($u['email'] ?? $u['account_name'] ?? 'Account') ?></span>
+              <?php if ($u && is_master($u)): ?>
+                <span class="badge bg-warning text-dark">MASTER</span>
+              <?php endif; ?>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="?p=account">Dashboard</a></li>
