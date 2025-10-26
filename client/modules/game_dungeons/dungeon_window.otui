@@ -1,0 +1,132 @@
+MainWindow
+  id: dungeonWindow
+  !text: Dungeon Browser
+  size: 600 420
+  visible: false
+
+  @onEscape: self:hide()
+
+  Label
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 8
+    margin-left: 10
+    margin-right: 10
+    text: Dungeons unlock when discovered in the world. Starter is always available.
+
+  HorizontalSeparator
+    anchors.top: previous.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+
+  Panel
+    id: body
+    anchors.top: previous.bottom
+    anchors.bottom: next.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+    margin-left: 8
+    margin-right: 8
+
+    Panel
+      id: leftPane
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      width: 240
+
+      TextEdit
+        id: searchEdit
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        placeholderText: Search dungeons...
+
+      UIList
+        id: dungeonList
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: previous.bottom
+        anchors.bottom: parent.bottom
+        margin-top: 6
+        focusable: true
+
+    VerticalSeparator
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: previous.right
+      margin-left: 8
+
+    Panel
+      id: rightPane
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: previous.right
+      anchors.right: parent.right
+      margin-left: 8
+
+      Label
+        id: dungeonName
+        anchors.top: parent.top
+        anchors.left: parent.left
+        font: verdana-14px-antialiased
+        text: Select a dungeon
+
+      Label
+        id: dungeonStatus
+        anchors.top: previous.bottom
+        anchors.left: parent.left
+        margin-top: 4
+        text: —
+
+      Label
+        id: dungeonLevel
+        anchors.top: previous.bottom
+        anchors.left: parent.left
+        margin-top: 4
+        text: —
+
+      TextEdit
+        id: dungeonDescription
+        anchors.top: previous.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        margin-top: 8
+        readOnly: true
+        text: Explore mysterious places. This is a placeholder description.
+
+  HorizontalSeparator
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: previous.top
+    margin-bottom: 40
+
+  Panel
+    id: footer
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    height: 36
+    margin-left: 8
+    margin-right: 8
+    margin-bottom: 6
+
+    Button
+      id: enterButton
+      text: Enter
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      enabled: false
+      @onClick: modules.game_dungeons.tryEnterSelected()
+
+    Button
+      id: closeButton
+      text: Close
+      anchors.right: previous.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 6
+      @onClick: root:hide()
