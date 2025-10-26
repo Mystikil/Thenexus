@@ -13,7 +13,7 @@ $adminNavActive = 'server';
 require __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../lib/items_indexer.php';
 require_once __DIR__ . '/../lib/monster_indexer.php';
-require_once __DIR__ . '/../lib/spell_indexer.php';
+require_once __DIR__ . '/../lib/schedule_indexer.php';
 
 $pdo = db();
 
@@ -55,24 +55,24 @@ if ($action !== '') {
                 $result = nx_index_monsters($pdo);
                 flash('success', sprintf('Monsters re-indexed. %d entries updated.', $result['monsters'] ?? 0));
                 break;
-            case 'reindex_spells':
-                $result = nx_index_spells($pdo);
-                flash('success', sprintf('Spells re-indexed. %d entries updated.', $result['count'] ?? 0));
+            case 'reindex_schedule':
+                $result = nx_index_schedule($pdo);
+                flash('success', sprintf('Schedule re-indexed. %d events updated.', $result['events'] ?? 0));
                 break;
             case 'reindex_all':
                 $itemsResult = nx_index_items($pdo);
                 $monsterResult = nx_index_monsters($pdo);
-                $spellResult = null;
+                $scheduleResult = null;
                 try {
-                    $spellResult = nx_index_spells($pdo);
+                    $scheduleResult = nx_index_schedule($pdo);
                 } catch (Throwable $exception) {
-                    flash('error', 'Spells indexer error: ' . $exception->getMessage());
+                    flash('error', 'Schedule indexer error: ' . $exception->getMessage());
                 }
                 flash('success', sprintf(
                     'Items (%d), monsters (%d)%s re-indexed successfully.',
                     $itemsResult['count'] ?? 0,
                     $monsterResult['monsters'] ?? 0,
-                    $spellResult !== null ? sprintf(', spells (%d)', $spellResult['count'] ?? 0) : ''
+                    $scheduleResult !== null ? sprintf(', schedule (%d)', $scheduleResult['events'] ?? 0) : ''
                 ));
                 break;
             default:
@@ -89,12 +89,19 @@ if ($action !== '') {
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');
 
-$logsStmt = $pdo->query('SELECT kind, status, message, ts FROM index_scan_log ORDER BY ts DESC LIMIT 20');
-$logs = $logsStmt->fetchAll();
+$logs = [];
+try {
+    if (nx_table_exists($pdo, 'index_scan_log')) {
+        $logsStmt = $pdo->query('SELECT kind, status, message, ts FROM index_scan_log ORDER BY ts DESC LIMIT 20');
+        $logs = $logsStmt->fetchAll();
+    }
+} catch (Throwable $exception) {
+    $logs = [];
+}
 ?>
 <section class="admin-section">
     <h2>Indexers</h2>
-    <p>Run manual re-index tasks for items and monsters. These routines populate the Bestiary, item picker, and shop metadata.</p>
+    <p>Run manual re-index tasks for items, monsters, and your event schedule. These routines populate the Bestiary, shop metadata, and event listings.</p>
     <div class="admin-actions">
         <form method="post" action="indexers.php?action=reindex_items">
             <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
@@ -106,10 +113,10 @@ $logs = $logsStmt->fetchAll();
             <input type="hidden" name="return_to" value="indexers.php">
             <button type="submit" class="admin-button">Re-index Monsters</button>
         </form>
-        <form method="post" action="indexers.php?action=reindex_spells">
+        <form method="post" action="indexers.php?action=reindex_schedule">
             <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
             <input type="hidden" name="return_to" value="indexers.php">
-            <button type="submit" class="admin-button">Re-index Spells</button>
+            <button type="submit" class="admin-button">Re-index Schedule</button>
         </form>
         <form method="post" action="indexers.php?action=reindex_all">
             <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">

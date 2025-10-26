@@ -24,6 +24,7 @@ function admin_nav_items(): array
         ['href' => 'logs.php', 'label' => 'Logs', 'slug' => 'logs'],
         ['href' => 'settings.php', 'label' => 'Settings', 'slug' => 'settings'],
         ['href' => 'settings_server.php', 'label' => 'Server', 'slug' => 'server'],
+        ['href' => 'diagnostics.php', 'label' => 'Diagnostics', 'slug' => 'diagnostics'],
     ];
 }
 
