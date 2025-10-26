@@ -1,0 +1,108 @@
+#nx-roadmap-widget {
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  color: #f8fafc;
+}
+
+#nx-roadmap-widget .nx-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 1rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+#nx-roadmap-widget .nx-card:hover,
+#nx-roadmap-widget .nx-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(129, 140, 248, 0.7);
+  box-shadow: 0 15px 35px -12px rgba(15, 23, 42, 0.7);
+  outline: none;
+}
+
+#nx-roadmap-widget .nx-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(129, 140, 248, 0.25);
+  color: #c7d2fe;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#nx-roadmap-widget .nx-progress-track {
+  width: 100%;
+  height: 0.35rem;
+  border-radius: 9999px;
+  background: rgba(51, 65, 85, 0.7);
+  overflow: hidden;
+}
+
+#nx-roadmap-widget .nx-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #34d399, #38bdf8);
+  transition: width 250ms ease;
+}
+
+#nx-roadmap-widget .nx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+#nx-roadmap-widget .nx-progress-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+#nx-roadmap-widget a {
+  text-decoration: none;
+  color: inherit;
+}
+
+#nx-roadmap-widget .nx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+#nx-roadmap-widget .nx-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+#nx-roadmap-widget .nx-header a {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #c7d2fe;
+}
+
+@media (prefers-color-scheme: light) {
+  #nx-roadmap-widget {
+    color: #0f172a;
+  }
+  #nx-roadmap-widget .nx-card {
+    background: #ffffff;
+    border-color: rgba(79, 70, 229, 0.3);
+  }
+  #nx-roadmap-widget .nx-status {
+    background: rgba(79, 70, 229, 0.2);
+    color: #4338ca;
+  }
+  #nx-roadmap-widget .nx-progress-track {
+    background: rgba(226, 232, 240, 1);
+  }
+  #nx-roadmap-widget .nx-progress-label {
+    color: #1f2937;
+  }
+}
