@@ -9,6 +9,8 @@ $primaryLinks = [
     'changelog' => ['label' => 'Changelog', 'href' => '?p=changelog'],
     'highscores' => ['label' => 'Highscores', 'href' => '?p=highscores'],
     'whoisonline' => ['label' => 'Who is Online', 'href' => '?p=whoisonline'],
+    'bestiary' => ['label' => 'Bestiary', 'href' => '?p=bestiary'],
+    'spells' => ['label' => 'Spells', 'href' => '?p=spells'],
     'shop' => ['label' => 'Shop', 'href' => '?p=shop'],
     'downloads' => ['label' => 'Downloads', 'href' => '?p=downloads'],
     'about' => ['label' => 'About', 'href' => '?p=about'],

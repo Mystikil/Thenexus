@@ -45,7 +45,11 @@ if ($user !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $product = null;
 
         if ($purchaseErrors === [] && $selectedProductId !== null) {
-            $stmt = $pdo->prepare('SELECT id, name, item_id, price_coins FROM shop_products WHERE id = :id AND is_active = 1 LIMIT 1');
+            $stmt = $pdo->prepare('SELECT p.*, i.name AS index_name, i.description AS index_description, i.stackable AS index_stackable, i.weight AS index_weight
+                FROM shop_products p
+                LEFT JOIN item_index i ON i.id = p.item_index_id
+                WHERE p.id = :id AND p.is_active = 1
+                LIMIT 1');
             $stmt->execute(['id' => $selectedProductId]);
             $product = $stmt->fetch();
 
@@ -57,6 +61,20 @@ if ($user !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($purchaseErrors === [] && $product !== null) {
             $productId = (int) $product['id'];
             $priceCoins = (int) $product['price_coins'];
+            $meta = [];
+
+            if (isset($product['meta']) && $product['meta'] !== null) {
+                $decoded = json_decode((string) $product['meta'], true);
+                if (is_array($decoded)) {
+                    $meta = $decoded;
+                }
+            }
+
+            $deliveryCount = max(1, (int) ($meta['count'] ?? 1));
+            $deliveryItemId = (int) ($product['item_index_id'] ?? 0);
+            if ($deliveryItemId <= 0) {
+                $deliveryItemId = (int) $product['item_id'];
+            }
 
             try {
                 $pdo->beginTransaction();
@@ -109,6 +127,8 @@ if ($user !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'product_id' => $productId,
                         'player_name' => $characterNameInput,
                         'coins_before' => $currentCoins,
+                        'delivery_item' => $deliveryItemId,
+                        'delivery_count' => $deliveryCount,
                     ], [
                         'order_id' => $orderId,
                         'coins_after' => max(0, $coinsAfter),
@@ -134,8 +154,23 @@ if ($user !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$productsStmt = $pdo->query('SELECT id, name, item_id, price_coins FROM shop_products WHERE is_active = 1 ORDER BY name ASC');
+$productsStmt = $pdo->query('SELECT p.*, i.name AS index_name, i.description AS index_description, i.stackable AS index_stackable, i.weight AS index_weight
+    FROM shop_products p
+    LEFT JOIN item_index i ON i.id = p.item_index_id
+    WHERE p.is_active = 1
+    ORDER BY p.name ASC');
 $products = $productsStmt->fetchAll();
+
+foreach ($products as &$product) {
+    $product['meta_decoded'] = [];
+    if (isset($product['meta']) && $product['meta'] !== null) {
+        $decoded = json_decode((string) $product['meta'], true);
+        if (is_array($decoded)) {
+            $product['meta_decoded'] = $decoded;
+        }
+    }
+}
+unset($product);
 
 $coinBalance = 0;
 
@@ -175,47 +210,67 @@ if ($user !== null) {
         <?php if ($products === []): ?>
             <p>The shop is currently closed. Please check back later.</p>
         <?php else: ?>
-            <table class="table table--shop">
-                <thead>
-                    <tr>
-                        <th>Product</th>
-                        <th>Item ID</th>
-                        <th>Price (coins)</th>
-                        <th>Character</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($products as $product): ?>
-                        <?php $productId = (int) $product['id']; ?>
-                        <tr>
-                            <td><?php echo sanitize($product['name']); ?></td>
-                            <td><?php echo (int) $product['item_id']; ?></td>
-                            <td><?php echo sanitize(number_format((int) $product['price_coins'])); ?></td>
-                            <td>
-                                <?php $formId = 'shop-order-' . $productId; ?>
+            <div class="shop-grid">
+                <?php foreach ($products as $product): ?>
+                    <?php
+                        $productId = (int) $product['id'];
+                        $meta = $product['meta_decoded'];
+                        $deliveryCount = (int) ($meta['count'] ?? 1);
+                        $description = (string) ($meta['description'] ?? ($product['index_description'] ?? ''));
+                        $itemName = $product['index_name'] ?? $product['name'];
+                        $stackable = isset($product['index_stackable']) ? ((int) $product['index_stackable'] === 1) : null;
+                        $weight = isset($product['index_weight']) ? (int) $product['index_weight'] : null;
+                    ?>
+                    <article class="shop-card">
+                        <header class="shop-card__header">
+                            <h3 class="shop-card__title"><?php echo sanitize($product['name']); ?></h3>
+                            <div class="shop-card__price"><?php echo sanitize(number_format((int) $product['price_coins'])); ?> coins</div>
+                        </header>
+                        <div class="shop-card__body">
+                            <p class="shop-card__description"><?php echo sanitize($description); ?></p>
+                            <dl class="shop-card__meta">
+                                <div>
+                                    <dt>Item</dt>
+                                    <dd><?php echo sanitize($itemName); ?> (ID <?php echo (int) $product['item_id']; ?>)</dd>
+                                </div>
+                                <div>
+                                    <dt>Quantity</dt>
+                                    <dd><?php echo $deliveryCount; ?></dd>
+                                </div>
+                                <?php if ($stackable !== null): ?>
+                                    <div>
+                                        <dt>Stackable</dt>
+                                        <dd><?php echo $stackable ? 'Yes' : 'No'; ?></dd>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($weight !== null): ?>
+                                    <div>
+                                        <dt>Weight</dt>
+                                        <dd><?php echo $weight; ?></dd>
+                                    </div>
+                                <?php endif; ?>
+                            </dl>
+                        </div>
+                        <footer class="shop-card__footer">
+                            <?php $formId = 'shop-order-' . $productId; ?>
+                            <form method="post" id="<?php echo sanitize($formId); ?>" class="shop-card__form">
+                                <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
+                                <input type="hidden" name="product_id" value="<?php echo $productId; ?>">
                                 <label class="visually-hidden" for="character-<?php echo $productId; ?>">Character Name</label>
                                 <input
                                     type="text"
                                     id="character-<?php echo $productId; ?>"
                                     name="character_name"
-                                    form="<?php echo sanitize($formId); ?>"
                                     value="<?php echo $selectedProductId === $productId ? sanitize($characterNameInput) : ''; ?>"
-                                    placeholder="e.g. Hero Knight"
+                                    placeholder="Character name"
                                     required
                                 >
-                            </td>
-                            <td>
-                                <form method="post" id="<?php echo sanitize($formId); ?>" class="shop__order-form">
-                                    <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfToken); ?>">
-                                    <input type="hidden" name="product_id" value="<?php echo $productId; ?>">
-                                    <button type="submit">Buy</button>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                                <button type="submit" class="shop-card__button">Buy</button>
+                            </form>
+                        </footer>
+                    </article>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
     <?php endif; ?>
 </section>
