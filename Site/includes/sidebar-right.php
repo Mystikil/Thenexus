@@ -13,7 +13,7 @@ $renderWidget = static function (string $slug, ?int $limit = null): string {
     return render_widget_box($slug, $effectiveLimit, null, false);
 };
 
-$template = nx_locate_template($pdo, 'sidebar-right');
+$template = nx_theme_locate(nx_theme_active_slug(), 'sidebar-right');
 
 if (is_string($template) && $template !== '') {
     $orderedWidgets = $widgets;

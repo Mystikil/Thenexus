@@ -6,10 +6,8 @@ $adminPageTitle = 'Settings';
 $adminNavActive = 'settings';
 
 require __DIR__ . '/partials/header.php';
-require_once __DIR__ . '/../includes/theme.php';
 
 $settingsMap = [
-    'default_theme' => 'Default Theme',
     'site_title' => 'Site Title',
     'WEBHOOK_SECRET' => 'Webhook Secret',
     'BRIDGE_SECRET' => 'Bridge Secret',
@@ -20,31 +18,12 @@ $settingsMap = [
 $booleanSettings = ['recovery_rotate_on_use', 'recovery_allow_admin_view_plain'];
 
 $currentSettings = [
-    'default_theme' => 'default',
     'site_title' => SITE_TITLE,
     'WEBHOOK_SECRET' => WEBHOOK_SECRET,
     'BRIDGE_SECRET' => BRIDGE_SECRET,
     'recovery_rotate_on_use' => 'true',
     'recovery_allow_admin_view_plain' => 'false',
 ];
-
-$availableThemes = nx_all_themes();
-
-if (!isset($availableThemes['default'])) {
-    $availableThemes['default'] = [
-        'slug' => 'default',
-        'name' => 'Default',
-        'type' => 'skin',
-        'version' => '',
-        'path' => nx_theme_path('default'),
-        'manifest' => [],
-    ];
-}
-
-$availableThemes = array_replace([], $availableThemes);
-ksort($availableThemes);
-
-$availableThemeSlugs = array_keys($availableThemes);
 
 $errors = [];
 $successMessage = null;
@@ -66,14 +45,6 @@ while ($row = $stmt->fetch()) {
     }
 }
 
-if (!in_array('default', $availableThemeSlugs, true)) {
-    $availableThemeSlugs[] = 'default';
-}
-
-if (!in_array($currentSettings['default_theme'], $availableThemeSlugs, true)) {
-    $currentSettings['default_theme'] = 'default';
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_validate($_POST['csrf_token'] ?? null)) {
         $errors[] = 'The request could not be validated. Please try again.';
@@ -87,11 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($settingsMap as $key => $label) {
             $newValue = trim((string) ($_POST[$key] ?? ''));
 
-            if ($key === 'default_theme') {
-                if ($newValue === '' || !in_array($newValue, $availableThemeSlugs, true)) {
-                    $newValue = 'default';
-                }
-            } elseif (in_array($key, $booleanSettings, true)) {
+            if (in_array($key, $booleanSettings, true)) {
                 $normalized = strtolower($newValue);
                 $newValue = in_array($normalized, ['1', 'true', 'yes', 'on'], true) ? 'true' : 'false';
             }
@@ -144,19 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php foreach ($settingsMap as $key => $label): ?>
             <div class="admin-form__group">
                 <label for="<?php echo sanitize($key); ?>"><?php echo sanitize($label); ?></label>
-                <?php if ($key === 'default_theme'): ?>
-                    <select id="<?php echo sanitize($key); ?>" name="<?php echo sanitize($key); ?>">
-                        <?php foreach ($availableThemeSlugs as $slug): ?>
-                            <option value="<?php echo sanitize($slug); ?>"<?php echo ($currentSettings[$key] ?? '') === $slug ? ' selected' : ''; ?>>
-                                <?php
-                                    $theme = $availableThemes[$slug] ?? null;
-                                    $labelText = $theme && isset($theme['name']) ? (string) $theme['name'] : ucfirst($slug);
-                                    echo sanitize($labelText . ' (' . $slug . ')');
-                                ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                <?php elseif (in_array($key, $booleanSettings, true)): ?>
+                <?php if (in_array($key, $booleanSettings, true)): ?>
                     <select id="<?php echo sanitize($key); ?>" name="<?php echo sanitize($key); ?>">
                         <option value="true"<?php echo ($currentSettings[$key] ?? '') === 'true' ? ' selected' : ''; ?>>Enabled</option>
                         <option value="false"<?php echo ($currentSettings[$key] ?? '') === 'false' ? ' selected' : ''; ?>>Disabled</option>
