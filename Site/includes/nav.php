@@ -44,10 +44,10 @@ $u = current_user();
         </li>
       </ul>
 
-      <form class="d-flex ms-lg-3 mb-3 mb-lg-0" role="search" method="get" action="">
+      <form class="d-flex ms-3" action="" method="get" role="search">
         <input type="hidden" name="p" value="character">
-        <input class="form-control me-2" type="search" name="name" placeholder="Search characters" aria-label="Search characters" value="<?php echo isset($_GET['name']) && ($current === 'character') ? sanitize((string) $_GET['name']) : ''; ?>">
-        <button class="btn btn-outline-light" type="submit">Search</button>
+        <input class="form-control form-control-sm me-2" type="search" name="name" placeholder="Search characters">
+        <button class="btn btn-sm btn-primary">Search</button>
       </form>
 
       <ul class="navbar-nav ms-auto">
