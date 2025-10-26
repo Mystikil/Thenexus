@@ -672,20 +672,18 @@ require __DIR__ . '/partials/header.php';
     <?php endif; ?>
 
     <?php if ($previewSlug !== null && isset($themes[$previewSlug])): ?>
-        <div class="admin-alert admin-alert--info">
-            <p>Previewing: <strong><?php echo sanitize($themes[$previewSlug]['name'] ?? ucfirst($previewSlug)); ?></strong></p>
-            <div class="admin-form__actions">
-                <form method="post" style="display: inline-flex; gap: 0.5rem; align-items: center;">
-                    <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
-                    <input type="hidden" name="action" value="apply_preview">
-                    <button type="submit" class="admin-button">Apply Preview</button>
-                </form>
-                <form method="post" style="display: inline-flex; gap: 0.5rem; align-items: center;">
-                    <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
-                    <input type="hidden" name="action" value="clear_preview">
-                    <button type="submit" class="admin-button admin-button--secondary">Clear Preview</button>
-                </form>
-            </div>
+        <div class="admin-alert admin-alert--info" style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;">
+            <p style="margin: 0;">Previewing <strong><?php echo sanitize($themes[$previewSlug]['name'] ?? ucfirst($previewSlug)); ?></strong> &ndash; Apply or cancel below.</p>
+            <form method="post" style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
+                <input type="hidden" name="action" value="apply_preview">
+                <button type="submit" class="admin-button">Apply</button>
+            </form>
+            <form method="post" style="display: inline-flex; gap: 0.5rem; align-items: center;">
+                <input type="hidden" name="csrf_token" value="<?php echo sanitize(csrf_token()); ?>">
+                <input type="hidden" name="action" value="clear_preview">
+                <button type="submit" class="admin-button admin-button--secondary">Cancel</button>
+            </form>
         </div>
     <?php endif; ?>
 
