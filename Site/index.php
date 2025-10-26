@@ -1,5 +1,6 @@
 <?php
-session_start();
+@session_start();
+ob_start();
 
 require __DIR__ . '/config.php';
 require __DIR__ . '/db.php';

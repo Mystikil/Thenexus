@@ -19,6 +19,7 @@ function admin_nav_items(): array
         ['href' => 'cms.php', 'label' => 'CMS', 'slug' => 'cms'],
         ['href' => 'widgets.php', 'label' => 'Widgets', 'slug' => 'widgets'],
         ['href' => 'themes.php', 'label' => 'Themes', 'slug' => 'themes'],
+        ['href' => 'payments.php', 'label' => 'Payments', 'slug' => 'payments'],
         ['href' => 'shop.php', 'label' => 'Shop', 'slug' => 'shop'],
         ['href' => 'merge_accounts.php', 'label' => 'Merge Accounts', 'slug' => 'merge_accounts'],
         ['href' => 'logs.php', 'label' => 'Logs', 'slug' => 'logs'],

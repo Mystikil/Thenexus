@@ -35,6 +35,7 @@ $u = current_user();
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Community</a>
           <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="?p=character">Character Search</a></li>
             <li><a class="dropdown-item" href="?p=tickets">Support</a></li>
             <li><a class="dropdown-item" href="?p=downloads">Downloads</a></li>
             <li><a class="dropdown-item" href="?p=rules">Rules</a></li>
@@ -42,6 +43,12 @@ $u = current_user();
           </ul>
         </li>
       </ul>
+
+      <form class="d-flex ms-lg-3 mb-3 mb-lg-0" role="search" method="get" action="">
+        <input type="hidden" name="p" value="character">
+        <input class="form-control me-2" type="search" name="name" placeholder="Search characters" aria-label="Search characters" value="<?php echo isset($_GET['name']) && ($current === 'character') ? sanitize((string) $_GET['name']) : ''; ?>">
+        <button class="btn btn-outline-light" type="submit">Search</button>
+      </form>
 
       <ul class="navbar-nav ms-auto">
         <?php if ($u): ?>
@@ -55,6 +62,7 @@ $u = current_user();
             <ul class="dropdown-menu dropdown-menu-end">
               <li><a class="dropdown-item" href="?p=account">Dashboard</a></li>
               <li><a class="dropdown-item" href="?p=characters">My Characters</a></li>
+              <li><a class="dropdown-item" href="?p=coins">Coins &amp; Premium</a></li>
               <li><a class="dropdown-item" href="?p=shop">Shop</a></li>
               <?php if (function_exists('is_role') && is_role('admin')): ?>
                 <li><hr class="dropdown-divider"></li>

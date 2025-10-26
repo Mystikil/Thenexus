@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/lib/http.php';
+
 function flash(string $key, string $message): void
 {
     if (!isset($_SESSION['flash']) || !is_array($_SESSION['flash'])) {
@@ -27,8 +29,7 @@ function take_flash(string $key): ?string
 
 function redirect(string $path): void
 {
-    header('Location: ' . $path);
-    exit;
+    nx_redirect($path);
 }
 
 function sanitize(?string $value): string

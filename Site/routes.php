@@ -9,8 +9,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'logout') {
         audit_log((int) $user['id'], 'logout');
     }
     nx_logout();
-    header('Location: ?p=account&loggedout=1', true, 302);
-    exit;
+    nx_redirect('?p=account&loggedout=1');
 }
 
 $routes = [
@@ -27,6 +26,7 @@ $routes = [
     'account' => __DIR__ . '/pages/account.php',
     'recover' => __DIR__ . '/pages/recover.php',
     'characters' => __DIR__ . '/pages/characters.php',
+    'coins' => __DIR__ . '/pages/coins.php',
     'shop' => __DIR__ . '/pages/shop.php',
     'bestiary' => __DIR__ . '/pages/bestiary.php',
     'monster' => __DIR__ . '/pages/monster.php',
@@ -46,6 +46,19 @@ if ($page === '') {
 }
 
 $GLOBALS['nx_current_page_slug'] = $page;
+
+if ($page === 'character') {
+    $nameParam = trim((string) ($_GET['name'] ?? ''));
+    if ($nameParam !== '') {
+        $GLOBALS['nx_meta_title'] = $nameParam . ' – Character';
+    } else {
+        $GLOBALS['nx_meta_title'] = 'Character Search';
+    }
+} elseif ($page === 'characters') {
+    $GLOBALS['nx_meta_title'] = 'My Characters';
+} elseif ($page === 'coins') {
+    $GLOBALS['nx_meta_title'] = 'Coins & Premium';
+}
 
 $themeSlug = nx_theme_active_slug();
 
