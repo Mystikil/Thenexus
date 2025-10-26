@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/lib/tfs_password.php';
 require_once __DIR__ . '/auth_passwords.php';
 
 function nx_logout(): void
@@ -191,115 +192,251 @@ function require_login(): void
 }
 
 /**
- * Register a new website user and linked TFS account.
- *
- * The returned website user will always include an `account_id` pointing to
- * the corresponding row in the legacy `accounts` table.
- *
- * @return array{success:bool,errors?:array<int,string>,user?:array}
+ * Register a new account backed by the legacy TFS accounts table and linked
+ * website metadata.
  */
 function register(string $email, string $password, string $accountName): array
 {
-    require_once __DIR__ . '/auth_passwords.php';
-
     $pdo = db();
 
     if (!$pdo instanceof PDO) {
         return [false, 'Unable to create your account at this time. Please try again later.'];
     }
 
-    // Normalize + validate
     $email = trim($email);
     $accountName = trim($accountName);
+    $normalizedEmail = nx_norm_email($email);
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return [false, 'Please enter a valid email address.'];
+        return [false, 'Please enter a valid email.'];
     }
 
     if (!preg_match('/^[A-Za-z0-9]{3,20}$/', $accountName)) {
-        return [false, 'Account name must be 3–20 letters/numbers (no spaces).'];
+        return [false, 'Account name must be 3–20 letters/numbers.'];
     }
 
     if (strlen($password) < 6) {
         return [false, 'Password must be at least 6 characters.'];
     }
 
+    $quote = static function (string $identifier): string {
+        return '`' . str_replace('`', '``', $identifier) . '`';
+    };
+
+    $accountsTable = $quote(TFS_ACCOUNTS_TABLE);
+    $accountNameColumn = $quote(TFS_NAME_COL);
+    $accountPasswordColumn = $quote(TFS_PASS_COL);
+
     try {
         $pdo->beginTransaction();
+        $hasWebsiteUsersTable = $pdo->query("SHOW TABLES LIKE 'website_users'")->fetchColumn() !== false;
 
-        // 1) Uniqueness checks (case-insensitive)
-        $st = $pdo->prepare('SELECT 1 FROM website_users WHERE LOWER(email)=LOWER(?) LIMIT 1');
-        $st->execute([$email]);
-        if ($st->fetchColumn()) {
+        // Ensure account name is unique.
+        $accountCheckSql = sprintf(
+            'SELECT 1 FROM %s WHERE LOWER(%s) = LOWER(?) LIMIT 1',
+            $accountsTable,
+            $accountNameColumn
+        );
+        $accountCheck = $pdo->prepare($accountCheckSql);
+        $accountCheck->execute([$accountName]);
+        if ($accountCheck->fetchColumn()) {
             $pdo->rollBack();
-            return [false, 'This email is already registered.'];
+
+            return [false, 'That account name is already taken.'];
         }
 
-        $accountSql = sprintf('SELECT %s FROM %s WHERE LOWER(%s)=LOWER(?) LIMIT 1', TFS_ACCOUNT_ID_COL, TFS_ACCOUNTS_TABLE, TFS_NAME_COL);
-        $st = $pdo->prepare($accountSql);
-        $st->execute([$accountName]);
-        if ($st->fetchColumn()) {
+        // Ensure email is unique on the web metadata table.
+        $emailCheck = $pdo->prepare('SELECT 1 FROM web_accounts WHERE LOWER(email) = LOWER(?) LIMIT 1');
+        $emailCheck->execute([$email]);
+        if ($emailCheck->fetchColumn()) {
             $pdo->rollBack();
-            return [false, 'That account name is taken. Choose another.'];
+
+            return [false, 'That email is already registered.'];
         }
 
-        // 2) Create TFS account row
-        $placeholderPass = 'tmp'; // will be overwritten immediately
-        $insertSql = sprintf('INSERT INTO %s (%s, %s) VALUES (?, ?)', TFS_ACCOUNTS_TABLE, TFS_NAME_COL, TFS_PASS_COL);
-        $st = $pdo->prepare($insertSql);
-        $st->execute([$accountName, $placeholderPass]);
-        $accountId = (int) $pdo->lastInsertId();
+        if ($hasWebsiteUsersTable) {
+            $websiteEmailCheck = $pdo->prepare('SELECT 1 FROM website_users WHERE LOWER(email) = LOWER(?) LIMIT 1');
+            $websiteEmailCheck->execute([$email]);
 
-        // 3) Set legacy TFS password hash
-        if (!function_exists('nx_password_set')) {
-            throw new RuntimeException('Password adapter missing: nx_password_set() not found');
+            if ($websiteEmailCheck->fetchColumn()) {
+                $pdo->rollBack();
+
+                return [false, 'That email is already registered.'];
+            }
         }
-        nx_password_set($pdo, $accountId, $password);
 
-        // 4) Create website user (dual-mode stores bcrypt/argon hash for web logins)
-        $passHash = (defined('PASSWORD_MODE') && PASSWORD_MODE === 'dual')
-            ? password_hash($password, PASSWORD_DEFAULT)
-            : null;
+        // Load account schema metadata (used for fallback inserts).
+        $accountColumns = $pdo->query(sprintf('SHOW FULL COLUMNS FROM %s', $accountsTable))->fetchAll(PDO::FETCH_ASSOC);
+        $emailColumnName = null;
+        foreach ($accountColumns as $column) {
+            if (strcasecmp((string) ($column['Field'] ?? ''), 'email') === 0) {
+                $emailColumnName = (string) $column['Field'];
+                break;
+            }
+        }
 
-        $st = $pdo->prepare('INSERT INTO website_users (email, pass_hash, account_id, role, created_at) VALUES (?, ?, ?, \'user\', NOW())');
-        $st->execute([$email, $passHash, $accountId]);
+        $passwordHash = tfs_password_hash($password, tfs_password_type());
 
-        $userId = (int) $pdo->lastInsertId();
+        $accountId = 0;
+        try {
+            if ($emailColumnName !== null) {
+                $emailColumnQuoted = $quote($emailColumnName);
+                $insertSql = sprintf(
+                    'INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?)',
+                    $accountsTable,
+                    $accountNameColumn,
+                    $accountPasswordColumn,
+                    $emailColumnQuoted
+                );
+                $insertStmt = $pdo->prepare($insertSql);
+                $insertStmt->execute([$accountName, $passwordHash, $email]);
+            } else {
+                $insertSql = sprintf(
+                    'INSERT INTO %s (%s, %s) VALUES (?, ?)',
+                    $accountsTable,
+                    $accountNameColumn,
+                    $accountPasswordColumn
+                );
+                $insertStmt = $pdo->prepare($insertSql);
+                $insertStmt->execute([$accountName, $passwordHash]);
+            }
 
-        // 5) Commit and login
+            $accountId = (int) $pdo->lastInsertId();
+        } catch (PDOException $primaryInsertException) {
+            $columnValues = [
+                TFS_NAME_COL => $accountName,
+                TFS_PASS_COL => $passwordHash,
+            ];
+
+            if ($emailColumnName !== null) {
+                $columnValues[$emailColumnName] = $email;
+            }
+
+            foreach ($accountColumns as $column) {
+                $field = (string) ($column['Field'] ?? '');
+
+                if ($field === '' || in_array($field, [TFS_ACCOUNT_ID_COL, TFS_NAME_COL, TFS_PASS_COL], true)) {
+                    continue;
+                }
+
+                if ($emailColumnName !== null && strcasecmp($field, $emailColumnName) === 0) {
+                    continue;
+                }
+
+                $isNullable = strtoupper((string) ($column['Null'] ?? '')) === 'YES';
+                $hasDefault = array_key_exists('Default', $column) && $column['Default'] !== null;
+
+                if ($isNullable || $hasDefault) {
+                    continue;
+                }
+
+                $type = strtolower((string) ($column['Type'] ?? ''));
+
+                if (preg_match('/int|tinyint|smallint|mediumint|bigint/', $type)) {
+                    $columnValues[$field] = in_array($field, ['creation', 'created', 'lastday', 'lastlogin'], true) ? time() : 0;
+                } elseif (preg_match('/decimal|float|double/', $type)) {
+                    $columnValues[$field] = 0;
+                } elseif (preg_match('/char|varchar|text/', $type)) {
+                    $columnValues[$field] = strcasecmp($field, 'email') === 0 ? $email : '';
+                } else {
+                    $columnValues[$field] = '';
+                }
+            }
+
+            $fields = [];
+            $placeholders = [];
+            $values = [];
+
+            foreach ($columnValues as $field => $value) {
+                $fields[] = $quote((string) $field);
+                $placeholders[] = '?';
+                $values[] = $value;
+            }
+
+            $retrySql = sprintf(
+                'INSERT INTO %s (%s) VALUES (%s)',
+                $accountsTable,
+                implode(', ', $fields),
+                implode(', ', $placeholders)
+            );
+
+            $pdo->prepare($retrySql)->execute($values);
+            $accountId = (int) $pdo->lastInsertId();
+        }
+
+        // Link to web metadata (Znote-style table).
+        $webInsert = $pdo->prepare(
+            'INSERT INTO web_accounts (account_id, email, created) VALUES (?, ?, UNIX_TIMESTAMP()) '
+            . 'ON DUPLICATE KEY UPDATE email = VALUES(email)'
+        );
+        $webInsert->execute([$accountId, $email]);
+
+        $websiteUserId = null;
+        if ($hasWebsiteUsersTable) {
+            $webPasswordHash = null;
+
+            if (function_exists('nx_password_mode') && nx_password_mode() === 'dual') {
+                $webPasswordHash = nx_hash_web_secure($password);
+            }
+
+            $webUpsert = $pdo->prepare(
+                'INSERT INTO website_users (email, pass_hash, account_id, role, created_at) '
+                . "VALUES (?, ?, ?, 'user', NOW()) "
+                . 'ON DUPLICATE KEY UPDATE account_id = VALUES(account_id), '
+                . 'pass_hash = COALESCE(VALUES(pass_hash), pass_hash)'
+            );
+            $webUpsert->execute([$normalizedEmail, $webPasswordHash, $accountId]);
+
+            $websiteUserSelect = $pdo->prepare('SELECT id FROM website_users WHERE LOWER(email) = LOWER(?) LIMIT 1');
+            $websiteUserSelect->execute([$normalizedEmail]);
+            $websiteUserId = $websiteUserSelect->fetchColumn();
+            $websiteUserId = $websiteUserId !== false ? (int) $websiteUserId : null;
+        }
+
         $pdo->commit();
-        $_SESSION['user_id'] = $userId;
+
+        if ($websiteUserId !== null) {
+            $_SESSION['user_id'] = $websiteUserId;
+        } else {
+            $_SESSION['user_id'] = $accountId;
+        }
+
         @session_regenerate_id(true);
 
-        // audit log (best effort)
-        if (function_exists('audit_log')) {
-            audit_log($userId, 'register', null, ['email' => $email, 'account' => $accountName]);
+        if (function_exists('audit_log') && $websiteUserId !== null) {
+            audit_log($websiteUserId, 'register', null, [
+                'email' => $normalizedEmail,
+                'account' => $accountName,
+                'account_id' => $accountId,
+            ]);
         }
 
-        return [true, 'Account created successfully.'];
-    } catch (Throwable $e) {
-        // Roll back and log the real cause
+        return [true, 'Account created.'];
+    } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        $msg = $e->getMessage();
 
-        // Write to a file (do not show raw message to users)
-        $line = '[' . date('Y-m-d H:i:s') . "] register error: " . $msg . "\n";
+        $message = $exception->getMessage();
+        $line = '[' . date('Y-m-d H:i:s') . '] register error: ' . $message . "\n";
         @file_put_contents(__DIR__ . '/logs/register_error.log', $line, FILE_APPEND);
 
-        // Map common MySQL errors to friendly messages
-        if (stripos($msg, 'uniq_accounts_name') !== false || stripos($msg, 'Duplicate entry') !== false && stripos($msg, 'accounts') !== false) {
+        if (preg_match('/Duplicate entry .* for key .*accounts.*name/i', $message)) {
             return [false, 'That account name is already taken.'];
         }
-        if (stripos($msg, 'uniq_wu_email') !== false || stripos($msg, 'website_users') !== false) {
+
+        if (preg_match('/Duplicate entry .* for key .*web_accounts.*email/i', $message)
+            || preg_match('/Duplicate entry .* for key .*uq_web_email/i', $message)) {
             return [false, 'That email is already registered.'];
         }
-        if (stripos($msg, 'Unknown column') !== false) {
-            return [false, 'Server misconfiguration (missing column). Please run the SQL patches.'];
+
+        if (preg_match('/Duplicate entry .* for key .*website_users.*email/i', $message)
+            || preg_match('/Duplicate entry .* for key .*uq_wu_email/i', $message)
+            || preg_match('/Duplicate entry .* for key .*uniq_wu_email/i', $message)) {
+            return [false, 'That email is already registered.'];
         }
 
-        return [false, 'Unable to create your account at this time. Please try again later.'];
+        return [false, 'Unable to create your account at this time. Please try again.'];
     }
 }
 

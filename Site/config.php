@@ -23,7 +23,8 @@ define('MASTER_ACCOUNTS', [
 define('MASTER_BYPASS_RBAC', true);
 
 // Password + authentication configuration
-const PASSWORD_MODE = 'tfs_sha1'; // 'tfs_sha1' | 'tfs_md5' | 'tfs_plain' | 'dual'
+define('TFS_PASSWORD_TYPE', 'sha1'); // sha1 | md5 | plain
+define('PASSWORD_MODE', 'tfs_' . TFS_PASSWORD_TYPE); // change to 'dual' to keep web + TFS hashes
 const PASS_WITH_SALT = false;
 const SALT_COL = 'salt';
 const ALLOW_FALLBACKS = false;

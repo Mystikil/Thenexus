@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/rate_limiter.php';
+require_once __DIR__ . '/lib/tfs_password.php';
 
 if (!defined('PASSWORD_MODE')) {
     define('PASSWORD_MODE', 'tfs_sha1');
