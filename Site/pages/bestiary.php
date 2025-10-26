@@ -11,6 +11,32 @@ if (!$pdo instanceof PDO) {
     return;
 }
 
+if (!nx_table_exists($pdo, 'monster_index')) {
+    echo '<section class="page page--bestiary"><div class="card nx-glow"><div class="card-body">'
+        . '<h4 class="mb-2">Bestiary Unavailable</h4>'
+        . '<p class="text-muted mb-3">Monster data has not been indexed yet. Run the monster indexer from the admin panel to populate this page.</p>'
+        . '<a class="btn btn-sm btn-primary" href="admin/indexers.php">Run Indexers</a>'
+        . '</div></div></section>';
+
+    return;
+}
+
+try {
+    $totalIndexed = (int) $pdo->query('SELECT COUNT(*) FROM monster_index')->fetchColumn();
+} catch (Throwable $exception) {
+    $totalIndexed = 0;
+}
+
+if ($totalIndexed === 0) {
+    echo '<section class="page page--bestiary"><div class="card nx-glow"><div class="card-body">'
+        . '<h4 class="mb-2">Bestiary Empty</h4>'
+        . '<p class="text-muted mb-3">No monsters have been indexed yet. Use the admin indexers to scan your server files.</p>'
+        . '<a class="btn btn-sm btn-primary" href="admin/indexers.php">Run Indexers</a>'
+        . '</div></div></section>';
+
+    return;
+}
+
 $search = trim((string) ($_GET['search'] ?? ''));
 $race = trim((string) ($_GET['race'] ?? ''));
 $elementRelation = $_GET['element_relation'] ?? '';

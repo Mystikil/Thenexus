@@ -49,6 +49,26 @@ $GLOBALS['nx_current_page_slug'] = $page;
 
 $themeSlug = nx_theme_active_slug();
 
+$maintenanceValue = get_setting('maintenance');
+$maintenanceEnabled = false;
+
+if ($maintenanceValue !== null) {
+    $normalized = strtolower(trim($maintenanceValue));
+    $maintenanceEnabled = in_array($normalized, ['1', 'true', 'yes', 'on', 'enabled'], true);
+}
+
+if ($maintenanceEnabled && !is_master() && !is_role('admin')) {
+    http_response_code(503);
+    $GLOBALS['nx_current_page_slug'] = 'maintenance';
+    include __DIR__ . '/includes/header.php';
+    echo '<div class="container-page"><div class="card nx-glow"><div class="card-body text-center py-5">';
+    echo '<h3 class="mb-3">Maintenance Mode</h3>';
+    echo '<p class="text-muted mb-0">The site is undergoing scheduled maintenance. Please check back soon.</p>';
+    echo '</div></div></div>';
+    include __DIR__ . '/includes/footer.php';
+    exit;
+}
+
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
     $override = nx_theme_locate($themeSlug, $page);
 
@@ -61,14 +81,11 @@ if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
 
 http_response_code(404);
 $GLOBALS['nx_current_page_slug'] = '404';
-$notFoundTemplate = nx_theme_locate($themeSlug, '404');
-
-if ($notFoundTemplate !== null) {
-    return $notFoundTemplate;
-}
-
-if (file_exists(__DIR__ . '/pages/404.php')) {
-    return __DIR__ . '/pages/404.php';
-}
-
-return __DIR__ . '/includes/404-fallback.php';
+include __DIR__ . '/includes/header.php';
+echo '<div class="container-page"><div class="card nx-glow"><div class="card-body text-center py-5">';
+echo '<h3 class="mb-3">Page Not Found</h3>';
+echo '<p class="text-muted">The page you were looking for could not be found.</p>';
+echo '<a class="btn btn-primary" href="?p=home">Return to homepage</a>';
+echo '</div></div></div>';
+include __DIR__ . '/includes/footer.php';
+exit;

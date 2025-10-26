@@ -8,6 +8,32 @@ if (!$pdo instanceof PDO) {
 
     return;
 }
+
+if (!nx_table_exists($pdo, 'monster_index')) {
+    echo '<section class="page page--monster"><div class="card nx-glow"><div class="card-body">'
+        . '<h4 class="mb-2">Monster Index Missing</h4>'
+        . '<p class="text-muted mb-3">Monster data has not been indexed yet. Run the monster indexer from the admin panel to enable this page.</p>'
+        . '<a class="btn btn-sm btn-primary" href="admin/indexers.php">Run Indexers</a>'
+        . '</div></div></section>';
+
+    return;
+}
+
+try {
+    $totalMonsters = (int) $pdo->query('SELECT COUNT(*) FROM monster_index')->fetchColumn();
+} catch (Throwable $exception) {
+    $totalMonsters = 0;
+}
+
+if ($totalMonsters === 0) {
+    echo '<section class="page page--monster"><div class="card nx-glow"><div class="card-body">'
+        . '<h4 class="mb-2">Monster Index Empty</h4>'
+        . '<p class="text-muted mb-3">No monster entries were found. Run the monster indexer from the admin panel to populate this data.</p>'
+        . '<a class="btn btn-sm btn-primary" href="admin/indexers.php">Run Indexers</a>'
+        . '</div></div></section>';
+
+    return;
+}
 $monsterId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 if ($monsterId <= 0) {
@@ -15,9 +41,13 @@ if ($monsterId <= 0) {
     return;
 }
 
-$stmt = $pdo->prepare('SELECT * FROM monster_index WHERE id = :id LIMIT 1');
-$stmt->execute(['id' => $monsterId]);
-$monster = $stmt->fetch();
+try {
+    $stmt = $pdo->prepare('SELECT * FROM monster_index WHERE id = :id LIMIT 1');
+    $stmt->execute(['id' => $monsterId]);
+    $monster = $stmt->fetch();
+} catch (Throwable $exception) {
+    $monster = false;
+}
 
 if ($monster === false) {
     echo '<section class="page"><p>Monster not found.</p></section>';
@@ -56,12 +86,23 @@ if (isset($monster['outfit']) && $monster['outfit'] !== null) {
     }
 }
 
-$lootStmt = $pdo->prepare('SELECT ml.*, i.name AS index_name FROM monster_loot ml
-    LEFT JOIN item_index i ON i.id = ml.item_id
-    WHERE ml.monster_id = :id
-    ORDER BY ml.chance DESC, COALESCE(i.name, ml.item_name) ASC');
-$lootStmt->execute(['id' => $monsterId]);
-$loot = $lootStmt->fetchAll();
+$loot = [];
+if (nx_table_exists($pdo, 'monster_loot')) {
+    $joinItemIndex = nx_table_exists($pdo, 'item_index');
+    $sql = 'SELECT ml.*' . ($joinItemIndex ? ', i.name AS index_name' : '')
+        . ' FROM monster_loot ml';
+
+    if ($joinItemIndex) {
+        $sql .= ' LEFT JOIN item_index i ON i.id = ml.item_id';
+    }
+
+    $sql .= ' WHERE ml.monster_id = :id'
+        . ' ORDER BY ml.chance DESC, ' . ($joinItemIndex ? 'COALESCE(i.name, ml.item_name)' : 'ml.item_name') . ' ASC';
+
+    $lootStmt = $pdo->prepare($sql);
+    $lootStmt->execute(['id' => $monsterId]);
+    $loot = $lootStmt->fetchAll();
+}
 
 $related = [];
 if (!empty($monster['race'])) {

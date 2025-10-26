@@ -99,3 +99,40 @@ function nx_port_is_listening(?string $host, int $port, float $timeout = 0.75): 
 
     return false;
 }
+
+function nx_table_exists(PDO $pdo, string $table): bool
+{
+    static $cache = [];
+    $table = trim($table);
+
+    if ($table === '') {
+        return false;
+    }
+
+    if (array_key_exists($table, $cache)) {
+        return $cache[$table];
+    }
+
+    try {
+        $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'sqlite') {
+            $stmt = $pdo->prepare('SELECT name FROM sqlite_master WHERE type = :type AND name = :name LIMIT 1');
+            $stmt->execute([':type' => 'table', ':name' => $table]);
+            $cache[$table] = (bool) $stmt->fetchColumn();
+
+            return $cache[$table];
+        }
+
+        $sql = 'SELECT 1 FROM information_schema.tables WHERE table_name = :name AND table_schema = DATABASE() LIMIT 1';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([':name' => $table]);
+        $cache[$table] = (bool) $stmt->fetchColumn();
+
+        return $cache[$table];
+    } catch (Throwable $exception) {
+        $cache[$table] = false;
+
+        return false;
+    }
+}

@@ -7,6 +7,15 @@ require __DIR__ . '/auth.php';
 require __DIR__ . '/csrf.php';
 require __DIR__ . '/functions.php';
 require __DIR__ . '/includes/theme.php';
+
+set_exception_handler(function (Throwable $e) {
+    error_log('App error: ' . $e->getMessage());
+    http_response_code(500);
+    include __DIR__ . '/includes/header.php';
+    echo '<div class="container-page"><div class="alert alert-danger">An error occurred. Please try again later.</div></div>';
+    include __DIR__ . '/includes/footer.php';
+});
+
 $pageFile = require __DIR__ . '/routes.php';
 
 $themeSlug = nx_theme_active_slug();
