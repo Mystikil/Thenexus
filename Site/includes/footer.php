@@ -18,5 +18,11 @@ foreach ($themeJsFiles as $scriptUrl):
 <?php if (function_exists('theme_footer')): ?>
     <?php theme_footer(); ?>
 <?php endif; ?>
+<button class="btn btn-sm btn-warning position-fixed bottom-0 end-0 m-3" id="contrastToggle" style="z-index:9999">Contrast Safe</button>
+<script>
+document.getElementById('contrastToggle').addEventListener('click',()=>{
+  document.body.classList.toggle('contrast-safe');
+});
+</script>
 </body>
 </html>

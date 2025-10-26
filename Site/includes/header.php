@@ -1,6 +1,17 @@
 <?php require_once __DIR__ . '/theme.php';
 
-$themeSlug = nx_theme_active_slug();
+$themes = nx_themes_list();
+$previewSlug = null;
+
+if (isset($_SESSION['preview_theme'])) {
+    $candidate = nx_theme_normalize_slug((string) $_SESSION['preview_theme']);
+
+    if ($candidate !== '' && isset($themes[$candidate])) {
+        $previewSlug = $candidate;
+    }
+}
+
+$themeSlug = $previewSlug ?? nx_theme_active_slug();
 $csrfMetaToken = csrf_token();
 $themeAssets = nx_theme_assets($themeSlug);
 $themeCssFiles = [];
@@ -48,6 +59,14 @@ $GLOBALS['nx_theme_loaded_assets'] = [
 ];
 $GLOBALS['nx_active_theme_slug'] = $themeSlug;
 
+$previewThemeName = null;
+
+if ($previewSlug !== null) {
+    $previewThemeName = $themes[$previewSlug]['name'] ?? ucfirst($previewSlug);
+}
+
+$bodyThemeClass = 'theme-' . $themeSlug;
+
 $themeHooksFile = nx_theme_path($themeSlug, 'theme.php');
 
 if (is_file($themeHooksFile)) {
@@ -75,6 +94,21 @@ if (is_file($themeHooksFile)) {
         <?php theme_head(); ?>
     <?php endif; ?>
 </head>
-<body data-theme="<?php echo sanitize($themeSlug); ?>" class="<?php echo htmlspecialchars(get_setting('theme_preset') ?? 'preset-violet', ENT_QUOTES, 'UTF-8'); ?>">
+<body data-theme="<?php echo sanitize($themeSlug); ?>" class="<?php echo sanitize($bodyThemeClass); ?>">
+<?php if ($previewThemeName !== null): ?>
+    <div class="bg-warning text-dark py-1 px-3 small" style="position: sticky; top: 0; z-index: 1050; display: flex; justify-content: center; gap: 1rem; align-items: center;">
+        <span>Previewing <?php echo sanitize($previewThemeName); ?></span>
+        <form action="<?php echo sanitize(base_url('admin/themes.php')); ?>" method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfMetaToken); ?>">
+            <input type="hidden" name="action" value="apply_preview">
+            <button type="submit" class="btn btn-sm btn-outline-dark">Apply</button>
+        </form>
+        <form action="<?php echo sanitize(base_url('admin/themes.php')); ?>" method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="<?php echo sanitize($csrfMetaToken); ?>">
+            <input type="hidden" name="action" value="clear_preview">
+            <button type="submit" class="btn btn-sm btn-outline-dark">Exit preview</button>
+        </form>
+    </div>
+<?php endif; ?>
 <?php include __DIR__ . '/nav.php'; ?>
 <main class="py-3 py-lg-4">

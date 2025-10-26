@@ -129,5 +129,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit" class="admin-button">Save Settings</button>
     </form>
 </section>
+<section class="admin-section">
+    <h3>Theme Manager</h3>
+    <p>Switch layouts, preview new themes, and configure theme options from a dedicated manager.</p>
+    <a class="admin-button" href="<?php echo sanitize(base_url('admin/themes.php')); ?>">Open Theme Manager</a>
+</section>
 <?php
 require __DIR__ . '/partials/footer.php';
