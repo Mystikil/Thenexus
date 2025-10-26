@@ -140,7 +140,7 @@ if ($user !== null && $_SERVER['REQUEST_METHOD'] === 'POST') {
                         'coins_after' => max(0, $coinsAfter),
                     ]);
 
-                    flash('success', 'Your order has been placed and will be processed soon.');
+                    flash('success', 'Order created; delivery will arrive in-game shortly.');
                     redirect('?p=shop');
                 }
             } catch (Throwable $exception) {
