@@ -78,3 +78,24 @@ function nx_current_page_slug(): string
 
     return $slug;
 }
+
+function nx_port_is_listening(?string $host, int $port, float $timeout = 0.75): bool
+{
+    $host = $host !== null && trim($host) !== '' ? trim($host) : '127.0.0.1';
+
+    if ($port <= 0 || $port > 65535) {
+        return false;
+    }
+
+    $errno = 0;
+    $errstr = '';
+    $socket = @fsockopen($host, $port, $errno, $errstr, $timeout);
+
+    if (is_resource($socket)) {
+        fclose($socket);
+
+        return true;
+    }
+
+    return false;
+}

@@ -713,10 +713,13 @@ function widget_server_status(PDO $pdo): string
         $logins = (int) $loginsStmt->fetchColumn();
     }
 
-    $status = $onlineCount > 0 ? 'Online' : 'Offline';
-    $statusBadge = $onlineCount > 0
-        ? '<span class="badge rounded-pill bg-success">Online</span>'
-        : '<span class="badge rounded-pill bg-danger">Offline</span>';
+    $statusHost = defined('GAME_SERVER_STATUS_HOST') ? GAME_SERVER_STATUS_HOST : '127.0.0.1';
+    $statusPort = defined('GAME_SERVER_STATUS_PORT') ? (int) GAME_SERVER_STATUS_PORT : 7171;
+    $isOnline = $statusPort > 0 && nx_port_is_listening($statusHost, $statusPort);
+    $status = $isOnline ? 'Online' : 'Offline';
+    $statusBadge = $isOnline
+        ? '<span class="nx-status-indicator nx-status-indicator--online">Online</span>'
+        : '<span class="nx-status-indicator nx-status-indicator--offline">Offline</span>';
 
     $html = '<dl class="row mb-0">';
     $html .= '<dt class="col-6">Status</dt><dd class="col-6 text-end">' . $statusBadge . '</dd>';
