@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "title": "Nexus Online — Vision 2025 Roadmap",
+    "updated": "2025-10-26"
+  },
+  "filters": {
+    "categories": [
+      "Nostalgia",
+      "RPG/Story",
+      "PvE",
+      "PvP",
+      "QoL/Mechanics",
+      "Economy",
+      "Visual",
+      "World",
+      "Social"
+    ],
+    "statuses": ["Planned", "In Progress", "Shipped"],
+    "phases": ["I", "II", "III", "IV", "V"]
+  },
+  "phases": {
+    "I": "Immersion Foundation — lore, bestiary, exploration.",
+    "II": "Social & PvP Layer — arenas, guild ladders.",
+    "III": "Dynamic World Events — invasions & seasonal arcs.",
+    "IV": "Environmental Depth — weather, lighting, biomes.",
+    "V": "Player Legacy — prestige, achievements, personal realms."
+  },
+  "items": [
+    {
+      "id": "classic-core",
+      "title": "Classic Nostalgic Gameplay Core",
+      "category": ["Nostalgia"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "10.98 base, balanced EXP, familiar combat, no pay-to-win.",
+      "surveyTags": ["Nostalgia", "RPG", "Grind"]
+    },
+    {
+      "id": "instances",
+      "title": "Instance System Framework",
+      "category": ["PvE", "QoL/Mechanics"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Solo/party, scaling loot, timed closure, difficulty rolls.",
+      "surveyTags": ["PvE", "New Mechanics", "Grind"]
+    },
+    {
+      "id": "procedural-dungeons",
+      "title": "Procedural & Handcrafted Dungeons",
+      "category": ["RPG/Story", "PvE", "World"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Replayable instanced dungeons with crafted ‘shard world’ fragments.",
+      "dependencies": ["instances"],
+      "surveyTags": ["RPG", "PvE", "New Maps"]
+    },
+    {
+      "id": "forging",
+      "title": "Forging & Blacksmithing",
+      "category": ["QoL/Mechanics", "Economy"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Upgrade weapons, reroll stats, rarity-linked visual feedback.",
+      "surveyTags": ["New Mechanics", "Economy", "Grind"]
+    },
+    {
+      "id": "rarity-17",
+      "title": "Rarity & Tier System (17 Levels)",
+      "category": ["QoL/Mechanics"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Config-driven rarity scaling (Common → Mythic → Cosmic).",
+      "surveyTags": ["New Mechanics", "Grind"]
+    },
+    {
+      "id": "serialization",
+      "title": "Item Serialization & Tracking",
+      "category": ["QoL/Mechanics", "Economy"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Unique item lineage, craft history, safer trading.",
+      "surveyTags": ["Economy", "New Mechanics"]
+    },
+    {
+      "id": "professions",
+      "title": "Profession System",
+      "category": ["RPG/Story", "Economy"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Mining, Herbalism, Farming, Foraging, Scavenging, Gemcutting.",
+      "surveyTags": ["RPG", "Economy", "Grind"]
+    },
+    {
+      "id": "bestiary",
+      "title": "Encyclopedia / Bestiary Integration",
+      "category": ["RPG/Story", "QoL/Mechanics"],
+      "status": "In Progress",
+      "progress": 50,
+      "phase": "I",
+      "shipped": false,
+      "description": "Monster lore entries, drops, and discoverability.",
+      "surveyTags": ["RPG", "New Mechanics"]
+    },
+    {
+      "id": "lore-network",
+      "title": "Dynamic Lore & World History",
+      "category": ["RPG/Story", "World"],
+      "status": "In Progress",
+      "progress": 40,
+      "phase": "I",
+      "shipped": false,
+      "description": "Notes, journals, ruins, NPC ties; hidden threads across dungeons.",
+      "surveyTags": ["RPG", "Nostalgia", "Social"]
+    },
+    {
+      "id": "autoloot",
+      "title": "Autoloot + QoL Framework",
+      "category": ["QoL/Mechanics"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Modern looting without breaking the classic feel.",
+      "surveyTags": ["New Mechanics", "Grind"]
+    },
+    {
+      "id": "custom-sprites",
+      "title": "Classic Sprites + Enhanced FX",
+      "category": ["Visual", "Nostalgia"],
+      "status": "Shipped",
+      "progress": 100,
+      "phase": "I",
+      "shipped": true,
+      "description": "Nostalgic art with tasteful particles/glow.",
+      "surveyTags": ["Visual", "Nostalgia"]
+    },
+    {
+      "id": "pvp-arenas",
+      "title": "Guild PvP Arenas & Tournaments",
+      "category": ["PvP", "Social"],
+      "status": "Planned",
+      "progress": 10,
+      "phase": "II",
+      "shipped": false,
+      "description": "Ranked ladders, seasonal cups, spectator mode.",
+      "surveyTags": ["PvP", "Social"]
+    },
+    {
+      "id": "events",
+      "title": "World Event Engine",
+      "category": ["World", "RPG/Story", "Social"],
+      "status": "Planned",
+      "progress": 0,
+      "phase": "III",
+      "shipped": false,
+      "description": "Invasions, rotating dungeons, NPC migrations tied to calendar.",
+      "surveyTags": ["RPG", "Social", "New Maps"]
+    },
+    {
+      "id": "weather",
+      "title": "Weather & Biome System",
+      "category": ["World", "Visual"],
+      "status": "Planned",
+      "progress": 0,
+      "phase": "IV",
+      "shipped": false,
+      "description": "Rain, fog, storms, heat/cold modifiers.",
+      "surveyTags": ["Visual", "New Maps"]
+    },
+    {
+      "id": "prestige",
+      "title": "Player Titles, Ranks, & Prestige",
+      "category": ["RPG/Story", "Social"],
+      "status": "In Progress",
+      "progress": 20,
+      "phase": "V",
+      "shipped": false,
+      "description": "Cosmetic titles and legacy marks for long-term progression.",
+      "surveyTags": ["RPG", "Social", "Grind"]
+    },
+    {
+      "id": "personal-realms",
+      "title": "Player Housing in Instances",
+      "category": ["RPG/Story", "World"],
+      "status": "Planned",
+      "progress": 0,
+      "phase": "V",
+      "shipped": false,
+      "description": "Pocket realms linked to dungeon shards.",
+      "surveyTags": ["RPG", "New Maps", "Social"]
+    }
+  ]
+}
