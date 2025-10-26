@@ -1,18 +1,57 @@
 <?php require_once __DIR__ . '/theme.php';
 
-$pdo = db();
-$themeSlug = nx_current_theme_slug($pdo);
-$themeCssFiles = [];
+$themeSlug = nx_theme_active_slug();
 $csrfMetaToken = csrf_token();
+$themeAssets = nx_theme_assets($themeSlug);
+$themeCssFiles = [];
+$themeJsFiles = [];
+$themeBasePath = 'themes/' . rawurlencode($themeSlug) . '/';
 
-$variablesPath = nx_theme_path($themeSlug, 'css/variables.css');
-if (is_file($variablesPath)) {
-    $themeCssFiles[] = base_url('themes/' . rawurlencode($themeSlug) . '/css/variables.css');
+if (is_file(nx_theme_path($themeSlug, 'theme.css'))) {
+    $themeCssFiles[] = base_url($themeBasePath . 'theme.css');
 }
 
-$themeStylesPath = nx_theme_path($themeSlug, 'css/theme.css');
-if (is_file($themeStylesPath)) {
-    $themeCssFiles[] = base_url('themes/' . rawurlencode($themeSlug) . '/css/theme.css');
+if (isset($themeAssets['css'])) {
+    foreach ($themeAssets['css'] as $cssFile) {
+        $cssFile = trim((string) $cssFile);
+        if ($cssFile === '') {
+            continue;
+        }
+        if (preg_match('#^(https?:)?//#', $cssFile) === 1) {
+            $themeCssFiles[] = $cssFile;
+            continue;
+        }
+        $themeCssFiles[] = base_url($themeBasePath . ltrim($cssFile, '/'));
+    }
+}
+
+if (isset($themeAssets['js'])) {
+    foreach ($themeAssets['js'] as $jsFile) {
+        $jsFile = trim((string) $jsFile);
+        if ($jsFile === '') {
+            continue;
+        }
+        if (preg_match('#^(https?:)?//#', $jsFile) === 1) {
+            $themeJsFiles[] = $jsFile;
+            continue;
+        }
+        $themeJsFiles[] = base_url($themeBasePath . ltrim($jsFile, '/'));
+    }
+}
+
+$themeCssFiles = array_values(array_unique($themeCssFiles));
+$themeJsFiles = array_values(array_unique($themeJsFiles));
+
+$GLOBALS['nx_theme_loaded_assets'] = [
+    'css' => $themeCssFiles,
+    'js' => $themeJsFiles,
+];
+$GLOBALS['nx_active_theme_slug'] = $themeSlug;
+
+$themeHooksFile = nx_theme_path($themeSlug, 'theme.php');
+
+if (is_file($themeHooksFile)) {
+    require_once $themeHooksFile;
 }
 ?>
 <!DOCTYPE html>
@@ -32,6 +71,9 @@ if (is_file($themeStylesPath)) {
         <link rel="stylesheet" href="<?php echo sanitize($cssHref); ?>">
     <?php endforeach; ?>
     <link rel="stylesheet" href="/assets/css/overrides.css">
+    <?php if (function_exists('theme_head')): ?>
+        <?php theme_head(); ?>
+    <?php endif; ?>
 </head>
 <body data-theme="<?php echo sanitize($themeSlug); ?>" class="<?php echo htmlspecialchars(get_setting('theme_preset') ?? 'preset-violet', ENT_QUOTES, 'UTF-8'); ?>">
 <?php include __DIR__ . '/nav.php'; ?>

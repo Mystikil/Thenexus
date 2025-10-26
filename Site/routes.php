@@ -36,10 +36,10 @@ if ($page === '') {
 
 $GLOBALS['nx_current_page_slug'] = $page;
 
-$pdo = db();
+$themeSlug = nx_theme_active_slug();
 
 if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
-    $override = nx_locate_template($pdo, $page);
+    $override = nx_theme_locate($themeSlug, $page);
 
     if ($override !== null) {
         return $override;
@@ -50,7 +50,7 @@ if (array_key_exists($page, $routes) && file_exists($routes[$page])) {
 
 http_response_code(404);
 $GLOBALS['nx_current_page_slug'] = '404';
-$notFoundTemplate = nx_locate_template($pdo, '404');
+$notFoundTemplate = nx_theme_locate($themeSlug, '404');
 
 if ($notFoundTemplate !== null) {
     return $notFoundTemplate;
