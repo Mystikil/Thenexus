@@ -1,9 +1,14 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../auth_recovery.php';
+require_once __DIR__ . '/../csrf.php';
 require_once __DIR__ . '/../includes/theme.php';
 
-require_once __DIR__ . '/../auth_recovery.php';
+@session_start();
 
 $loggedOutNotice = !empty($_GET['loggedout']);
 $loginErrors = [];
@@ -25,25 +30,23 @@ if (!nx_database_available()) {
     return;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'logout') {
-    if (!csrf_validate($_POST['csrf'] ?? '')) {
-        flash('error', 'Invalid request. Please try again.');
-        redirect('?p=account');
-    }
-
-    $user = current_user();
-    if ($user !== null) {
-        audit_log((int) $user['id'], 'logout');
-    }
-
-    nx_logout();
-    header('Location: ?p=account&loggedout=1', true, 302);
-    exit;
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $token = $_POST['csrf_token'] ?? null;
+
+    if ($action === 'logout') {
+        if (!csrf_validate($_POST['csrf'] ?? '')) {
+            flash('error', 'Invalid request. Please try again.');
+            nx_redirect('?p=account');
+        }
+
+        $user = current_user();
+        if ($user !== null) {
+            audit_log((int) $user['id'], 'logout');
+        }
+
+        nx_logout();
+        nx_redirect('?p=account&loggedout=1');
+    }
 
     if ($action === 'login') {
         $loginIdentifier = trim((string) ($_POST['identifier'] ?? ''));
@@ -54,25 +57,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $registerAccountName = trim((string) ($_POST['account_name'] ?? ''));
     }
 
-        if (!csrf_validate($token)) {
-            if ($action === 'login') {
-                $loginErrors[] = 'Invalid request. Please try again.';
-            } elseif ($action === 'register') {
-                $registerErrorMessage = 'Invalid request. Please try again.';
-            } elseif ($action === 'password') {
-                $passwordErrors[] = 'Invalid request. Please try again.';
-            } elseif ($action === 'generate_recovery_key') {
-                $recoveryErrors[] = 'Invalid request. Please try again.';
-            }
-        } else {
-            switch ($action) {
+    $token = $_POST['csrf_token'] ?? null;
+
+    if (!csrf_validate($token)) {
+        if ($action === 'login') {
+            $loginErrors[] = 'Invalid request. Please try again.';
+        } elseif ($action === 'register') {
+            $registerErrorMessage = 'Invalid request. Please try again.';
+        } elseif ($action === 'password') {
+            $passwordErrors[] = 'Invalid request. Please try again.';
+        } elseif ($action === 'generate_recovery_key') {
+            $recoveryErrors[] = 'Invalid request. Please try again.';
+        } elseif ($action === 'link_account') {
+            $linkErrors[] = 'Invalid request. Please try again.';
+        } elseif ($action === 'theme') {
+            $themeErrors[] = 'Invalid request. Please try again.';
+        }
+    } else {
+        switch ($action) {
             case 'login':
                 $password = (string) ($_POST['password'] ?? '');
                 $result = login($loginIdentifier, $password);
 
                 if ($result['success'] ?? false) {
                     flash('success', 'You are now logged in.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $loginErrors = $result['errors'] ?? ['Unable to log in.'];
@@ -91,8 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$ok, $msg] = register($registerEmail, $password, $accountName);
 
                 if ($ok) {
-                    header('Location: ?p=account&welcome=1');
-                    exit;
+                    nx_redirect('?p=account&welcome=1');
                 }
 
                 $registerErrorMessage = $msg !== '' ? $msg : 'Unable to register at this time.';
@@ -101,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'password':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to change your password.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $currentPassword = (string) ($_POST['current_password'] ?? '');
@@ -213,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     audit_log((int) $user['id'], 'change_password', null, ['account_id' => $accountId]);
 
                     flash('success', 'Your password has been updated.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 break;
@@ -221,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'generate_recovery_key':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to generate a recovery key.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $user = current_user();
@@ -262,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'link_account':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to link a game account.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $accountName = trim((string) ($_POST['account_name'] ?? ''));
@@ -278,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($result['success'] ?? false) {
                     flash('success', 'Your website profile is now linked to your game account.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $linkErrors = $result['errors'] ?? ['Unable to link your account right now.'];
@@ -288,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'theme':
                 if (!is_logged_in()) {
                     flash('error', 'You must be logged in to update your theme preference.');
-                    redirect('?p=account');
+                    nx_redirect('?p=account');
                 }
 
                 $selectedTheme = trim((string) ($_POST['theme'] ?? ''));
@@ -311,7 +319,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         flash('success', 'Your theme preference has been updated.');
-                        redirect('?p=account');
+                        nx_redirect('?p=account');
                     }
                 } else {
                     $themeErrors[] = 'The selected theme is not available.';
@@ -349,6 +357,8 @@ $accountStatus = [
     'name' => '',
 ];
 $accountHasRecoveryKey = false;
+$accountCoinBalance = null;
+$accountPremiumLabel = null;
 
 if ($user !== null) {
     $accountId = isset($user['account_id']) ? (int) $user['account_id'] : 0;
@@ -357,6 +367,26 @@ if ($user !== null) {
         $pdo = db();
         $accountHasRecoveryKey = nx_account_has_recovery_key($pdo, $accountId);
         $accountRow = nx_fetch_account_by_id($pdo, $accountId);
+
+        if ($pdo instanceof PDO) {
+            if (nx_table_exists($pdo, 'web_accounts')) {
+                $coinStmt = $pdo->prepare('SELECT points FROM web_accounts WHERE account_id = :id LIMIT 1');
+                $coinStmt->execute(['id' => $accountId]);
+                $accountCoinBalance = (int) ($coinStmt->fetchColumn() ?: 0);
+            } else {
+                $accountCoinBalance = 0;
+            }
+
+            $premiumStmt = $pdo->prepare('SELECT premium_ends_at FROM accounts WHERE id = :id LIMIT 1');
+            $premiumStmt->execute(['id' => $accountId]);
+            $premiumEnd = (int) ($premiumStmt->fetchColumn() ?: 0);
+
+            if ($premiumEnd > time()) {
+                $accountPremiumLabel = date('Y-m-d H:i', $premiumEnd);
+            } else {
+                $accountPremiumLabel = 'None';
+            }
+        }
 
         if ($accountRow !== null) {
             $accountStatus['linked'] = true;
@@ -585,6 +615,22 @@ if ($user !== null) {
                                     <span class="account-profile__status-note">(link pending)</span>
                                 <?php else: ?>
                                     <em>Not linked</em>
+                                <?php endif; ?>
+                            </dd>
+                            <dt>Coins</dt>
+                            <dd>
+                                <?php if ($accountCoinBalance !== null): ?>
+                                    <?php echo number_format((int) $accountCoinBalance); ?>
+                                <?php else: ?>
+                                    <em>Link account</em>
+                                <?php endif; ?>
+                            </dd>
+                            <dt>Premium</dt>
+                            <dd>
+                                <?php if ($accountPremiumLabel !== null): ?>
+                                    <?php echo sanitize($accountPremiumLabel); ?>
+                                <?php else: ?>
+                                    <em>Link account</em>
                                 <?php endif; ?>
                             </dd>
                         </dl>
