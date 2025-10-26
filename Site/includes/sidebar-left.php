@@ -5,13 +5,12 @@ require_once __DIR__ . '/theme.php';
 $pdo = db();
 $pageSlug = nx_current_page_slug();
 $widgets = nx_widget_order($pdo, 'left', $pageSlug);
+$registry = nx_widget_registry();
 
 $renderWidget = static function (string $slug, ?int $limit = null): string {
-    if ($limit !== null) {
-        return render_widget_box($slug, $limit);
-    }
+    $effectiveLimit = $limit ?? 5;
 
-    return render_widget_box($slug);
+    return render_widget_box($slug, $effectiveLimit, null, false);
 };
 
 $template = nx_locate_template($pdo, 'sidebar-left');
@@ -43,5 +42,13 @@ foreach ($widgets as $widget) {
     $limit = $widget['limit'] ?? null;
     $limit = is_int($limit) ? $limit : null;
 
-    echo $renderWidget($slug, $limit);
+    $title = $registry[$slug]['title'] ?? $slug;
+    $effectiveLimit = $limit ?? 5;
+    $attributes = widget_collect_attributes($slug, $effectiveLimit);
+    $attrString = widget_resolve_attributes($attributes);
+    $inner = $renderWidget($slug, $effectiveLimit);
+
+    echo '<div class="card nx-glow mb-3"' . $attrString . '><div class="card-header py-2"><h6 class="mb-0">'
+        . htmlspecialchars($title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        . '</h6></div><div class="card-body">' . $inner . '</div></div>';
 }

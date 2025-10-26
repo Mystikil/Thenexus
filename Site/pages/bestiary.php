@@ -120,122 +120,146 @@ $baseQuery = [
     'sort' => $sort,
 ];
 ?>
-<section class="page bestiary-page">
-    <h2>Bestiary</h2>
-    <form method="get" class="bestiary-filters">
-        <input type="hidden" name="p" value="bestiary">
-        <div class="bestiary-filters__group">
-            <label for="bestiary-search">Search</label>
-            <input type="text" id="bestiary-search" name="search" value="<?php echo sanitize($search); ?>" placeholder="Monster name">
-        </div>
-        <div class="bestiary-filters__group">
-            <label for="bestiary-race">Race</label>
-            <select id="bestiary-race" name="race">
-                <option value="">All races</option>
-                <?php foreach ($races as $raceOption): ?>
-                    <option value="<?php echo sanitize($raceOption); ?>"<?php echo $raceOption === $race ? ' selected' : ''; ?>><?php echo sanitize(ucwords($raceOption)); ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="bestiary-filters__group">
-            <label for="bestiary-element-relation">Element Focus</label>
-            <select id="bestiary-element-relation" name="element_relation">
-                <option value="">Any relation</option>
-                <option value="strong"<?php echo $elementRelation === 'strong' ? ' selected' : ''; ?>>Strong Against</option>
-                <option value="weak"<?php echo $elementRelation === 'weak' ? ' selected' : ''; ?>>Resistant</option>
-                <option value="immune"<?php echo $elementRelation === 'immune' ? ' selected' : ''; ?>>Immune</option>
-                <option value="vulnerable"<?php echo $elementRelation === 'vulnerable' ? ' selected' : ''; ?>>Vulnerable</option>
-            </select>
-        </div>
-        <div class="bestiary-filters__group">
-            <label for="bestiary-element-type">Element Type</label>
-            <select id="bestiary-element-type" name="element_type">
-                <option value="">Any element</option>
-                <?php foreach ($elementTypes as $type): ?>
-                    <option value="<?php echo sanitize($type); ?>"<?php echo $type === $elementType ? ' selected' : ''; ?>><?php echo sanitize(ucfirst($type)); ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="bestiary-filters__group">
-            <label for="bestiary-sort">Sort By</label>
-            <select id="bestiary-sort" name="sort">
-                <option value="name_asc"<?php echo $sort === 'name_asc' ? ' selected' : ''; ?>>Name A-Z</option>
-                <option value="exp_desc"<?php echo $sort === 'exp_desc' ? ' selected' : ''; ?>>Experience (desc)</option>
-                <option value="health_desc"<?php echo $sort === 'health_desc' ? ' selected' : ''; ?>>Health (desc)</option>
-                <option value="speed_desc"<?php echo $sort === 'speed_desc' ? ' selected' : ''; ?>>Speed (desc)</option>
-            </select>
-        </div>
-        <div class="bestiary-filters__actions">
-            <button type="submit">Apply</button>
-        </div>
-    </form>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h4 class="mb-0"><i class="bi bi-bookmark-star me-2"></i>Bestiary</h4>
+    <div class="text-muted small">Indexed from server data</div>
+</div>
 
-    <?php if ($monsters === []): ?>
-        <p>No monsters matched your filters. Try adjusting the search or filters above.</p>
-    <?php else: ?>
-        <div class="bestiary-grid">
-            <?php foreach ($monsters as $monster): ?>
-                <?php
-                    $elemental = [];
-                    if (isset($monster['elemental']) && $monster['elemental'] !== null) {
-                        $decoded = json_decode((string) $monster['elemental'], true);
-                        if (is_array($decoded)) {
-                            $elemental = $decoded;
-                        }
-                    }
-                ?>
-                <article class="bestiary-card">
-                    <header class="bestiary-card__header">
-                        <h3 class="bestiary-card__title"><?php echo sanitize($monster['name']); ?></h3>
-                        <span class="bestiary-card__race"><?php echo sanitize($monster['race'] ?? 'Unknown'); ?></span>
-                    </header>
-                    <div class="bestiary-card__stats">
-                        <span>EXP: <?php echo (int) $monster['experience']; ?></span>
-                        <span>HP: <?php echo (int) $monster['health']; ?></span>
-                        <span>Speed: <?php echo (int) $monster['speed']; ?></span>
-                    </div>
-                    <?php if ($elemental !== []): ?>
-                        <div class="bestiary-card__elements">
-                            <?php foreach ($elemental as $type => $value): ?>
-                                <?php
-                                    $valueInt = (int) $value;
-                                    $class = '';
-                                    if ($valueInt >= 100) {
-                                        $class = ' bestiary-card__element--immune';
-                                    } elseif ($valueInt > 0) {
-                                        $class = ' bestiary-card__element--resist';
-                                    } elseif ($valueInt < 0) {
-                                        $class = ' bestiary-card__element--weak';
-                                    }
-                                ?>
-                                <?php if ($valueInt !== 0): ?>
-                                    <span class="bestiary-card__element<?php echo $class; ?>"><?php echo sanitize(ucfirst($type)); ?> <?php echo $valueInt; ?>%</span>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                    <footer class="bestiary-card__footer">
-                        <a class="bestiary-card__link" href="?p=monster&amp;id=<?php echo (int) $monster['id']; ?>">View</a>
-                    </footer>
-                </article>
+<form method="get" class="row g-2 mb-3">
+    <input type="hidden" name="p" value="bestiary">
+    <div class="col-12 col-md-4">
+        <input class="form-control" name="search" placeholder="Search name" value="<?php echo sanitize($search); ?>">
+    </div>
+    <div class="col-6 col-md-3">
+        <select class="form-select" name="race">
+            <option value="">All races</option>
+            <?php foreach ($races as $raceOption): ?>
+                <option value="<?php echo sanitize($raceOption); ?>"<?php echo $raceOption === $race ? ' selected' : ''; ?>><?php echo sanitize(ucwords($raceOption)); ?></option>
             <?php endforeach; ?>
-        </div>
+        </select>
+    </div>
+    <div class="col-6 col-md-3">
+        <select class="form-select" name="sort">
+            <option value="name_asc"<?php echo $sort === 'name_asc' ? ' selected' : ''; ?>>Name A-Z</option>
+            <option value="exp_desc"<?php echo $sort === 'exp_desc' ? ' selected' : ''; ?>>Experience (desc)</option>
+            <option value="health_desc"<?php echo $sort === 'health_desc' ? ' selected' : ''; ?>>Health (desc)</option>
+            <option value="speed_desc"<?php echo $sort === 'speed_desc' ? ' selected' : ''; ?>>Speed (desc)</option>
+        </select>
+    </div>
+    <div class="col-6 col-md-3">
+        <select class="form-select" name="element_relation">
+            <option value="">Element focus</option>
+            <option value="strong"<?php echo $elementRelation === 'strong' ? ' selected' : ''; ?>>Strong Against</option>
+            <option value="weak"<?php echo $elementRelation === 'weak' ? ' selected' : ''; ?>>Resistant</option>
+            <option value="immune"<?php echo $elementRelation === 'immune' ? ' selected' : ''; ?>>Immune</option>
+            <option value="vulnerable"<?php echo $elementRelation === 'vulnerable' ? ' selected' : ''; ?>>Vulnerable</option>
+        </select>
+    </div>
+    <div class="col-6 col-md-3">
+        <select class="form-select" name="element_type">
+            <option value="">Any element</option>
+            <?php foreach ($elementTypes as $type): ?>
+                <option value="<?php echo sanitize($type); ?>"<?php echo $type === $elementType ? ' selected' : ''; ?>><?php echo sanitize(ucfirst($type)); ?></option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <div class="col-12 col-md-2 d-grid">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-search me-1"></i>Filter</button>
+    </div>
+</form>
 
-        <?php if ($totalPages > 1): ?>
-            <nav class="bestiary-pagination" aria-label="Bestiary pages">
-                <?php if ($page > 1): ?>
-                    <?php $prevQuery = http_build_query(array_merge($baseQuery, ['page' => $page - 1])); ?>
-                    <a href="?<?php echo sanitize($prevQuery); ?>">&laquo; Prev</a>
-                <?php endif; ?>
-                <span class="is-active">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span>
-                <?php if ($page < $totalPages): ?>
-                    <?php $nextQuery = http_build_query(array_merge($baseQuery, ['page' => $page + 1])); ?>
-                    <a href="?<?php echo sanitize($nextQuery); ?>">Next &raquo;</a>
-                <?php endif; ?>
-            </nav>
-        <?php endif; ?>
+<?php if ($monsters === []): ?>
+    <div class="alert alert-warning">No monsters matched your filters. Try adjusting the search or filters above.</div>
+<?php else: ?>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Race</th>
+                    <th class="text-end">EXP</th>
+                    <th class="text-end">HP</th>
+                    <th class="text-end">Speed</th>
+                    <th>Elemental</th>
+                    <th class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($monsters as $monster): ?>
+                    <?php
+                        $elemental = [];
+                        if (isset($monster['elemental']) && $monster['elemental'] !== null) {
+                            $decoded = json_decode((string) $monster['elemental'], true);
+                            if (is_array($decoded)) {
+                                $elemental = $decoded;
+                            }
+                        }
+                    ?>
+                    <tr>
+                        <td>
+                            <a class="text-decoration-none text-light fw-semibold" href="?p=monster&amp;id=<?php echo (int) $monster['id']; ?>">
+                                <?php echo sanitize($monster['name']); ?>
+                            </a>
+                        </td>
+                        <td>
+                            <?php if (!empty($monster['race'])): ?>
+                                <span class="badge bg-primary-subtle text-primary-emphasis"><?php echo sanitize(ucwords((string) $monster['race'])); ?></span>
+                            <?php else: ?>
+                                <span class="text-muted">Unknown</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end"><?php echo number_format((int) $monster['experience']); ?></td>
+                        <td class="text-end"><?php echo number_format((int) $monster['health']); ?></td>
+                        <td class="text-end"><?php echo number_format((int) $monster['speed']); ?></td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-1">
+                                <?php foreach ($elemental as $type => $value): ?>
+                                    <?php $valueInt = (int) $value; ?>
+                                    <?php if ($valueInt === 0) { continue; } ?>
+                                    <?php
+                                        $badgeClass = 'bg-secondary-subtle text-secondary-emphasis';
+                                        if ($valueInt >= 100) {
+                                            $badgeClass = 'bg-success-subtle text-success-emphasis';
+                                        } elseif ($valueInt > 0) {
+                                            $badgeClass = 'bg-warning-subtle text-warning-emphasis';
+                                        } elseif ($valueInt < 0) {
+                                            $badgeClass = 'bg-danger-subtle text-danger-emphasis';
+                                        }
+                                    ?>
+                                    <span class="badge <?php echo $badgeClass; ?>"><?php echo sanitize(ucfirst((string) $type)); ?> <?php echo $valueInt; ?>%</span>
+                                <?php endforeach; ?>
+                                <?php if ($elemental === []): ?>
+                                    <span class="text-muted small">—</span>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-primary" href="?p=monster&amp;id=<?php echo (int) $monster['id']; ?>">
+                                Details
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <?php if ($totalPages > 1): ?>
+        <nav class="mt-3" aria-label="Bestiary pagination">
+            <ul class="pagination pagination-sm mb-0">
+                <?php $prevQuery = http_build_query(array_merge($baseQuery, ['page' => max(1, $page - 1)])); ?>
+                <li class="page-item<?php echo $page <= 1 ? ' disabled' : ''; ?>">
+                    <a class="page-link" href="?<?php echo sanitize($prevQuery); ?>" aria-label="Previous">&laquo;</a>
+                </li>
+                <li class="page-item disabled"><span class="page-link">Page <?php echo $page; ?> of <?php echo $totalPages; ?></span></li>
+                <?php $nextQuery = http_build_query(array_merge($baseQuery, ['page' => min($totalPages, $page + 1)])); ?>
+                <li class="page-item<?php echo $page >= $totalPages ? ' disabled' : ''; ?>">
+                    <a class="page-link" href="?<?php echo sanitize($nextQuery); ?>" aria-label="Next">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
     <?php endif; ?>
-</section>
+<?php endif; ?>
 <?php
 $content = ob_get_clean();
 cache_set($cacheKey, $content);

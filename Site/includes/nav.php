@@ -1,82 +1,70 @@
 <?php
-require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 
 $current = $_GET['p'] ?? 'home';
-$user = current_user();
-
-function nx_active($slug, $current)
-{
-    return $slug === $current ? ' aria-current="page"' : '';
-}
+$u = current_user();
 ?>
-<nav class="nx-nav" aria-label="Main">
-  <div class="nx-nav__inner">
-    <a class="nx-brand" href="index.php">
-      <img src="/assets/img/logo.png" alt="Devnexus Online" class="nx-brand__logo">
-      <span class="nx-brand__name">Devnexus Online</span>
+<nav class="navbar navbar-expand-lg mb-3 container-page nx-glow">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="index.php">
+      <img src="/assets/img/logo.png" alt="Devnexus" style="height:36px;border-radius:8px">
+      <span class="fw-semibold">Devnexus Online</span>
     </a>
-
-    <button class="nx-burger" aria-expanded="false" aria-controls="nx-menu">
-      <span class="sr-only">Toggle menu</span>
-      <span class="nx-burger__bar"></span>
-      <span class="nx-burger__bar"></span>
-      <span class="nx-burger__bar"></span>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nxNav" aria-controls="nxNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
     </button>
+    <div class="collapse navbar-collapse" id="nxNav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item"><a class="nav-link<?php echo $current === 'home' ? ' active' : ''; ?>" href="?p=home">Home</a></li>
 
-    <ul id="nx-menu" class="nx-menu" role="menubar">
-      <li class="nx-item"><a role="menuitem" href="?p=home"<?= nx_active('home', $current) ?>>Home</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Game</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="?p=news">News</a></li>
+            <li><a class="dropdown-item" href="?p=bestiary">Bestiary</a></li>
+            <li><a class="dropdown-item" href="?p=spells">Spells</a></li>
+            <li><a class="dropdown-item" href="?p=guilds">Guilds</a></li>
+            <li><a class="dropdown-item" href="?p=highscores">Highscores</a></li>
+            <li><a class="dropdown-item" href="?p=whoisonline">Who’s Online</a></li>
+            <li><a class="dropdown-item" href="?p=deaths">Deaths</a></li>
+            <li><a class="dropdown-item" href="?p=market">Market</a></li>
+          </ul>
+        </li>
 
-      <li class="nx-item nx-has-submenu">
-        <button class="nx-link" aria-haspopup="true" aria-expanded="false">Game</button>
-        <ul class="nx-submenu" role="menu">
-          <li><a role="menuitem" href="?p=news"<?= nx_active('news', $current) ?>>News</a></li>
-          <li><a role="menuitem" href="?p=bestiary"<?= nx_active('bestiary', $current) ?>>Bestiary</a></li>
-          <li><a role="menuitem" href="?p=spells"<?= nx_active('spells', $current) ?>>Spells</a></li>
-          <li><a role="menuitem" href="?p=guilds"<?= nx_active('guilds', $current) ?>>Guilds</a></li>
-          <li><a role="menuitem" href="?p=highscores"<?= nx_active('highscores', $current) ?>>Highscores</a></li>
-          <li><a role="menuitem" href="?p=whoisonline"<?= nx_active('whoisonline', $current) ?>>Who’s Online</a></li>
-          <li><a role="menuitem" href="?p=deaths"<?= nx_active('deaths', $current) ?>>Deaths</a></li>
-          <li><a role="menuitem" href="?p=market"<?= nx_active('market', $current) ?>>Market</a></li>
-        </ul>
-      </li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Community</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="?p=tickets">Support</a></li>
+            <li><a class="dropdown-item" href="?p=downloads">Downloads</a></li>
+            <li><a class="dropdown-item" href="?p=rules">Rules</a></li>
+            <li><a class="dropdown-item" href="?p=about">About</a></li>
+          </ul>
+        </li>
+      </ul>
 
-      <li class="nx-item nx-has-submenu">
-        <button class="nx-link" aria-haspopup="true" aria-expanded="false">Community</button>
-        <ul class="nx-submenu" role="menu">
-          <li><a role="menuitem" href="?p=tickets"<?= nx_active('tickets', $current) ?>>Support</a></li>
-          <li><a role="menuitem" href="?p=downloads"<?= nx_active('downloads', $current) ?>>Downloads</a></li>
-          <li><a role="menuitem" href="?p=rules"<?= nx_active('rules', $current) ?>>Rules</a></li>
-          <li><a role="menuitem" href="?p=about"<?= nx_active('about', $current) ?>>About</a></li>
-        </ul>
-      </li>
-
-<?php if ($user): ?>
-      <li class="nx-item nx-right nx-has-submenu">
-        <button class="nx-link" aria-haspopup="true" aria-expanded="false">
-          <?= htmlspecialchars($user['email'] ?? $user['account_name'] ?? 'Account', ENT_QUOTES, 'UTF-8') ?>
-        </button>
-        <ul class="nx-submenu" role="menu">
-          <li><a role="menuitem" href="?p=account"<?= nx_active('account', $current) ?>>Dashboard</a></li>
-          <li><a role="menuitem" href="?p=characters"<?= nx_active('characters', $current) ?>>My Characters</a></li>
-          <li><a role="menuitem" href="?p=shop"<?= nx_active('shop', $current) ?>>Shop</a></li>
-<?php if (is_role('admin')): ?>
-          <li class="nx-sep" aria-hidden="true"></li>
-          <li><a role="menuitem" href="/admin/index.php">Admin Panel</a></li>
-<?php endif; ?>
-          <li class="nx-sep" aria-hidden="true"></li>
-          <li><a role="menuitem" href="?p=account&action=logout">Logout</a></li>
-        </ul>
-      </li>
-<?php else: ?>
-      <li class="nx-item nx-right nx-has-submenu">
-        <button class="nx-link" aria-haspopup="true" aria-expanded="false">Account</button>
-        <ul class="nx-submenu" role="menu">
-          <li><a role="menuitem" href="?p=account"<?= nx_active('account', $current) ?>>Login / Register</a></li>
-          <li><a role="menuitem" href="?p=recover"<?= nx_active('recover', $current) ?>>Recover</a></li>
-        </ul>
-      </li>
-<?php endif; ?>
-    </ul>
+      <ul class="navbar-nav ms-auto">
+        <?php if ($u): ?>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-person-circle me-1"></i><?= htmlspecialchars($u['email'] ?? $u['account_name'] ?? 'Account') ?>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a class="dropdown-item" href="?p=account">Dashboard</a></li>
+              <li><a class="dropdown-item" href="?p=characters">My Characters</a></li>
+              <li><a class="dropdown-item" href="?p=shop">Shop</a></li>
+              <?php if (function_exists('is_role') && is_role('admin')): ?>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="/admin/">Admin Panel</a></li>
+              <?php endif; ?>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item text-danger" href="?p=account&action=logout"><i class="bi bi-box-arrow-right me-1"></i>Logout</a></li>
+            </ul>
+          </li>
+        <?php else: ?>
+          <li class="nav-item"><a class="nav-link" href="?p=account">Login / Register</a></li>
+          <li class="nav-item"><a class="nav-link" href="?p=recover">Recover</a></li>
+        <?php endif; ?>
+      </ul>
+    </div>
   </div>
 </nav>

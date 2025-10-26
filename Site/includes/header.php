@@ -22,18 +22,17 @@ if (is_file($themeStylesPath)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="<?php echo sanitize($csrfMetaToken); ?>">
     <title><?php echo sanitize(SITE_TITLE); ?></title>
-    <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/styles.css')); ?>">
-    <link rel="stylesheet" href="/assets/css/nav.css">
-    <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/bestiary.css')); ?>">
-    <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/spells.css')); ?>">
-    <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/layout.css')); ?>">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons (optional) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Our theme -->
+    <link rel="stylesheet" href="/assets/css/theme.css">
+    <link rel="stylesheet" href="/assets/css/overrides.css">
     <?php foreach ($themeCssFiles as $cssHref): ?>
         <link rel="stylesheet" href="<?php echo sanitize($cssHref); ?>">
     <?php endforeach; ?>
 </head>
-<body data-theme="<?php echo sanitize($themeSlug); ?>">
-<header class="site-header">
-    <h1 class="site-header__title"><?php echo sanitize(SITE_TITLE); ?></h1>
-    <?php include __DIR__ . '/nav.php'; ?>
-</header>
-<main class="site-content">
+<body data-theme="<?php echo sanitize($themeSlug); ?>" class="<?php echo htmlspecialchars(get_setting('theme_preset') ?? 'preset-violet', ENT_QUOTES, 'UTF-8'); ?>">
+<?php include __DIR__ . '/nav.php'; ?>
+<main class="py-3 py-lg-4">
