@@ -1,0 +1,161 @@
+{
+  "metadata": {
+    "updated": "2024-05-01T00:00:00Z",
+    "description": "Strategic roadmap for Devnexus Online covering gameplay, social, and platform milestones.",
+    "owner": "Live Operations Guild",
+    "surveyWeights": {
+      "guilds": 1.25,
+      "pvp": 1.2,
+      "housing": 0.9,
+      "trading": 1.1,
+      "social": 1.05,
+      "qa": 0.8,
+      "events": 1.15,
+      "newplayer": 1.3
+    },
+    "phases": {
+      "I": "Discovery",
+      "II": "Validation",
+      "III": "Production",
+      "IV": "Launch",
+      "V": "Post-launch"
+    }
+  },
+  "items": [
+    {
+      "id": "nx-roadmap-001",
+      "title": "Guild Stronghold System",
+      "category": ["Gameplay", "Social"],
+      "status": "In Progress",
+      "progress": 68,
+      "phase": "III",
+      "shipped": false,
+      "description": "Introduce customizable strongholds where guilds can invest resources, unlock buffs, and host events.",
+      "eta": "2024-Q4",
+      "owner": "Systems Team",
+      "surveyTags": [
+        {"tag": "guilds", "weight": 0.95},
+        {"tag": "events", "weight": 0.65}
+      ],
+      "dependencies": ["nx-roadmap-006"]
+    },
+    {
+      "id": "nx-roadmap-002",
+      "title": "Cross-world Trading Post",
+      "category": ["Economy", "Platform"],
+      "status": "Discovery",
+      "progress": 35,
+      "phase": "II",
+      "shipped": false,
+      "description": "Unify auction data across shards with regional taxes and player-run trade missions.",
+      "eta": "2025-Q1",
+      "owner": "Economy Council",
+      "surveyTags": [
+        {"tag": "trading", "weight": 0.9},
+        {"tag": "social", "weight": 0.4}
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "nx-roadmap-003",
+      "title": "Arena Season Two",
+      "category": ["PvP"],
+      "status": "Launch Prep",
+      "progress": 85,
+      "phase": "IV",
+      "shipped": false,
+      "description": "Refresh ranked PvP ladders with draft mode, spectator tools, and anti-cheat replay reviews.",
+      "eta": "2024-Q3",
+      "owner": "Competitive Cell",
+      "surveyTags": [
+        {"tag": "pvp", "weight": 1.0},
+        {"tag": "events", "weight": 0.55}
+      ],
+      "dependencies": ["nx-roadmap-007"]
+    },
+    {
+      "id": "nx-roadmap-004",
+      "title": "Newcomer Story Arc",
+      "category": ["Narrative", "Onboarding"],
+      "status": "Released",
+      "progress": 100,
+      "phase": "V",
+      "shipped": true,
+      "description": "Cinematic questline that guides new players through core mechanics and community touchpoints.",
+      "eta": "2024-Q2",
+      "owner": "Narrative Forge",
+      "surveyTags": [
+        {"tag": "newplayer", "weight": 1.1},
+        {"tag": "social", "weight": 0.6}
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "nx-roadmap-005",
+      "title": "Creative Housing Toolkit",
+      "category": ["Housing", "Customization"],
+      "status": "In Progress",
+      "progress": 52,
+      "phase": "III",
+      "shipped": false,
+      "description": "Modular housing editor with blueprint sharing, lighting presets, and neighborhood curation.",
+      "eta": "2024-Q4",
+      "owner": "Sandbox Studio",
+      "surveyTags": [
+        {"tag": "housing", "weight": 1.0},
+        {"tag": "social", "weight": 0.45}
+      ],
+      "dependencies": ["nx-roadmap-004"]
+    },
+    {
+      "id": "nx-roadmap-006",
+      "title": "Infrastructure Telemetry Mesh",
+      "category": ["Platform", "Quality"],
+      "status": "In Review",
+      "progress": 74,
+      "phase": "III",
+      "shipped": false,
+      "description": "Federated observability stack consolidating combat logs, latency probes, and crash analytics.",
+      "eta": "2024-Q3",
+      "owner": "Platform Alliance",
+      "surveyTags": [
+        {"tag": "qa", "weight": 0.7}
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "nx-roadmap-007",
+      "title": "Combat Responsiveness Patch",
+      "category": ["Combat", "Quality"],
+      "status": "Released",
+      "progress": 100,
+      "phase": "V",
+      "shipped": true,
+      "description": "Server rewind netcode, animation cancels, and mitigation of high-ping desync events.",
+      "eta": "2024-Q1",
+      "owner": "Combat Group",
+      "surveyTags": [
+        {"tag": "pvp", "weight": 0.8},
+        {"tag": "qa", "weight": 0.5}
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "nx-roadmap-008",
+      "title": "Community Expedition Series",
+      "category": ["Events", "Community"],
+      "status": "Playtesting",
+      "progress": 62,
+      "phase": "IV",
+      "shipped": false,
+      "description": "Rotating cooperative challenges featuring streamer-led routes and dynamic difficulty scaling.",
+      "eta": "2024-Q3",
+      "owner": "Community Circle",
+      "surveyTags": [
+        {"tag": "events", "weight": 0.85},
+        {"tag": "social", "weight": 0.75}
+      ],
+      "dependencies": ["nx-roadmap-006", "nx-roadmap-004"]
+    }
+  ]
+}
