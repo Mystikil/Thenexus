@@ -23,6 +23,7 @@ if (is_file($themeStylesPath)) {
     <meta name="csrf-token" content="<?php echo sanitize($csrfMetaToken); ?>">
     <title><?php echo sanitize(SITE_TITLE); ?></title>
     <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/styles.css')); ?>">
+    <link rel="stylesheet" href="/assets/css/nav.css">
     <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/bestiary.css')); ?>">
     <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/spells.css')); ?>">
     <link rel="stylesheet" href="<?php echo sanitize(base_url('assets/css/layout.css')); ?>">
