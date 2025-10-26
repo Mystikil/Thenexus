@@ -2,6 +2,7 @@
 
 shop_amount = {}
 shop_cost = {}
+shop_priceinfo = {}
 shop_rlname = {}
 shop_itemid = {}
 shop_container = {}

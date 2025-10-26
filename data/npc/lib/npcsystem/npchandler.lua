@@ -174,10 +174,11 @@ if not NpcHandler then
 
 	-- Used when the npc should un-focus the player.
 	function NpcHandler:releaseFocus(focus)
-		if shop_cost[focus] then
-			shop_amount[focus] = nil
-			shop_cost[focus] = nil
-			shop_rlname[focus] = nil
+                if shop_cost[focus] then
+                        shop_amount[focus] = nil
+                        shop_cost[focus] = nil
+                        shop_priceinfo[focus] = nil
+                        shop_rlname[focus] = nil
 			shop_itemid[focus] = nil
 			shop_container[focus] = nil
 			shop_npcuid[focus] = nil

@@ -16,6 +16,7 @@
   <!-- RANK SCALERS: keep these -->
   <event type="healthchange" name="nx_rank_scale"  script="nx_rank_scalers.lua"/>
   <event type="death"        name="nx_rank_scale"  script="nx_rank_scalers.lua"/>
+  <event type="kill"         name="FactionReputationKill" script="reputation_kill.lua"/>
 
   <!-- BOSS AI: keep only types your fork supports -->
   <event type="think"        name="nx_boss_think"  script="nx_boss_think.lua"/>
