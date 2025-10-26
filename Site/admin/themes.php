@@ -133,6 +133,14 @@ $actorIsMaster = $user !== null && is_master($user);
 
 $themes = nx_themes_list();
 $themeSlugs = array_keys($themes);
+
+if (!nx_database_available()) {
+    echo '<section class="admin-section"><h2>Themes</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
+
 $activeSlug = nx_theme_setting('active_theme');
 
 if ($activeSlug === null || !isset($themes[$activeSlug])) {
@@ -202,6 +210,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $pdo = db();
+
+                if (!$pdo instanceof PDO) {
+                    $errors[] = 'Database connection unavailable. Please try again later.';
+                    break;
+                }
                 $stmt = $pdo->prepare('INSERT INTO settings (`key`, value) VALUES (:key, :value)
                     ON DUPLICATE KEY UPDATE value = VALUES(value)');
                 $stmt->execute([
@@ -232,6 +245,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $pdo = db();
+
+                if (!$pdo instanceof PDO) {
+                    $errors[] = 'Database connection unavailable. Please try again later.';
+                    break;
+                }
                 $stmt = $pdo->prepare('INSERT INTO settings (`key`, value) VALUES (:key, :value)
                     ON DUPLICATE KEY UPDATE value = VALUES(value)');
                 $stmt->execute([

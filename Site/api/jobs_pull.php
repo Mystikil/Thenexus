@@ -40,6 +40,11 @@ function decode_json_body(): array
 }
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    json_out(['status' => 'error', 'message' => 'Database unavailable'], 503);
+}
+
 rate_limit_check($pdo, client_rate_limit_key('jobs_pull'), 60, 60);
 
 require_bridge_auth();

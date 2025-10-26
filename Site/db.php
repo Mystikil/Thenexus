@@ -1,24 +1,51 @@
 <?php
 
-function db(): PDO
+function db(): ?PDO
 {
     static $pdo;
+    static $failed = false;
 
     if ($pdo instanceof PDO) {
         nx_warn_if_account_unlinked($pdo);
+
         return $pdo;
     }
 
-    $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', DB_HOST, DB_PORT, DB_NAME);
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES => false,
-    ]);
+    if ($failed) {
+        return null;
+    }
+
+    try {
+        $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', DB_HOST, DB_PORT, DB_NAME);
+        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+        $GLOBALS['nx_db_last_error'] = null;
+    } catch (Throwable $exception) {
+        $failed = true;
+        $GLOBALS['nx_db_last_error'] = $exception;
+        error_log('Database connection failed: ' . $exception->getMessage());
+
+        return null;
+    }
 
     nx_warn_if_account_unlinked($pdo);
 
     return $pdo;
+}
+
+function nx_database_available(): bool
+{
+    return db() instanceof PDO;
+}
+
+function nx_database_last_error(): ?Throwable
+{
+    $error = $GLOBALS['nx_db_last_error'] ?? null;
+
+    return $error instanceof Throwable ? $error : null;
 }
 
 function nx_warn_if_account_unlinked(PDO $pdo): void

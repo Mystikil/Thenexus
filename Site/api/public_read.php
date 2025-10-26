@@ -106,6 +106,10 @@ if ($usePublicCache) {
 
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    json_out(['status' => 'error', 'message' => 'Database unavailable'], 503);
+}
+
 try {
     switch ($endpoint) {
         case 'highscores':

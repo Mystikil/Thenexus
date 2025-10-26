@@ -1,6 +1,12 @@
 <?php
 $pdo = db();
 
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--character"><h2>Character Lookup</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
+
 if (!function_exists('vocation_name')) {
     function vocation_name(int $vocationId): string
     {

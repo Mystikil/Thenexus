@@ -57,6 +57,13 @@ function get_setting(string $key): ?string
 
     try {
         $pdo = db();
+
+        if (!$pdo instanceof PDO) {
+            $cache[$key] = null;
+
+            return null;
+        }
+
         $stmt = $pdo->prepare('SELECT value FROM settings WHERE `key` = :key LIMIT 1');
         $stmt->execute(['key' => $key]);
         $value = $stmt->fetchColumn();

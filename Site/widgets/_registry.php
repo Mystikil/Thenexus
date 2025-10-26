@@ -829,6 +829,13 @@ function render_widget_box(string $slug, int $limit = 5, ?array $attributeOverri
     }
 
     $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        $innerHtml = '<p class="text-muted mb-0">Unavailable.</p>';
+
+        return $wrap ? widget_render_box_html($widget, $slug, $attributes, $innerHtml) : $innerHtml;
+    }
+
     $innerHtml = call_user_func($renderer, $pdo, $limit);
     if (!is_string($innerHtml)) {
         $innerHtml = (string) $innerHtml;

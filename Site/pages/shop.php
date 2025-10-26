@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 $user = current_user();
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="page page--shop"><h2>Shop</h2><p class="text-muted mb-0">Unavailable.</p></section>';
+
+    return;
+}
 $purchaseErrors = [];
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');

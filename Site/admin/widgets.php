@@ -107,6 +107,13 @@ function nx_admin_widget_apply_move(array $order, string $slug, string $directio
 }
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="admin-section"><h2>Widgets</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
 $csrfToken = csrf_token();
 $successMessage = take_flash('success');
 $errorMessage = take_flash('error');

@@ -201,7 +201,15 @@ function nx_theme_setting(string $key): ?string
     }
 
     try {
-        $stmt = db()->prepare('SELECT value FROM settings WHERE `key` = :key LIMIT 1');
+        $pdo = db();
+
+        if (!$pdo instanceof PDO) {
+            $cache[$key] = null;
+
+            return null;
+        }
+
+        $stmt = $pdo->prepare('SELECT value FROM settings WHERE `key` = :key LIMIT 1');
         $stmt->execute(['key' => $key]);
         $value = $stmt->fetchColumn();
     } catch (Throwable $exception) {
@@ -371,7 +379,15 @@ function nx_theme_get_options(string $slug): array
     }
 
     try {
-        $stmt = db()->prepare('SELECT opt_key, opt_value FROM theme_options WHERE theme_slug = :slug');
+        $pdo = db();
+
+        if (!$pdo instanceof PDO) {
+            $GLOBALS['nx_theme_options_cache'][$slug] = [];
+
+            return $GLOBALS['nx_theme_options_cache'][$slug];
+        }
+
+        $stmt = $pdo->prepare('SELECT opt_key, opt_value FROM theme_options WHERE theme_slug = :slug');
         $stmt->execute(['slug' => $slug]);
         $options = [];
 
@@ -427,6 +443,10 @@ function nx_theme_set_option(string $slug, string $key, ?string $value): void
     }
 
     $pdo = db();
+
+    if (!$pdo instanceof PDO) {
+        return;
+    }
 
     if ($value === null) {
         $stmt = $pdo->prepare('DELETE FROM theme_options WHERE theme_slug = :slug AND opt_key = :key');

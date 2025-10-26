@@ -14,6 +14,13 @@ require __DIR__ . '/partials/header.php';
 require_once __DIR__ . '/../lib/server_paths.php';
 
 $pdo = db();
+
+if (!$pdo instanceof PDO) {
+    echo '<section class="admin-section"><h2>Server Settings</h2><div class="admin-alert admin-alert--error">Database connection unavailable.</div></section>';
+    require __DIR__ . '/partials/footer.php';
+
+    return;
+}
 $currentAdmin = current_user();
 $actorIsMaster = $currentAdmin !== null && is_master($currentAdmin);
 $storedPath = trim((string) (get_setting('server_path') ?? ''));
