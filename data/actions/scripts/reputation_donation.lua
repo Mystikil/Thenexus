@@ -1,3 +1,14 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:actions/reputation_donation.lua:begin')
+
+if not (_G.__REPUTATION_SYSTEM_ENABLED) then
+    function onUse(player, item, fromPosition, target, toPosition, isHotkey)
+        return false
+    end
+    trace.checkpoint('rep_eco:actions/reputation_donation.lua:disabled')
+    return
+end
+
 local config = NX_REPUTATION_CONFIG
 
 local function collectDonationItems(player, factionConfig)
@@ -54,3 +65,5 @@ function onUse(player, item, fromPosition, target, toPosition, isHotkey)
     item:getPosition():sendMagicEffect(CONST_ME_MAGIC_BLUE)
     return true
 end
+
+trace.checkpoint('rep_eco:actions/reputation_donation.lua:end')

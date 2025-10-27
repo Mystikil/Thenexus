@@ -1,3 +1,14 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:actions/reputation_quest.lua:begin')
+
+if not (_G.__REPUTATION_SYSTEM_ENABLED) then
+    function onUse(player, item, fromPosition, target, toPosition, isHotkey)
+        return false
+    end
+    trace.checkpoint('rep_eco:actions/reputation_quest.lua:disabled')
+    return
+end
+
 local questConfig = NX_REPUTATION_CONFIG.questExample
 
 function onUse(player, item, fromPosition, target, toPosition, isHotkey)
@@ -21,3 +32,5 @@ function onUse(player, item, fromPosition, target, toPosition, isHotkey)
     item:getPosition():sendMagicEffect(CONST_ME_TUTORIALARROW)
     return true
 end
+
+trace.checkpoint('rep_eco:actions/reputation_quest.lua:end')

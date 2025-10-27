@@ -4,7 +4,30 @@
 #include "otserv.h"
 #include "tools.h"
 #include "utils/CrashGuard.h"
+#include "utils/DiagnosticsConfig.h"
 #include "utils/Logger.h"
+#include "utils/StartupProbe.h"
+
+#include <chrono>
+#include <cstdlib>
+
+namespace {
+
+        bool g_traceStartupRequested = false;
+
+        void setTraceStartupEnvFlag(bool enabled) {
+#if defined(_WIN32)
+                _putenv_s("NEXUS_TRACE_STARTUP", enabled ? "1" : "0");
+#else
+                if (enabled) {
+                        setenv("NEXUS_TRACE_STARTUP", "1", 1);
+                } else {
+                        unsetenv("NEXUS_TRACE_STARTUP");
+                }
+#endif
+        }
+
+} // namespace
 
 static bool argumentsHandler(const std::vector<std::string_view>& args) {
 	for (const auto& arg : args) {
@@ -17,10 +40,12 @@ static bool argumentsHandler(const std::vector<std::string_view>& args) {
 			             "\t--login-port=$1\tPort for login server to listen on.\n"
 			             "\t--game-port=$1\tPort for game server to listen on.\n";
 			return false;
-		} else if (arg == "--version") {
-			printServerVersion();
-			return false;
-		}
+                } else if (arg == "--version") {
+                        printServerVersion();
+                        return false;
+                } else if (arg == "--trace-startup") {
+                        g_traceStartupRequested = true;
+                }
 
 		auto tmp = explodeString(arg, "=");
 
@@ -51,11 +76,27 @@ int main(int argc, const char** argv) {
                 return 1;
         }
 
+        if (g_traceStartupRequested) {
+                Logger::instance().setLevel(LogLevel::Debug);
+                diagnostics::setTraceStartupEnabled(true);
+                diagnostics::setSqlTraceEnabled(true);
+                StartupProbe::setWatchdogThreshold(std::chrono::seconds(5));
+        } else {
+                diagnostics::setTraceStartupEnabled(false);
+                diagnostics::setSqlTraceEnabled(false);
+                StartupProbe::setWatchdogThreshold(std::chrono::seconds(10));
+        }
+
+        setTraceStartupEnvFlag(g_traceStartupRequested);
+        StartupProbe::initialize();
+
         if (!startServer()) {
                 Logger::instance().fatal("Server failed to start. See logs for details.");
+                StartupProbe::shutdown();
                 return EXIT_FAILURE;
         }
 
         Logger::instance().info("Server shutdown complete.");
+        StartupProbe::shutdown();
         return EXIT_SUCCESS;
 }

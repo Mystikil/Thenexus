@@ -1,3 +1,6 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:npc/reputation_quartermaster.lua:begin')
+
 local keywordHandler = KeywordHandler:new()
 local npcHandler = NpcHandler:new(keywordHandler)
 NpcSystem.parseParameters(npcHandler)
@@ -14,6 +17,7 @@ local function greetCallback(cid)
     return true
 end
 
+local reputationEnabled = _G.__REPUTATION_SYSTEM_ENABLED ~= false
 local questConfig = NX_REPUTATION_CONFIG.questExample
 
 local function creatureSayCallback(cid, type, msg)
@@ -23,6 +27,10 @@ local function creatureSayCallback(cid, type, msg)
 
     local player = Player(cid)
     if msgcontains(msg, 'mission') then
+        if not reputationEnabled then
+            npcHandler:say('The guild is not assigning missions right now.', cid)
+            return true
+        end
         local factionId = ReputationEconomy.getFactionId(questConfig.requiredFaction)
         if not ReputationEconomy.hasTier(player, factionId, questConfig.requiredTier) then
             npcHandler:say('Earn the trust of our guild before asking for assignments.', cid)
@@ -36,6 +44,11 @@ local function creatureSayCallback(cid, type, msg)
             npcHandler:say('Complete your current delivery before asking for another.', cid)
         end
     elseif msgcontains(msg, 'deliver') and npcHandler.topic[cid] == 1 then
+        if not reputationEnabled then
+            npcHandler:say('Deliveries are suspended.', cid)
+            npcHandler.topic[cid] = 0
+            return true
+        end
         if player:removeItem(2595, 3) then
             player:setStorageValue(questConfig.missionStorage, 1)
             ReputationEconomy.addReputation(player, ReputationEconomy.getFactionId(questConfig.requiredFaction), 180, 'quest_delivery', { npc = 'Faction Quartermaster' })
@@ -53,7 +66,9 @@ end
 npcHandler:setCallback(CALLBACK_GREET, greetCallback)
 npcHandler:setCallback(CALLBACK_MESSAGE_DEFAULT, creatureSayCallback)
 
-ReputationEconomy.setNpcFaction(npcHandler, 'Traders Guild', { npcName = 'Faction Quartermaster' })
+if reputationEnabled then
+    ReputationEconomy.setNpcFaction(npcHandler, 'Traders Guild', { npcName = 'Faction Quartermaster' })
+end
 
 function onCreatureAppear(cid) npcHandler:onCreatureAppear(cid) end
 function onCreatureDisappear(cid) npcHandler:onCreatureDisappear(cid) end
@@ -61,3 +76,5 @@ function onCreatureSay(cid, type, msg) npcHandler:onCreatureSay(cid, type, msg) 
 function onThink() npcHandler:onThink() end
 
 npcHandler:addModule(FocusModule:new())
+
+trace.checkpoint('rep_eco:npc/reputation_quartermaster.lua:end')

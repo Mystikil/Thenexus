@@ -22,10 +22,17 @@
 #include "scriptmanager.h"
 #include "server.h"
 #include "utils/Logger.h"
+#include "utils/StartupProbe.h"
 #include "world/WorldPressureManager.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <fmt/format.h>
+#include <unordered_map>
+#include <vector>
+
+#include <boost/algorithm/string.hpp>
 
 #if __has_include("gitmetadata.h")
 #include "gitmetadata.h"
@@ -47,6 +54,380 @@ std::atomic_bool g_startupFailed{false};
 
 namespace {
 
+        struct ColumnSpec {
+                std::string name;
+                std::string type;
+                bool nullable;
+        };
+
+        struct IndexSpec {
+                std::string name;
+                std::vector<std::string> columns;
+                bool unique;
+                bool primary;
+        };
+
+        struct ForeignKeySpec {
+                std::string name;
+                std::string column;
+                std::string referencedTable;
+                std::string referencedColumn;
+        };
+
+        struct TableSchemaSpec {
+                std::string name;
+                std::vector<ColumnSpec> columns;
+                std::vector<std::string> primaryKey;
+                std::vector<IndexSpec> indexes;
+                std::vector<ForeignKeySpec> foreignKeys;
+        };
+
+        std::string normalizeIdentifier(std::string value) {
+                boost::algorithm::to_lower(value);
+                return value;
+        }
+
+        std::string normalizeColumnType(std::string value) {
+                boost::algorithm::to_lower(value);
+                value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) { return std::isspace(ch); }), value.end());
+                return value;
+        }
+
+        bool verifyTableSchema(const TableSchemaSpec& spec, std::vector<std::string>& messages) {
+                Database& db = Database::getInstance();
+                const auto schemaName = getString(ConfigManager::MYSQL_DB);
+
+                auto existsQuery = fmt::format(
+                        "SELECT COUNT(*) AS `count` FROM information_schema.tables WHERE table_schema = {:s} AND table_name = {:s}",
+                        db.escapeString(schemaName), db.escapeString(spec.name));
+                DBResult_ptr exists = db.storeQuery(existsQuery);
+                if (!exists || exists->getNumber<uint32_t>("count") == 0) {
+                        messages.emplace_back("table missing");
+                        return false;
+                }
+
+                std::unordered_map<std::string, std::pair<std::string, bool>> columns;
+                auto columnQuery = fmt::format(
+                        "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE FROM information_schema.columns WHERE table_schema = {:s} AND table_name = {:s}",
+                        db.escapeString(schemaName), db.escapeString(spec.name));
+                if (DBResult_ptr columnResult = db.storeQuery(columnQuery)) {
+                        do {
+                                const auto columnName = normalizeIdentifier(std::string(columnResult->getString("COLUMN_NAME")));
+                                const auto columnType = normalizeColumnType(std::string(columnResult->getString("COLUMN_TYPE")));
+                                const bool nullable = boost::iequals(columnResult->getString("IS_NULLABLE"), "YES");
+                                columns.emplace(columnName, std::make_pair(columnType, nullable));
+                        } while (columnResult->next());
+                }
+
+                bool ok = true;
+                for (const auto& column : spec.columns) {
+                        const auto key = normalizeIdentifier(column.name);
+                        auto it = columns.find(key);
+                        if (it == columns.end()) {
+                                messages.emplace_back(fmt::format("missing column '{}'", column.name));
+                                ok = false;
+                                continue;
+                        }
+
+                        const auto expectedType = normalizeColumnType(column.type);
+                        if (it->second.first != expectedType) {
+                                messages.emplace_back(fmt::format("column '{}' type mismatch (expected {}, got {})", column.name, column.type, it->second.first));
+                                ok = false;
+                        }
+
+                        if (column.nullable != it->second.second) {
+                                messages.emplace_back(fmt::format("column '{}' nullability mismatch", column.name));
+                                ok = false;
+                        }
+                }
+
+                // Verify primary key order
+                if (!spec.primaryKey.empty()) {
+                        std::vector<std::string> actualPk;
+                        auto pkQuery = fmt::format(
+                                "SELECT COLUMN_NAME FROM information_schema.key_column_usage WHERE table_schema = {:s} AND table_name = {:s} AND constraint_name = 'PRIMARY' ORDER BY ORDINAL_POSITION",
+                                db.escapeString(schemaName), db.escapeString(spec.name));
+                        if (DBResult_ptr pkResult = db.storeQuery(pkQuery)) {
+                                do {
+                                        actualPk.emplace_back(normalizeIdentifier(std::string(pkResult->getString("COLUMN_NAME"))));
+                                } while (pkResult->next());
+                        }
+
+                        std::vector<std::string> expectedPk;
+                        for (const auto& column : spec.primaryKey) {
+                                expectedPk.emplace_back(normalizeIdentifier(column));
+                        }
+
+                        if (actualPk != expectedPk) {
+                                messages.emplace_back("primary key mismatch");
+                                ok = false;
+                        }
+                }
+
+                std::unordered_map<std::string, IndexSpec> actualIndexes;
+                auto indexQuery = fmt::format(
+                        "SELECT INDEX_NAME, COLUMN_NAME, NON_UNIQUE, SEQ_IN_INDEX FROM information_schema.statistics WHERE table_schema = {:s} AND table_name = {:s} ORDER BY INDEX_NAME, SEQ_IN_INDEX",
+                        db.escapeString(schemaName), db.escapeString(spec.name));
+                if (DBResult_ptr indexResult = db.storeQuery(indexQuery)) {
+                        do {
+                                const auto indexName = std::string(indexResult->getString("INDEX_NAME"));
+                                auto& entry = actualIndexes[indexName];
+                                if (entry.name.empty()) {
+                                        entry.name = indexName;
+                                        entry.unique = indexResult->getNumber<uint32_t>("NON_UNIQUE") == 0;
+                                        entry.primary = boost::iequals(indexName, "PRIMARY");
+                                }
+                                const auto seq = static_cast<size_t>(indexResult->getNumber<uint32_t>("SEQ_IN_INDEX"));
+                                if (seq > entry.columns.size()) {
+                                        entry.columns.resize(seq);
+                                }
+                                entry.columns[seq - 1] = normalizeIdentifier(std::string(indexResult->getString("COLUMN_NAME")));
+                        } while (indexResult->next());
+                }
+
+                for (const auto& expectedIndex : spec.indexes) {
+                        auto it = actualIndexes.find(expectedIndex.name);
+                        if (it == actualIndexes.end()) {
+                                messages.emplace_back(fmt::format("missing index '{}'", expectedIndex.name));
+                                ok = false;
+                                continue;
+                        }
+
+                        if (it->second.primary != expectedIndex.primary) {
+                                messages.emplace_back(fmt::format("index '{}' primary flag mismatch", expectedIndex.name));
+                                ok = false;
+                        }
+
+                        if (expectedIndex.unique && !it->second.unique) {
+                                messages.emplace_back(fmt::format("index '{}' is not unique", expectedIndex.name));
+                                ok = false;
+                        }
+
+                        std::vector<std::string> expectedColumns;
+                        expectedColumns.reserve(expectedIndex.columns.size());
+                        for (const auto& column : expectedIndex.columns) {
+                                expectedColumns.emplace_back(normalizeIdentifier(column));
+                        }
+                        if (expectedColumns != it->second.columns) {
+                                messages.emplace_back(fmt::format("index '{}' columns mismatch", expectedIndex.name));
+                                ok = false;
+                        }
+                }
+
+                std::unordered_map<std::string, ForeignKeySpec> actualFks;
+                auto fkQuery = fmt::format(
+                        "SELECT CONSTRAINT_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM information_schema.key_column_usage WHERE table_schema = {:s} AND table_name = {:s} AND REFERENCED_TABLE_NAME IS NOT NULL",
+                        db.escapeString(schemaName), db.escapeString(spec.name));
+                if (DBResult_ptr fkResult = db.storeQuery(fkQuery)) {
+                        do {
+                                ForeignKeySpec specEntry;
+                                specEntry.name = std::string(fkResult->getString("CONSTRAINT_NAME"));
+                                specEntry.column = normalizeIdentifier(std::string(fkResult->getString("COLUMN_NAME")));
+                                specEntry.referencedTable = normalizeIdentifier(std::string(fkResult->getString("REFERENCED_TABLE_NAME")));
+                                specEntry.referencedColumn = normalizeIdentifier(std::string(fkResult->getString("REFERENCED_COLUMN_NAME")));
+                                actualFks.emplace(specEntry.name, specEntry);
+                        } while (fkResult->next());
+                }
+
+                for (const auto& fk : spec.foreignKeys) {
+                        auto it = actualFks.find(fk.name);
+                        if (it == actualFks.end()) {
+                                messages.emplace_back(fmt::format("missing foreign key '{}'", fk.name));
+                                ok = false;
+                                continue;
+                        }
+
+                        if (it->second.column != normalizeIdentifier(fk.column) ||
+                            it->second.referencedTable != normalizeIdentifier(fk.referencedTable) ||
+                            it->second.referencedColumn != normalizeIdentifier(fk.referencedColumn)) {
+                                messages.emplace_back(fmt::format("foreign key '{}' definition mismatch", fk.name));
+                                ok = false;
+                        }
+                }
+
+                return ok;
+        }
+
+        bool verifyReputationEconomySchema() {
+                constexpr int32_t requiredVersion = 33;
+                std::vector<TableSchemaSpec> specs = {
+                        {
+                                "factions",
+                                {
+                                        {"id", "smallint(5)unsigned", false},
+                                        {"name", "varchar(64)", false},
+                                        {"description", "varchar(255)", false},
+                                        {"npc_buy_fee", "decimal(6,4)", false},
+                                        {"npc_sell_fee", "decimal(6,4)", false},
+                                        {"market_fee", "decimal(6,4)", false},
+                                        {"trade_buy_factor", "decimal(10,6)", false},
+                                        {"trade_sell_factor", "decimal(10,6)", false},
+                                        {"donation_multiplier", "decimal(10,6)", false},
+                                        {"kill_penalty", "int(11)", false},
+                                        {"decay_per_week", "int(11)", false},
+                                        {"soft_cap", "int(11)", false},
+                                        {"hard_cap", "int(11)", false},
+                                        {"soft_diminish", "decimal(6,4)", false},
+                                        {"created_at", "int(11)", false},
+                                        {"updated_at", "int(11)", false},
+                                },
+                                {"id"},
+                                {
+                                        {"PRIMARY", {"id"}, true, true},
+                                        {"idx_factions_name", {"name"}, true, false},
+                                },
+                                {}
+                        },
+                        {
+                                "npc_factions",
+                                {
+                                        {"npc_name", "varchar(64)", false},
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                },
+                                {"npc_name"},
+                                {
+                                        {"PRIMARY", {"npc_name"}, true, true},
+                                        {"idx_npc_faction", {"faction_id"}, false, false},
+                                },
+                                {
+                                        {"fk_npc_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "player_faction_reputation",
+                                {
+                                        {"player_id", "int(11)", false},
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"reputation", "int(11)", false},
+                                        {"last_activity", "int(11)", false},
+                                        {"last_decay", "int(11)", false},
+                                },
+                                {"player_id", "faction_id"},
+                                {
+                                        {"PRIMARY", {"player_id", "faction_id"}, true, true},
+                                        {"idx_faction_player", {"faction_id", "player_id"}, false, false},
+                                },
+                                {
+                                        {"fk_rep_player", "player_id", "players", "id"},
+                                        {"fk_rep_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "player_faction_reputation_log",
+                                {
+                                        {"id", "bigint(20)unsigned", false},
+                                        {"player_id", "int(11)", false},
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"delta", "int(11)", false},
+                                        {"source", "varchar(64)", false},
+                                        {"context", "text", false},
+                                        {"created_at", "int(11)", false},
+                                },
+                                {"id"},
+                                {
+                                        {"PRIMARY", {"id"}, true, true},
+                                        {"idx_rep_log_player", {"player_id"}, false, false},
+                                        {"idx_rep_log_faction", {"faction_id"}, false, false},
+                                },
+                                {
+                                        {"fk_rep_log_player", "player_id", "players", "id"},
+                                        {"fk_rep_log_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "faction_economy",
+                                {
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"pool", "bigint(20)", false},
+                                        {"updated_at", "int(11)", false},
+                                },
+                                {"faction_id"},
+                                {
+                                        {"PRIMARY", {"faction_id"}, true, true},
+                                },
+                                {
+                                        {"fk_economy_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "faction_economy_history",
+                                {
+                                        {"id", "bigint(20)unsigned", false},
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"delta", "bigint(20)", false},
+                                        {"reason", "varchar(128)", false},
+                                        {"reference_id", "int(11)", false},
+                                        {"created_at", "int(11)", false},
+                                },
+                                {"id"},
+                                {
+                                        {"PRIMARY", {"id"}, true, true},
+                                        {"idx_economy_history_faction", {"faction_id"}, false, false},
+                                },
+                                {
+                                        {"fk_economy_history_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "faction_economy_ledger",
+                                {
+                                        {"id", "bigint(20)unsigned", false},
+                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"delta", "bigint(20)", false},
+                                        {"reason", "varchar(128)", false},
+                                        {"reference_id", "int(11)", false},
+                                        {"created_at", "int(11)", false},
+                                        {"processed", "tinyint(1)", false},
+                                        {"processed_at", "int(11)", false},
+                                },
+                                {"id"},
+                                {
+                                        {"PRIMARY", {"id"}, true, true},
+                                        {"idx_economy_ledger_processed", {"processed", "id"}, false, false},
+                                },
+                                {
+                                        {"fk_economy_ledger_faction", "faction_id", "factions", "id"},
+                                }
+                        },
+                        {
+                                "faction_market_cursor",
+                                {
+                                        {"id", "tinyint(3)unsigned", false},
+                                        {"last_history_id", "int(10)unsigned", false},
+                                        {"updated_at", "int(11)", false},
+                                },
+                                {"id"},
+                                {
+                                        {"PRIMARY", {"id"}, true, true},
+                                },
+                                {}
+                        },
+                };
+
+                bool allOk = true;
+                for (const auto& spec : specs) {
+                        std::vector<std::string> errors;
+                        if (verifyTableSchema(spec, errors)) {
+                                Logger::instance().info(fmt::format("SCHEMA OK: table {}", spec.name));
+                        } else {
+                                allOk = false;
+                                Logger::instance().error(fmt::format("SCHEMA MISSING: {} ({})", spec.name, boost::algorithm::join(errors, "; ")));
+                        }
+                }
+
+                if (!allOk) {
+                        return false;
+                }
+
+                int32_t version = DatabaseManager::getDatabaseVersion();
+                if (version < requiredVersion) {
+                        Logger::instance().error(fmt::format("Database version {} is older than required {}", version, requiredVersion));
+                        return false;
+                }
+
+                return true;
+        }
+
         void startupErrorMessage(const std::string& errorStr) {
                 Logger::instance().fatal(errorStr);
                 g_startupFailed.store(true, std::memory_order_relaxed);
@@ -56,9 +437,13 @@ namespace {
         void mainLoader(ServiceManager* services) {
                 //dispatcher thread
                 g_game.setGameState(GAME_STATE_STARTUP);
+                StartupProbe::mark("begin");
 
                 g_startupFailed.store(false, std::memory_order_relaxed);
                 auto& logger = Logger::instance();
+
+                bool reputationEnabled = true;
+                bool economyEnabled = true;
 
 		srand(static_cast<unsigned int>(OTSYS_TIME()));
 	#ifdef _WIN32
@@ -96,6 +481,10 @@ namespace {
                         startupErrorMessage("Unable to load " + configFile + "!");
                         return;
                 }
+
+                reputationEnabled = getBoolean(ConfigManager::ENABLE_REPUTATION_SYSTEM);
+                economyEnabled = getBoolean(ConfigManager::ENABLE_ECONOMY_SYSTEM);
+                StartupProbe::mark("config");
 
                 std::string rerr;
                 RankSystem::get().loadFromJson("data/monster_ranks.json", rerr);
@@ -137,6 +526,7 @@ namespace {
                 }
 
                 logger.info(fmt::format("Connected to MySQL {}", Database::getClientVersion()));
+                StartupProbe::mark("database");
 
                 // run database manager
                 logger.info("Running database manager");
@@ -147,18 +537,26 @@ namespace {
 		}
 		g_databaseTasks.start();
 
-		DatabaseManager::updateDatabase();
+                DatabaseManager::updateDatabase();
 
                 if (getBoolean(ConfigManager::OPTIMIZE_DATABASE) && !DatabaseManager::optimizeTables()) {
                         logger.warn("No tables were optimized.");
                 }
 
+                if (!verifyReputationEconomySchema()) {
+                        startupErrorMessage("Reputation/Economy schema verification failed. See logs for details.");
+                        return;
+                }
+                StartupProbe::mark("migrations");
+
                 //load vocations
                 logger.info("Loading vocations");
-		if (!g_vocations.loadFromXml()) {
-			startupErrorMessage("Unable to load vocations!");
-			return;
-		}
+                if (!g_vocations.loadFromXml()) {
+                        startupErrorMessage("Unable to load vocations!");
+                        return;
+                }
+
+                StartupProbe::mark("vocations");
 
 		// load item data
                 logger.info("Loading items...");
@@ -174,6 +572,8 @@ namespace {
                         return;
                 }
 
+                StartupProbe::mark("items");
+
                 logger.info("Loading script systems");
                 if (!ScriptingManager::getInstance().loadScriptSystems()) {
                         startupErrorMessage("Failed to load script systems");
@@ -185,6 +585,16 @@ namespace {
                         startupErrorMessage("Failed to load lua scripts");
                         return;
                 }
+
+                StartupProbe::mark("scripts_core");
+
+                if (!reputationEnabled) {
+                        logger.info("Reputation system disabled by config");
+                }
+                if (!economyEnabled) {
+                        logger.info("Economy system disabled by config");
+                }
+                StartupProbe::mark("rep_eco");
 
                 logger.info("Loading monsters");
                 if (!g_monsters.loadFromXml()) {
@@ -257,6 +667,7 @@ namespace {
 		IOMarket::checkExpiredOffers();
 		IOMarket::getInstance().updateStatistics();
 
+                StartupProbe::mark("ready");
                 logger.info("Loaded all modules, server starting up...");
 
         #ifndef _WIN32
@@ -265,10 +676,11 @@ namespace {
                 }
         #endif
 
-		g_game.start(services);
-		g_game.setGameState(GAME_STATE_NORMAL);
-		g_loaderSignal.notify_all();
-	}
+                g_game.start(services);
+                g_game.setGameState(GAME_STATE_NORMAL);
+                StartupProbe::mark(nullptr);
+                g_loaderSignal.notify_all();
+        }
 
 	[[noreturn]] void badAllocationHandler() {
 		// Use functions that only use stack allocation

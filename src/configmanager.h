@@ -43,12 +43,14 @@ namespace ConfigManager {
 		HOUSE_DOOR_SHOW_PRICE,
 		ONLY_INVITED_CAN_MOVE_HOUSE_ITEMS,
 		REMOVE_ON_DESPAWN,
-		PLAYER_CONSOLE_LOGS,
-		CHECK_DUPLICATE_STORAGE_KEYS,
-		MONSTER_OVERSPAWN,
+                PLAYER_CONSOLE_LOGS,
+                CHECK_DUPLICATE_STORAGE_KEYS,
+                MONSTER_OVERSPAWN,
+                ENABLE_REPUTATION_SYSTEM,
+                ENABLE_ECONOMY_SYSTEM,
 
-		LAST_BOOLEAN_CONFIG /* this must be the last one */
-	};
+                LAST_BOOLEAN_CONFIG /* this must be the last one */
+        };
 
 	enum string_config_t {
 		MAP_NAME,

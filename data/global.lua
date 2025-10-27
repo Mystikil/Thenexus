@@ -1,5 +1,8 @@
 math.randomseed(os.time())
 dofile('data/lib/compat51.lua')
+local trace = dofile('data/lib/startup_trace.lua')
+_G.trace = trace
+trace.checkpoint('global.lua:begin')
 dofile('data/lib/lib.lua')
 
 ropeSpots = {
@@ -115,12 +118,14 @@ string.splitTrimmed = function(str, sep)
 end
 
 string.trim = function(str)
-	return str:match'^()%s*$' and '' or str:match'^%s*(.*%S)'
+        return str:match'^()%s*$' and '' or str:match'^%s*(.*%S)'
 end
 
 if not nextUseStaminaTime then
-	nextUseStaminaTime = {}
+        nextUseStaminaTime = {}
 end
+
+trace.checkpoint('global.lua:end')
 
 function getPlayerDatabaseInfo(name_or_guid)
 	local sql_where = ""
