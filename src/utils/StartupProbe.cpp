@@ -3,154 +3,118 @@
 #include "utils/Logger.h"
 
 #include <atomic>
+#include <chrono>
 #include <mutex>
+#include <string>
 #include <thread>
 
 #include <fmt/format.h>
 
 namespace {
 
-        std::mutex g_probeMutex;
-        std::string g_currentPhase;
-        std::chrono::steady_clock::time_point g_phaseStart;
-        std::chrono::steady_clock::time_point g_lastProgress;
-        std::chrono::steady_clock::time_point g_lastWarning;
-        bool g_hasPhase = false;
+std::atomic<bool> g_running{false};
+std::atomic<std::chrono::milliseconds> g_threshold{std::chrono::milliseconds{10000}};
+std::thread g_thread;
+std::mutex g_mutex;
+std::string g_lastPhase;
+std::chrono::steady_clock::time_point g_lastTick;
+bool g_hasTick = false;
 
-        std::atomic_bool g_running{false};
-        std::thread g_watchdogThread;
-        std::chrono::milliseconds g_watchdogThreshold{std::chrono::milliseconds(10000)};
+constexpr std::chrono::seconds kPollInterval{2};
 
-        constexpr std::chrono::seconds kWatchdogPollInterval{2};
-        constexpr std::chrono::seconds kWatchdogRepeatInterval{10};
-
-        void logPhaseStart(const std::string& phase) {
-                Logger::instance().info(fmt::format("PHASE {} start", phase));
-                Logger::instance().flush();
+void watchdogLoop()
+{
+    while (g_running.load(std::memory_order_relaxed)) {
+        std::this_thread::sleep_for(kPollInterval);
+        if (!g_running.load(std::memory_order_relaxed)) {
+            break;
         }
 
-        void logPhaseCompletion(const std::string& phase, std::chrono::milliseconds duration) {
-                Logger::instance().info(fmt::format("PHASE {} done ({} ms)", phase, duration.count()));
-                Logger::instance().flush();
+        std::string phase;
+        std::chrono::steady_clock::time_point lastTick;
+        bool hasTick = false;
+        {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            phase = g_lastPhase;
+            lastTick = g_lastTick;
+            hasTick = g_hasTick;
         }
+
+        if (!hasTick) {
+            continue;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTick);
+        const auto threshold = g_threshold.load(std::memory_order_relaxed);
+        if (elapsed < threshold) {
+            continue;
+        }
+
+        Logger::instance().warn(fmt::format("WATCHDOG: stalled at {} ({} ms)", phase, elapsed.count()));
+        Logger::instance().flush();
+    }
+}
 
 } // namespace
 
-void StartupProbe::initialize() {
-        bool expected = false;
-        if (!g_running.compare_exchange_strong(expected, true)) {
-                return;
-        }
+void StartupProbe::initialize()
+{
+    bool expected = false;
+    if (!g_running.compare_exchange_strong(expected, true)) {
+        return;
+    }
 
-        {
-                std::lock_guard<std::mutex> lock(g_probeMutex);
-                g_lastProgress = std::chrono::steady_clock::now();
-                g_lastWarning = g_lastProgress;
-        }
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_lastTick = std::chrono::steady_clock::now();
+        g_lastPhase = "(none)";
+        g_hasTick = true;
+    }
 
-        g_watchdogThread = std::thread(&StartupProbe::watchdogLoop);
+    g_thread = std::thread(watchdogLoop);
 }
 
-void StartupProbe::shutdown() {
-        bool expected = true;
-        if (!g_running.compare_exchange_strong(expected, false)) {
-                return;
-        }
+void StartupProbe::shutdown()
+{
+    bool expected = true;
+    if (!g_running.compare_exchange_strong(expected, false)) {
+        return;
+    }
 
-        if (g_watchdogThread.joinable()) {
-                g_watchdogThread.join();
-        }
+    if (g_thread.joinable()) {
+        g_thread.join();
+    }
 }
 
-void StartupProbe::setWatchdogThreshold(std::chrono::milliseconds threshold) {
-        if (threshold <= std::chrono::milliseconds::zero()) {
-                threshold = std::chrono::milliseconds(10000);
+void StartupProbe::mark(const char* phase)
+{
+    const auto now = std::chrono::steady_clock::now();
+    std::string phaseName = phase != nullptr ? phase : "";
+    if (phaseName.empty()) {
+        phaseName = "(none)";
+    }
+
+    std::chrono::milliseconds delta{0};
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        if (g_hasTick) {
+            delta = std::chrono::duration_cast<std::chrono::milliseconds>(now - g_lastTick);
         }
-        g_watchdogThreshold = threshold;
+        g_lastTick = now;
+        g_lastPhase = phaseName;
+        g_hasTick = true;
+    }
+
+    Logger::instance().info(fmt::format("PHASE {} (+ {} ms)", phaseName, delta.count()));
+    Logger::instance().flush();
 }
 
-void StartupProbe::mark(const char* phase) {
-        const auto now = std::chrono::steady_clock::now();
-        std::string previousPhase;
-        std::chrono::steady_clock::time_point previousStart{};
-        bool hadPrevious = false;
+void StartupProbe::setWatchdogThreshold(std::chrono::milliseconds ms)
+{
+    if (ms <= std::chrono::milliseconds::zero()) {
+        ms = std::chrono::milliseconds{10000};
+    }
 
-        const bool startNewPhase = phase != nullptr && phase[0] != '\0';
-        std::string nextPhase;
-        if (startNewPhase) {
-                nextPhase = phase;
-        }
-
-        {
-                std::lock_guard<std::mutex> lock(g_probeMutex);
-                if (g_hasPhase) {
-                        previousPhase = g_currentPhase;
-                        previousStart = g_phaseStart;
-                        hadPrevious = true;
-                }
-
-                g_lastProgress = now;
-
-                if (startNewPhase) {
-                        g_currentPhase = nextPhase;
-                        g_phaseStart = now;
-                        g_hasPhase = true;
-                } else {
-                        g_currentPhase.clear();
-                        g_hasPhase = false;
-                }
-        }
-
-        if (hadPrevious && !previousPhase.empty()) {
-                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - previousStart);
-                logPhaseCompletion(previousPhase, duration);
-        }
-
-        if (startNewPhase && !nextPhase.empty()) {
-                logPhaseStart(nextPhase);
-        }
+    g_threshold.store(ms, std::memory_order_relaxed);
 }
-
-void StartupProbe::watchdogLoop() {
-        while (g_running.load(std::memory_order_relaxed)) {
-                std::this_thread::sleep_for(kWatchdogPollInterval);
-                if (!g_running.load(std::memory_order_relaxed)) {
-                        break;
-                }
-
-                std::string phase;
-                std::chrono::steady_clock::time_point lastProgress;
-                {
-                        std::lock_guard<std::mutex> lock(g_probeMutex);
-                        phase = g_currentPhase;
-                        lastProgress = g_lastProgress;
-                }
-
-                if (phase.empty()) {
-                        continue;
-                }
-
-                const auto now = std::chrono::steady_clock::now();
-                const auto stall = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastProgress);
-                if (stall < g_watchdogThreshold) {
-                        std::lock_guard<std::mutex> lock(g_probeMutex);
-                        g_lastWarning = now;
-                        continue;
-                }
-
-                bool shouldLog = false;
-                {
-                        std::lock_guard<std::mutex> lock(g_probeMutex);
-                        if ((now - g_lastWarning) >= kWatchdogRepeatInterval) {
-                                g_lastWarning = now;
-                                shouldLog = true;
-                        }
-                }
-
-                if (shouldLog) {
-                        Logger::instance().warn(fmt::format("WATCHDOG: stalled at {} ({} ms since last progress)", phase, stall.count()));
-                        Logger::instance().flush();
-                }
-        }
-}
-
