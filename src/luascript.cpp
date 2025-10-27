@@ -212,10 +212,32 @@ namespace {
 		lua_setglobal(L, name.data());
 	}
 
-	std::string getStackTrace(lua_State* L, std::string_view error_desc) {
-		luaL_traceback(L, L, error_desc.data(), 1);
-		return lua::popString(L);
-	}
+        std::string getStackTrace(lua_State* L, std::string_view error_desc) {
+#if LUA_VERSION_NUM >= 502
+                luaL_traceback(L, L, error_desc.data(), 1);
+                return lua::popString(L);
+#else
+                lua_getglobal(L, "debug");
+                if (!lua_istable(L, -1)) {
+                        lua_pop(L, 1);
+                        return std::string{error_desc};
+                }
+
+                lua_getfield(L, -1, "traceback");
+                if (!lua_isfunction(L, -1)) {
+                        lua_pop(L, 2);
+                        return std::string{error_desc};
+                }
+
+                lua::pushString(L, error_desc);
+                lua_pushinteger(L, 2);
+                lua_call(L, 2, 1);
+
+                std::string stackTrace = lua::popString(L);
+                lua_pop(L, 1);
+                return stackTrace;
+#endif
+        }
 
 	bool getArea(lua_State* L, std::vector<uint32_t>& vec, uint32_t& rows) {
 		lua_pushnil(L);
