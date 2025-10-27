@@ -4,9 +4,11 @@
 #include "otserv.h"
 #include "tools.h"
 #include "utils/CrashGuard.h"
-#include "utils/DiagnosticsConfig.h"
 #include "utils/Logger.h"
+#include "utils/Path.h"
 #include "utils/StartupProbe.h"
+#include "common/diagnostics.h"
+#include "scripting/LuaErrorWrap.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -30,10 +32,10 @@ namespace {
 } // namespace
 
 static bool argumentsHandler(const std::vector<std::string_view>& args) {
-	for (const auto& arg : args) {
-		if (arg == "--help") {
-			std::clog << "Usage:\n"
-			             "\n"
+        for (const auto& arg : args) {
+                if (arg == "--help") {
+                        std::clog << "Usage:\n"
+                                     "\n"
 			             "\t--config=$1\t\tAlternate configuration file path.\n"
 			             "\t--ip=$1\t\t\tIP address of the server.\n"
 			             "\t\t\t\tShould be equal to the global IP.\n"
@@ -45,6 +47,9 @@ static bool argumentsHandler(const std::vector<std::string_view>& args) {
                         return false;
                 } else if (arg == "--trace-startup") {
                         g_traceStartupRequested = true;
+                        diagnostics::setTraceStartupEnabled(true);
+                        StartupProbe::setWatchdogThreshold(std::chrono::milliseconds(5000));
+                        diagnostics::setSqlTraceEnabled(true);
                 }
 
 		auto tmp = explodeString(arg, "=");
@@ -63,13 +68,18 @@ static bool argumentsHandler(const std::vector<std::string_view>& args) {
 }
 
 int main(int argc, const char** argv) {
-        Logger::instance().setLogFile(makePath("logs/server.log"), 5 * 1024 * 1024, 5);
+        Logger::instance().setLogFile(makePath(L"logs/server.log"));
         Logger::instance().setConsole(true);
         Logger::instance().setLevel(LogLevel::Info);
         Logger::instance().info("Nexus Server starting...");
         Logger::instance().info("Build: " __DATE__ " " __TIME__);
 
         InstallCrashHandlers();
+        StartupProbe::initialize();
+
+        diagnostics::setTraceStartupEnabled(false);
+        diagnostics::setSqlTraceEnabled(false);
+        StartupProbe::setWatchdogThreshold(std::chrono::milliseconds(10000));
 
         std::vector<std::string_view> args(argv, argv + argc);
         if (!argumentsHandler(args)) {
@@ -78,17 +88,11 @@ int main(int argc, const char** argv) {
 
         if (g_traceStartupRequested) {
                 Logger::instance().setLevel(LogLevel::Debug);
-                diagnostics::setTraceStartupEnabled(true);
-                diagnostics::setSqlTraceEnabled(true);
-                StartupProbe::setWatchdogThreshold(std::chrono::seconds(5));
         } else {
-                diagnostics::setTraceStartupEnabled(false);
-                diagnostics::setSqlTraceEnabled(false);
-                StartupProbe::setWatchdogThreshold(std::chrono::seconds(10));
+                StartupProbe::setWatchdogThreshold(std::chrono::milliseconds(10000));
         }
 
         setTraceStartupEnvFlag(g_traceStartupRequested);
-        StartupProbe::initialize();
 
         if (!startServer()) {
                 Logger::instance().fatal("Server failed to start. See logs for details.");
