@@ -31,13 +31,16 @@ end
 _G.__REPUTATION_SYSTEM_ENABLED = reputationEnabled
 _G.__ECONOMY_SYSTEM_ENABLED = economyEnabled
 
+dofile('data/lib/nx_reputation_config.lua')
+
 if reputationEnabled or economyEnabled then
     trace.checkpoint('rep_eco:lib:begin')
-    dofile('data/lib/nx_reputation_config.lua')
     dofile('data/lib/nx_reputation.lua')
     trace.checkpoint('rep_eco:lib:end')
 else
     trace.checkpoint('rep_eco:lib:disabled')
+    -- Load the reputation runtime for its disabled-mode stubs to keep callers safe.
+    dofile('data/lib/nx_reputation.lua')
 end
 
 trace.checkpoint('lib.lua:end')

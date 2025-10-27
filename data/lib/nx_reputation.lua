@@ -19,6 +19,148 @@ if economyEnabled == nil then
 end
 
 if not reputationEnabled and not economyEnabled then
+    -- Ensure a benign namespace exists even when the feature is disabled so callers can safely short-circuit.
+    local defaultTier = (NX_REPUTATION_CONFIG and NX_REPUTATION_CONFIG.tiers and NX_REPUTATION_CONFIG.tiers[1]) or {
+        name = 'Neutral',
+        min = -math.huge,
+        max = math.huge,
+    }
+    local economyApi = rawget(_G, 'NX_ECONOMY')
+
+    function ReputationEconomy.getFactionId()
+        return nil
+    end
+
+    function ReputationEconomy.getFactionConfig()
+        return nil
+    end
+
+    function ReputationEconomy.getPlayerReputation(player, factionId)
+        local playerId = type(player) == 'number' and player or (player and player.getGuid and player:getGuid())
+        return {
+            playerId = playerId,
+            factionId = factionId,
+            value = 0,
+            tier = defaultTier,
+        }
+    end
+
+    function ReputationEconomy.getEconomyState()
+        return { label = 'disabled', modifier = 1.0 }
+    end
+
+    function ReputationEconomy.getAllFactions()
+        return {}
+    end
+
+    function ReputationEconomy.getFactionConfigList()
+        return {}
+    end
+
+    function ReputationEconomy.addReputation()
+        return false
+    end
+
+    function ReputationEconomy.addTradeReputation()
+        return false
+    end
+
+    function ReputationEconomy.setNpcFaction()
+        return false
+    end
+
+    function ReputationEconomy.calculateNpcPrice(_, _, params)
+        params = params or {}
+        local basePrice = params.basePrice or 0
+        local amount = math.max(1, params.amount or 1)
+        return {
+            unitPrice = basePrice,
+            unitGross = basePrice,
+            unitFee = 0,
+            grossTotal = basePrice * amount,
+            netTotal = basePrice * amount,
+            totalFee = 0,
+            tier = defaultTier,
+            tierModifier = 1.0,
+            economyModifier = 1.0,
+            economyState = { label = 'disabled', modifier = 1.0 },
+            globalModifier = 1.0,
+            feeRate = 0,
+            factionConfig = nil,
+            dynamic = nil,
+            stock = nil,
+        }
+    end
+
+    function ReputationEconomy.filterShopItems(_, npcHandler)
+        local items = {}
+        if npcHandler and npcHandler.shopItems then
+            for i = 1, #npcHandler.shopItems do
+                items[#items + 1] = npcHandler.shopItems[i]
+            end
+        end
+        return items
+    end
+
+    function ReputationEconomy.queueEconomyDelta()
+        return false
+    end
+
+    function ReputationEconomy.flushEconomyLedger()
+        return false
+    end
+
+    function ReputationEconomy.captureMarketFees()
+        return 0
+    end
+
+    function ReputationEconomy.applyDecay()
+        return 0
+    end
+
+    function ReputationEconomy.onStartup()
+        return false
+    end
+
+    function ReputationEconomy.getAllFactionsByName()
+        return {}
+    end
+
+    function ReputationEconomy.getTierIndex()
+        return 1
+    end
+
+    function ReputationEconomy.getTierForValue()
+        return defaultTier
+    end
+
+    function ReputationEconomy.pointsToNextTier()
+        return nil
+    end
+
+    function ReputationEconomy.hasTier()
+        return true
+    end
+
+    function ReputationEconomy.getNpcContext()
+        return nil
+    end
+
+    function ReputationEconomy.sendShopHint()
+        return false
+    end
+
+    function ReputationEconomy.registerShopItemMetadata()
+        return false
+    end
+
+    function ReputationEconomy.onNpcTrade(player, npcContext, trade)
+        if economyApi and economyApi.registerNpcTrade then
+            economyApi.registerNpcTrade(player, npcContext, trade)
+        end
+        return false
+    end
+
     trace.checkpoint('rep_eco:nx_reputation.lua:disabled')
     return ReputationEconomy
 end

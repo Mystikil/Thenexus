@@ -16,7 +16,7 @@ for _, tableName in ipairs(tablesToCheck) do
     local query = string.format('SELECT COUNT(*) AS `count` FROM `%s` LIMIT 1', tableName)
     local resultId = db.storeQuery(query)
     if not resultId then
-        print(string.format('[REP/ECO] table missing: %s', tableName))
+        print(string.format('[REP/ECO] table missing: %s (ensure migration 33 ran or disable the reputation/economy feature toggles)', tableName))
         trace.checkpoint('rep_eco:scripts/_rep_eco_sanity.lua:fail')
         return false
     end

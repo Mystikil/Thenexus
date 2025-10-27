@@ -985,7 +985,19 @@ if not Modules then
 		return true
 	end
 
-	-- Callback onBuy() function. If you wish, you can change certain Npc to use your onBuy().
+        local function processReputationTrade(module, player, npcContext, trade)
+                local context = npcContext
+                if not context and module and module.npcHandler and module.npcHandler.getParameter then
+                        context = module.npcHandler:getParameter('name')
+                end
+                if ReputationEconomy and npcContext and ReputationEconomy.onNpcTrade then
+                        ReputationEconomy.onNpcTrade(player, npcContext, trade)
+                elseif Economy and Economy.registerNpcTrade then
+                        Economy.registerNpcTrade(player, context, trade)
+                end
+        end
+
+        -- Callback onBuy() function. If you wish, you can change certain Npc to use your onBuy().
         function ShopModule:callbackOnBuy(cid, itemid, subType, amount, ignoreCap, inBackpacks)
                 local shopItem = self:getShopItem(itemid, subType)
                 if not shopItem then
@@ -1060,16 +1072,14 @@ if not Modules then
                         if not player:removeTotalMoney(totalCost) then
                                 return false
                         end
-                        if ReputationEconomy and npcContext and priceInfo then
-                                ReputationEconomy.onNpcTrade(player, npcContext, {
-                                        type = 'buy',
-                                        itemId = itemid,
-                                        amount = amount,
-                                        totalNet = priceInfo.netTotal,
-                                        totalFee = priceInfo.totalFee,
-                                        priceInfo = priceInfo
-                                })
-                        end
+                        processReputationTrade(self, player, npcContext, {
+                                type = 'buy',
+                                itemId = itemid,
+                                amount = amount,
+                                totalNet = (priceInfo and priceInfo.netTotal) or totalCost,
+                                totalFee = (priceInfo and priceInfo.totalFee) or 0,
+                                priceInfo = priceInfo
+                        })
                         self.npcHandler.talkStart[cid] = os.time()
                         return true
                 end
@@ -1121,19 +1131,17 @@ if not Modules then
                         player:sendTextMessage(MESSAGE_INFO_DESCR, msg)
                         local payout = priceInfo and priceInfo.netTotal or (amount * shopItem.sell)
                         player:addMoney(payout)
-                        if ReputationEconomy and npcContext and priceInfo then
-                                ReputationEconomy.onNpcTrade(player, npcContext, {
-                                        type = 'sell',
-                                        itemId = itemid,
-                                        amount = amount,
-                                        totalNet = payout,
-                                        totalFee = priceInfo.totalFee,
-                                        priceInfo = priceInfo
-                                })
-                        end
-                        self.npcHandler.talkStart[cid] = os.time()
-                        return true
-                end
+                processReputationTrade(self, player, npcContext, {
+                        type = 'sell',
+                        itemId = itemid,
+                        amount = amount,
+                        totalNet = payout,
+                        totalFee = (priceInfo and priceInfo.totalFee) or 0,
+                        priceInfo = priceInfo
+                })
+                self.npcHandler.talkStart[cid] = os.time()
+                return true
+        end
                 local msg = self.npcHandler:getMessage(MESSAGE_NEEDITEM)
                 msg = self.npcHandler:parseMessage(msg, parseInfo)
 		player:sendCancelMessage(msg)
@@ -1211,16 +1219,14 @@ if not Modules then
                                 local msg = module.npcHandler:getMessage(MESSAGE_ONSELL)
                                 msg = module.npcHandler:parseMessage(msg, parseInfo)
                                 module.npcHandler:say(msg, cid)
-                                if ReputationEconomy and npcContext and priceInfo then
-                                        ReputationEconomy.onNpcTrade(player, npcContext, {
-                                                type = 'sell',
-                                                itemId = shop_itemid[cid],
-                                                amount = shop_amount[cid],
-                                                totalNet = priceInfo.netTotal,
-                                                totalFee = priceInfo.totalFee,
-                                                priceInfo = priceInfo
-                                        })
-                                end
+                                processReputationTrade(module, player, npcContext, {
+                                        type = 'sell',
+                                        itemId = shop_itemid[cid],
+                                        amount = shop_amount[cid],
+                                        totalNet = priceInfo and priceInfo.netTotal or (shop_cost[cid] * shop_amount[cid]),
+                                        totalFee = priceInfo and priceInfo.totalFee or 0,
+                                        priceInfo = priceInfo
+                                })
                         else
                                 local msg = module.npcHandler:getMessage(MESSAGE_MISSINGITEM)
                                 msg = module.npcHandler:parseMessage(msg, parseInfo)
@@ -1253,17 +1259,15 @@ if not Modules then
                                         if shop_itemid[cid] == ITEM_PARCEL then
                                                 doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
                                         end
-                                        if ReputationEconomy and npcContext and priceInfo then
-                                                local unitFee = priceInfo.unitFee or 0
-                                                ReputationEconomy.onNpcTrade(player, npcContext, {
-                                                        type = 'buy',
-                                                        itemId = shop_itemid[cid],
-                                                        amount = a,
-                                                        totalNet = partialCost,
-                                                        totalFee = unitFee * a,
-                                                        priceInfo = priceInfo
-                                                })
-                                        end
+                                        local unitFee = priceInfo and priceInfo.unitFee or 0
+                                        processReputationTrade(module, player, npcContext, {
+                                                type = 'buy',
+                                                itemId = shop_itemid[cid],
+                                                amount = a,
+                                                totalNet = partialCost,
+                                                totalFee = unitFee * a,
+                                                priceInfo = priceInfo
+                                        })
                                         return true
                                 end
                                 return false
@@ -1277,16 +1281,14 @@ if not Modules then
                                 if shop_itemid[cid] == ITEM_PARCEL then
                                         doNpcSellItem(cid, ITEM_LABEL, shop_amount[cid], shop_subtype[cid], true, false, ITEM_SHOPPING_BAG)
                                 end
-                                if ReputationEconomy and npcContext and priceInfo then
-                                        ReputationEconomy.onNpcTrade(player, npcContext, {
-                                                type = 'buy',
-                                                itemId = shop_itemid[cid],
-                                                amount = shop_amount[cid],
-                                                totalNet = cost,
-                                                totalFee = priceInfo.unitFee * shop_amount[cid],
-                                                priceInfo = priceInfo
-                                        })
-                                end
+                                processReputationTrade(module, player, npcContext, {
+                                        type = 'buy',
+                                        itemId = shop_itemid[cid],
+                                        amount = shop_amount[cid],
+                                        totalNet = cost,
+                                        totalFee = (priceInfo and priceInfo.unitFee or 0) * shop_amount[cid],
+                                        priceInfo = priceInfo
+                                })
                                 return true
                         end
                 elseif shop_eventtype[cid] == SHOPMODULE_BUY_ITEM_CONTAINER then
@@ -1295,16 +1297,14 @@ if not Modules then
                                 local msg = module.npcHandler:getMessage(MESSAGE_ONBUY)
                                 msg = module.npcHandler:parseMessage(msg, parseInfo)
                                 module.npcHandler:say(msg, cid)
-                                if ReputationEconomy and npcContext and priceInfo then
-                                        ReputationEconomy.onNpcTrade(player, npcContext, {
-                                                type = 'buy',
-                                                itemId = shop_itemid[cid],
-                                                amount = shop_amount[cid],
-                                                totalNet = shop_cost[cid] * shop_amount[cid],
-                                                totalFee = priceInfo.unitFee * shop_amount[cid],
-                                                priceInfo = priceInfo
-                                        })
-                                end
+                                processReputationTrade(module, player, npcContext, {
+                                        type = 'buy',
+                                        itemId = shop_itemid[cid],
+                                        amount = shop_amount[cid],
+                                        totalNet = shop_cost[cid] * shop_amount[cid],
+                                        totalFee = (priceInfo and priceInfo.unitFee or 0) * shop_amount[cid],
+                                        priceInfo = priceInfo
+                                })
                         else
                                 local msg = module.npcHandler:getMessage(MESSAGE_MISSINGMONEY)
                                 msg = module.npcHandler:parseMessage(msg, parseInfo)

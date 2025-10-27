@@ -3,6 +3,11 @@ if _G.__REPUTATION_TESTS__ then
 end
 _G.__REPUTATION_TESTS__ = true
 
+if not _G.__REPUTATION_SYSTEM_ENABLED or type(ReputationEconomy) ~= 'table' or not ReputationEconomy.getFactionId then
+    print('[REP/ECO][tests] reputation tests skipped (system disabled)')
+    return true
+end
+
 assert(ReputationEconomy.getTierForValue(-1200).name == 'Hated', 'Tier lookup failed for hated range')
 assert(ReputationEconomy.getTierForValue(0).name == 'Neutral', 'Tier lookup failed for neutral range')
 assert(ReputationEconomy.getTierIndex('Friendly') < ReputationEconomy.getTierIndex('Honored'), 'Tier ordering mismatch')

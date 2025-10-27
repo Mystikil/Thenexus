@@ -7,7 +7,7 @@ local economyEnabled = _G.__ECONOMY_SYSTEM_ENABLED ~= false
 local function registerDisabledTalk(words)
     local talk = TalkAction(words)
     function talk.onSay(player, words, param)
-        player:sendCancelMessage('Reputation system is disabled.')
+        player:sendCancelMessage('Reputation/Economy system is currently disabled.')
         return false
     end
     talk:separator(' ')
@@ -74,7 +74,7 @@ function repTalk.onSay(player, words, param)
         return false
     end
     if not ReputationEconomy or not ReputationEconomy.getAllFactions then
-        player:sendTextMessage(MESSAGE_STATUS_CONSOLE_BLUE, 'Reputation system not loaded.')
+        player:sendTextMessage(MESSAGE_STATUS_CONSOLE_BLUE, 'Reputation/Economy system is currently disabled.')
         return false
     end
 
