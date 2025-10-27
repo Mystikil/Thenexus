@@ -72,7 +72,6 @@ set(tfs_SRC
         ${CMAKE_CURRENT_LIST_DIR}/thing.cpp
         ${CMAKE_CURRENT_LIST_DIR}/scripting/LuaErrorWrap.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.cpp
-        ${CMAKE_CURRENT_LIST_DIR}/utils/DiagnosticsConfig.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/Path.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/StartupProbe.cpp
@@ -173,7 +172,6 @@ set(tfs_HDR
         ${CMAKE_CURRENT_LIST_DIR}/thread_holder_base.h
         ${CMAKE_CURRENT_LIST_DIR}/scripting/LuaErrorWrap.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.h
-        ${CMAKE_CURRENT_LIST_DIR}/utils/DiagnosticsConfig.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/Path.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/StartupProbe.h
