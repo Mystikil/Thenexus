@@ -9,6 +9,7 @@
 #include "events.h"
 #include "game/game.h"
 #include "matrixarea.h"
+#include "scripting/LuaErrorWrap.h"
 #include "spectators.h"
 #include "weapons.h"
 
@@ -1077,12 +1078,12 @@ void ValueCallback::getMinMaxValues(Player* player, CombatDamage& damage) const 
 	}
 
 	int size0 = lua_gettop(L);
-	if (lua_pcall(L, parameters, 2, 0) != 0) {
-		reportErrorFunc(L, lua::popString(L));
-	} else {
-		damage.primary.value = normal_random(lua::getNumber<int32_t>(L, -2), lua::getNumber<int32_t>(L, -1));
-		lua_pop(L, 2);
-	}
+        if (!pcallWithTrace(L, parameters, 2, std::string())) {
+                reportErrorFunc(L, lua::popString(L));
+        } else {
+                damage.primary.value = normal_random(lua::getNumber<int32_t>(L, -2), lua::getNumber<int32_t>(L, -1));
+                lua_pop(L, 2);
+        }
 
 	if ((lua_gettop(L) + parameters + 1) != size0) {
 		reportErrorFunc(L, "Stack size changed!");
@@ -1155,9 +1156,9 @@ void TargetCallback::onTargetCombat(Creature* creature, Creature* target) const 
 
 	int size0 = lua_gettop(L);
 
-	if (lua_pcall(L, 2, 0 /*nReturnValues*/, 0) != 0) {
-		reportErrorFunc(L, lua::popString(L));
-	}
+        if (!pcallWithTrace(L, 2, 0, std::string())) {
+                reportErrorFunc(L, lua::popString(L));
+        }
 
 	if ((lua_gettop(L) + 2 /*nParams*/ + 1) != size0) {
 		reportErrorFunc(L, "Stack size changed!");

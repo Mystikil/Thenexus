@@ -5,6 +5,6 @@
 #define FS_OTSERV_H
 
 void printServerVersion();
-void startServer();
+bool startServer();
 
 #endif

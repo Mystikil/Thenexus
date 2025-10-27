@@ -18,6 +18,7 @@ project(tfs CXX)
 set(VCPKG_MANIFEST_NO_DEFAULT_FEATURES ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/client/cmake")
 
 if(NOT WIN32)
 	add_compile_options(-Wall -Wextra -Wnon-virtual-dtor -Wold-style-cast -pedantic -Werror -pipe -fvisibility=hidden)
@@ -69,6 +70,11 @@ find_package(Threads REQUIRED)
 
 # LIB PugiXML
 find_package(PugiXML CONFIG REQUIRED)
+
+# LIB DbgHelp for Windows crash dumps
+if(WIN32)
+        find_package(DbgHelp REQUIRED)
+endif()
 
 # LIB LuaJIT or Lua
 # Selects LuaJIT if user defines or auto-detected

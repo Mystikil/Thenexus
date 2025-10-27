@@ -7,6 +7,10 @@
 
 #include "configmanager.h"
 #include "luascript.h"
+#include "scripting/LuaErrorWrap.h"
+#include "utils/Logger.h"
+
+#include <fmt/format.h>
 
 bool DatabaseManager::optimizeTables() {
 	Database& db = Database::getInstance();
@@ -18,13 +22,13 @@ bool DatabaseManager::optimizeTables() {
 
 	do {
 		const auto tableName = result->getString("TABLE_NAME");
-		std::cout << "> Optimizing table " << tableName << "..." << std::flush;
+                Logger::instance().info(fmt::format("Optimizing table {}...", tableName));
 
-		if (db.executeQuery(fmt::format("OPTIMIZE TABLE `{:s}`", tableName))) {
-			std::cout << " [success]" << std::endl;
-		} else {
-			std::cout << " [failed]" << std::endl;
-		}
+                if (db.executeQuery(fmt::format("OPTIMIZE TABLE `{:s}`", tableName))) {
+                        Logger::instance().info(fmt::format("Optimization completed for {}", tableName));
+                } else {
+                        Logger::instance().error(fmt::format("Optimization failed for {}", tableName));
+                }
 	} while (result->next());
 	return true;
 }
@@ -55,12 +59,13 @@ int32_t DatabaseManager::getDatabaseVersion() {
 }
 
 void DatabaseManager::updateDatabase() {
-	lua_State* L = luaL_newstate();
-	if (!L) {
-		return;
-	}
+        lua_State* L = luaL_newstate();
+        if (!L) {
+                return;
+        }
 
-	luaL_openlibs(L);
+        lua_atpanic(L, luaPanic);
+        luaL_openlibs(L);
 
 #ifndef LUAJIT_VERSION
 	//bit operations for Lua, based on bitlib project release 24
@@ -76,21 +81,23 @@ void DatabaseManager::updateDatabase() {
 
 	int32_t version = getDatabaseVersion();
 	do {
-		if (luaL_dofile(L, fmt::format("data/migrations/{:d}.lua", version).c_str()) != 0) {
-			std::cout << "[Error - DatabaseManager::updateDatabase - Version: " << version << "] " << lua_tostring(L, -1) << std::endl;
-			break;
-		}
+                if (luaL_dofile(L, fmt::format("data/migrations/{:d}.lua", version).c_str()) != 0) {
+                        Logger::instance().error(fmt::format("[Error - DatabaseManager::updateDatabase - Version: {}] {}", version, lua_tostring(L, -1)));
+                        lua_pop(L, 1);
+                        break;
+                }
 
 		if (!lua::reserveScriptEnv()) {
 			break;
 		}
 
 		lua_getglobal(L, "onUpdateDatabase");
-		if (lua_pcall(L, 0, 1, 0) != 0) {
-			lua::resetScriptEnv();
-			std::cout << "[Error - DatabaseManager::updateDatabase - Version: " << version << "] " << lua_tostring(L, -1) << std::endl;
-			break;
-		}
+                if (!pcallWithTrace(L, 0, 1, fmt::format("data/migrations/{}.lua", version))) {
+                        lua::resetScriptEnv();
+                        Logger::instance().error(fmt::format("[Error - DatabaseManager::updateDatabase - Version: {}] {}", version, lua_tostring(L, -1)));
+                        lua_pop(L, 1);
+                        break;
+                }
 
 		if (!lua::getBoolean(L, -1, false)) {
 			lua::resetScriptEnv();
@@ -98,7 +105,7 @@ void DatabaseManager::updateDatabase() {
 		}
 
 		version++;
-		std::cout << "> Database has been updated to version " << version << '.' << std::endl;
+                Logger::instance().info(fmt::format("Database has been updated to version {}.", version));
 		registerDatabaseConfig("db_version", version);
 
 		lua::resetScriptEnv();

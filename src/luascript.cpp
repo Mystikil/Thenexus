@@ -29,13 +29,16 @@
 #include "protocolstatus.h"
 #include "scheduler.h"
 #include "script.h"
+#include "scripting/LuaErrorWrap.h"
 #include "spectators.h"
 #include "spells.h"
 #include "storeinbox.h"
 #include "teleport.h"
+#include "utils/Logger.h"
 #include "weapons.h"
 
 #include <ranges>
+#include <sstream>
 
 extern Chat* g_chat;
 extern Game g_game;
@@ -212,12 +215,6 @@ namespace {
 	std::string getStackTrace(lua_State* L, std::string_view error_desc) {
 		luaL_traceback(L, L, error_desc.data(), 1);
 		return lua::popString(L);
-	}
-
-	int luaErrorHandler(lua_State* L) {
-		std::string errorMessage = lua::popString(L);
-		lua::pushString(L, getStackTrace(L, errorMessage));
-		return 1;
 	}
 
 	bool getArea(lua_State* L, std::vector<uint32_t>& vec, uint32_t& rows) {
@@ -454,13 +451,13 @@ bool LuaScriptInterface::reInitState() {
 
 /// Same as lua_pcall, but adds stack trace to error strings in called function.
 int lua::protectedCall(lua_State* L, int nargs, int nresults) {
-	int error_index = lua_gettop(L) - nargs;
-	lua_pushcfunction(L, luaErrorHandler);
-	lua_insert(L, error_index);
+        int base = lua_gettop(L) - nargs;
+        pushTraceback(L);
+        lua_insert(L, base);
 
-	int ret = lua_pcall(L, nargs, nresults, error_index);
-	lua_remove(L, error_index);
-	return ret;
+        int ret = lua_pcall(L, nargs, nresults, base);
+        lua_remove(L, base);
+        return ret;
 }
 
 int32_t LuaScriptInterface::loadFile(const std::string& file, Npc* npc /* = nullptr*/) {
@@ -477,7 +474,8 @@ int32_t LuaScriptInterface::loadFile(const std::string& file, Npc* npc /* = null
 		return -1;
 	}
 
-	loadingFile = file;
+        loadingFile = file;
+        lastLuaError.clear();
 
 	if (!lua::reserveScriptEnv()) {
 		lua_pop(L, 1);
@@ -489,12 +487,12 @@ int32_t LuaScriptInterface::loadFile(const std::string& file, Npc* npc /* = null
 	env->setNpc(npc);
 
 	//execute it
-	ret = lua::protectedCall(L, 0, 0);
-	if (ret != 0) {
-		reportErrorFunc(nullptr, lua::popString(L));
-		lua::resetScriptEnv();
-		return -1;
-	}
+        if (!pcallWithTrace(L, 0, 0, file)) {
+                lastLuaError = lua::popString(L);
+                reportErrorFunc(nullptr, lastLuaError);
+                lua::resetScriptEnv();
+                return -1;
+        }
 
 	lua::resetScriptEnv();
 	return 0;
@@ -596,31 +594,34 @@ const std::string& LuaScriptInterface::getFileById(int32_t scriptId) {
 void lua::reportError(std::string_view function, std::string_view error_desc, lua_State* L /*= nullptr*/, bool stack_trace /*= false*/) {
 	auto [scriptId, scriptInterface, callbackId, timerEvent] = getScriptEnv()->getEventInfo();
 
-	std::cout << "\nLua Script Error: ";
+        std::ostringstream builder;
+        builder << "\nLua Script Error: ";
 
-	if (scriptInterface) {
-		std::cout << '[' << scriptInterface->getInterfaceName() << "]\n";
+        if (scriptInterface) {
+                builder << '[' << scriptInterface->getInterfaceName() << "]\n";
 
-		if (timerEvent) {
-			std::cout << "in a timer event called from:\n";
-		}
+                if (timerEvent) {
+                        builder << "in a timer event called from:\n";
+                }
 
-		if (callbackId) {
-			std::cout << "in callback: " << scriptInterface->getFileById(callbackId) << '\n';
-		}
+                if (callbackId) {
+                        builder << "in callback: " << scriptInterface->getFileById(callbackId) << '\n';
+                }
 
-		std::cout << scriptInterface->getFileById(scriptId) << '\n';
-	}
+                builder << scriptInterface->getFileById(scriptId) << '\n';
+        }
 
-	if (!function.empty()) {
-		std::cout << function << "(). ";
-	}
+        if (!function.empty()) {
+                builder << function << "(). ";
+        }
 
-	if (L && stack_trace) {
-		std::cout << getStackTrace(L, error_desc) << '\n';
-	} else {
-		std::cout << error_desc << '\n';
-	}
+        if (L && stack_trace) {
+                builder << getStackTrace(L, error_desc) << '\n';
+        } else {
+                builder << error_desc << '\n';
+        }
+
+        Logger::instance().error(builder.str());
 }
 
 bool LuaScriptInterface::pushFunction(int32_t functionId) {
@@ -17278,13 +17279,14 @@ LuaEnvironment::~LuaEnvironment() {
 }
 
 bool LuaEnvironment::initState() {
-	L = luaL_newstate();
-	if (!L) {
-		return false;
-	}
+        L = luaL_newstate();
+        if (!L) {
+                return false;
+        }
 
-	luaL_openlibs(L);
-	registerFunctions();
+        lua_atpanic(L, luaPanic);
+        luaL_openlibs(L);
+        registerFunctions();
 
 	runningEventId = EVENT_ID_USER;
 	return true;
