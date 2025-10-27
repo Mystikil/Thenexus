@@ -3,9 +3,9 @@
 namespace diagnostics {
 
 bool isSqlTraceEnabled();
-void setSqlTraceEnabled(bool enabled);
+void setSqlTraceEnabled(bool);
 bool isTraceStartupEnabled();
-void setTraceStartupEnabled(bool enabled);
+void setTraceStartupEnabled(bool);
 
 } // namespace diagnostics
 
