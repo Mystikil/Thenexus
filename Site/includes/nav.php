@@ -16,7 +16,7 @@ $u = current_user();
     <div class="collapse navbar-collapse" id="nxNav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item"><a class="nav-link<?php echo $current === 'home' ? ' active' : ''; ?>" href="?p=home">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="/Site/roadmap/">Roadmap</a></li>
+        <li class="nav-item"><a class="nav-link<?php echo $current === 'roadmap' ? ' active' : ''; ?>" href="?p=roadmap">Roadmap</a></li>
 
         <?php $featurePages = ['features', 'feature_echo_ai', 'feature_dynamic_economy', 'feature_unified_reputation']; ?>
         <li class="nav-item dropdown">

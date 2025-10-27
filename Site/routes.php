@@ -39,6 +39,7 @@ $routes = [
     'feature_echo_ai' => __DIR__ . '/pages/feature_echo_ai.php',
     'feature_dynamic_economy' => __DIR__ . '/pages/feature_dynamic_economy.php',
     'feature_unified_reputation' => __DIR__ . '/pages/feature_unified_reputation.php',
+    'roadmap' => __DIR__ . '/pages/roadmap.php',
 ];
 
 $page = $_GET['p'] ?? 'home';
