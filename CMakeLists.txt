@@ -15,6 +15,8 @@ endif()
 
 project(tfs CXX)
 
+enable_testing()
+
 set(VCPKG_MANIFEST_NO_DEFAULT_FEATURES ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -153,3 +155,8 @@ endif()
 
 
 target_precompile_headers(tfs PUBLIC src/otpch.h)
+
+add_executable(config_formatters_compile_test tests/ConfigFormattersCompileTest.cpp)
+target_include_directories(config_formatters_compile_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(config_formatters_compile_test PRIVATE fmt::fmt)
+add_test(NAME config_formatters_compile_test COMMAND config_formatters_compile_test)
