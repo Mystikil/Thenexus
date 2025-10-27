@@ -25,11 +25,11 @@ Adjust coefficients or add new factions without touching runtime code.
 
 ## Runtime Scripts
 - **Library:** [`data/lib/nx_reputation.lua`](../../data/lib/nx_reputation.lua) exposes helper APIs for reputation calculations, economy queues, tier checks, and ledger ingestion.
-- **Global events:** [`data/globalevents/scripts/reputation_economy.lua`](../../data/globalevents/scripts/reputation_economy.lua) initializes pools, flushes ledgers each minute, captures market fees, and applies weekly decay.
+- **Global events:** [`data/scripts/globalevents/reputation_economy_tick.lua`](../../data/scripts/globalevents/reputation_economy_tick.lua) initializes pools, flushes ledgers each minute, captures market fees, and applies weekly decay.
 - **NPC example:** [`data/npc/Faction Quartermaster.xml`](../../data/npc/Faction%20Quartermaster.xml) / [`data/npc/scripts/reputation_quartermaster.lua`](../../data/npc/scripts/reputation_quartermaster.lua) demonstrate faction binding, gated inventory, and a Friendly+ questline.
 - **Actions:** [`data/actions/scripts/reputation_donation.lua`](../../data/actions/scripts/reputation_donation.lua) and [`data/actions/scripts/reputation_quest.lua`](../../data/actions/scripts/reputation_quest.lua) provide donation and quest gating examples.
 - **Creaturescript:** [`data/creaturescripts/scripts/reputation_kill.lua`](../../data/creaturescripts/scripts/reputation_kill.lua) awards/penalizes reputation on protected kills.
-- **Talk actions:** [`data/talkactions/scripts/reputation.lua`](../../data/talkactions/scripts/reputation.lua) implements `!rep` plus `/addrep`, `/setrep`, `/reptier`, and `/economy` admin commands.
+- **Talk actions:** [`data/scripts/talkactions/reputation.lua`](../../data/scripts/talkactions/reputation.lua) implements `!rep` plus `/addrep`, `/setrep`, `/reptier`, and `/economy` admin commands.
 - **Tests:** [`data/scripts/lib/tests/reputation_tests.lua`](../../data/scripts/lib/tests/reputation_tests.lua) contains assertion-based sanity checks for tier ordering and config integrity.
 
 ## Hooking NPCs

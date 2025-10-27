@@ -18,10 +18,6 @@
   <event type="death"        name="nx_rank_scale"  script="nx_rank_scalers.lua"/>
   <event type="kill"         name="FactionReputationKill" script="reputation_kill.lua"/>
 
-  <event type="think"        name="ECHOThink" script="ECHOThink.lua"/>
-  <event type="healthchange" name="ECHOThink" script="ECHOThink.lua"/>
-  <event type="death"        name="ECHOThink" script="ECHOThink.lua"/>
-  <event type="disappear"    name="ECHOThink" script="ECHOThink.lua"/>
 
   <!-- BOSS AI: keep only types your fork supports -->
   <event type="think"        name="nx_boss_think"  script="nx_boss_think.lua"/>

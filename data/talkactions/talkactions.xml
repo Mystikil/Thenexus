@@ -37,10 +37,6 @@
 	<talkaction words="/reload" separator=" " script="reload.lua" />
         <talkaction words="/event" separator=" " script="force_event.lua" />
         <talkaction words="!inst" separator=" " script="instance_admin.lua" />
-        <talkaction words="/addrep" separator=" " script="reputation.lua" />
-        <talkaction words="/setrep" separator=" " script="reputation.lua" />
-        <talkaction words="/reptier" separator=" " script="reputation.lua" />
-        <talkaction words="/economy" separator=" " script="reputation.lua" />
 
         <!-- player talkactions -->
         <talkaction words="!buypremium" script="buy_prem.lua" />
@@ -53,7 +49,6 @@
         <talkaction words="!kills" script="kills.lua" />
         <talkaction words="!online;/online" script="online.lua" />
         <talkaction words="!serverinfo" script="server_info.lua" />
-        <talkaction words="!rep" script="reputation.lua" />
         <talkaction words="/prof" script="nx_professions_ui.lua" />
 
 	<!-- test talkactions -->

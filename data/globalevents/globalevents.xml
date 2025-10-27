@@ -6,9 +6,4 @@
         <!-- <globalevent name="timer_example" time="12:00:00" script="my_script.lua" /> -->
         <globalevent type="time" name="GatheringRotation" time="06:00:00" script="nx_nodes_respawn.lua" />
         <globalevent type="startup" name="GatheringRotationStartup" script="nx_nodes_respawn.lua" />
-        <globalevent type="startup" name="ReputationStartup" script="reputation_economy.lua" />
-        <globalevent type="timer" interval="60000" name="ReputationEconomyTick" script="reputation_economy.lua" />
-        <globalevent name="ReputationDecay" time="05:00:00" script="reputation_economy.lua" />
-        <globalevent name="ECHOInit" type="start" script="echo_boot.lua" />
-        <globalevent name="ECHOFlush" interval="30000" script="echo_boot.lua" />
 </globalevents>
