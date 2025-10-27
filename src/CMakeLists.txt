@@ -74,6 +74,7 @@ set(tfs_SRC
         ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/DiagnosticsConfig.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/utils/Path.cpp
         ${CMAKE_CURRENT_LIST_DIR}/utils/StartupProbe.cpp
         ${CMAKE_CURRENT_LIST_DIR}/tile.cpp
         ${CMAKE_CURRENT_LIST_DIR}/tools.cpp
@@ -174,6 +175,7 @@ set(tfs_HDR
         ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/DiagnosticsConfig.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.h
+        ${CMAKE_CURRENT_LIST_DIR}/utils/Path.h
         ${CMAKE_CURRENT_LIST_DIR}/utils/StartupProbe.h
         ${CMAKE_CURRENT_LIST_DIR}/tile.h
         ${CMAKE_CURRENT_LIST_DIR}/tools.h
