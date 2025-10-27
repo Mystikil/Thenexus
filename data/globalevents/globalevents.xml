@@ -9,4 +9,6 @@
         <globalevent type="startup" name="ReputationStartup" script="reputation_economy.lua" />
         <globalevent type="timer" interval="60000" name="ReputationEconomyTick" script="reputation_economy.lua" />
         <globalevent name="ReputationDecay" time="05:00:00" script="reputation_economy.lua" />
+        <globalevent name="ECHOInit" type="start" script="echo_boot.lua" />
+        <globalevent name="ECHOFlush" interval="30000" script="echo_boot.lua" />
 </globalevents>
