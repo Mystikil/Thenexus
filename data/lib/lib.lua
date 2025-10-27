@@ -3,6 +3,7 @@ trace.checkpoint('lib.lua:begin')
 
 -- Compatibility library for our old Lua API AND Compatibility with OPCODE JSON
 dofile('data/lib/compat/compat.lua')
+dofile('data/lib/compat/compat_extras.lua')
 dofile('data/lib/compat/json.lua')
 
 -- Core API functions implemented in Lua

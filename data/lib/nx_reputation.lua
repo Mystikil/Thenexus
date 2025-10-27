@@ -335,8 +335,14 @@ local function resolveNpcName(npcHandler, options)
     if options and options.npcName then
         return options.npcName
     end
-    if npcHandler and npcHandler:getParameter and npcHandler:getParameter('name') then
-        return npcHandler:getParameter('name')
+    if npcHandler then
+        local getParameter = npcHandler.getParameter
+        if type(getParameter) == 'function' then
+            local name = npcHandler:getParameter('name')
+            if name then
+                return name
+            end
+        end
     end
     -- fallback to config hints
     return nil
