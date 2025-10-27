@@ -3,6 +3,8 @@
 #include "configmanager.h"
 #include "otserv.h"
 #include "tools.h"
+#include "utils/CrashGuard.h"
+#include "utils/Logger.h"
 
 static bool argumentsHandler(const std::vector<std::string_view>& args) {
 	for (const auto& arg : args) {
@@ -36,11 +38,24 @@ static bool argumentsHandler(const std::vector<std::string_view>& args) {
 }
 
 int main(int argc, const char** argv) {
-	std::vector<std::string_view> args(argv, argv + argc);
-	if (!argumentsHandler(args)) {
-		return 1;
-	}
+        Logger::instance().setLogFile(makePath("logs/server.log"), 5 * 1024 * 1024, 5);
+        Logger::instance().setConsole(true);
+        Logger::instance().setLevel(LogLevel::Info);
+        Logger::instance().info("Nexus Server starting...");
+        Logger::instance().info("Build: " __DATE__ " " __TIME__);
 
-	startServer();
-	return 0;
+        InstallCrashHandlers();
+
+        std::vector<std::string_view> args(argv, argv + argc);
+        if (!argumentsHandler(args)) {
+                return 1;
+        }
+
+        if (!startServer()) {
+                Logger::instance().fatal("Server failed to start. See logs for details.");
+                return EXIT_FAILURE;
+        }
+
+        Logger::instance().info("Server shutdown complete.");
+        return EXIT_SUCCESS;
 }

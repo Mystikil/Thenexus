@@ -1,4 +1,5 @@
 math.randomseed(os.time())
+dofile('data/lib/compat51.lua')
 dofile('data/lib/lib.lua')
 
 ropeSpots = {

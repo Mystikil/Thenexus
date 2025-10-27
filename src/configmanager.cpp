@@ -7,6 +7,10 @@
 #include "game/game.h"
 #include "monster.h"
 #include "pugicast.h"
+#include "scripting/LuaErrorWrap.h"
+#include "utils/Logger.h"
+
+#include <fmt/format.h>
 
 #if __has_include("luajit/lua.hpp")
 #include <luajit/lua.hpp>
@@ -139,23 +143,24 @@ namespace {
 }
 
 bool ConfigManager::load() {
-	lua_State* L = luaL_newstate();
-	if (!L) {
-		throw std::runtime_error("Failed to allocate memory");
-	}
+        lua_State* L = luaL_newstate();
+        if (!L) {
+                throw std::runtime_error("Failed to allocate memory");
+        }
 
-	luaL_openlibs(L);
+        lua_atpanic(L, luaPanic);
+        luaL_openlibs(L);
 
 	string[CONFIG_FILE] = "config.lua";
 	if (string[CONFIG_FILE].empty()) {
 		string[CONFIG_FILE] = "config.lua";
 	}
 
-	if (luaL_dofile(L, string[CONFIG_FILE].data())) {
-		std::cout << "[Error - ConfigManager::load] " << lua_tostring(L, -1) << std::endl;
-		lua_close(L);
-		return false;
-	}
+        if (luaL_dofile(L, string[CONFIG_FILE].data())) {
+                Logger::instance().fatal(fmt::format("[Error - ConfigManager::load] {}", lua_tostring(L, -1)));
+                lua_close(L);
+                return false;
+        }
 
 	//parse config
 	if (!loaded) { //info that must be loaded one time (unless we reset the modules involved)
@@ -280,7 +285,7 @@ bool ConfigManager::load() {
 	if (expStages.empty()) {
 		expStages = loadLuaStages(L);
 	} else {
-		std::cout << "[Warning - ConfigManager::load] XML stages are deprecated, consider moving to config.lua." << std::endl;
+                Logger::instance().warn("[Warning - ConfigManager::load] XML stages are deprecated, consider moving to config.lua.");
 	}
 	expStages.shrink_to_fit();
 
@@ -302,7 +307,7 @@ const std::string& ConfigManager::getString(string_config_t what) {
 	static std::string dummyStr;
 
 	if (what >= LAST_STRING_CONFIG) {
-		std::cout << "[Warning - ConfigManager::getString] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::getString] Accessing invalid index: {}", what));
 		return dummyStr;
 	}
 	return string[what];
@@ -310,7 +315,7 @@ const std::string& ConfigManager::getString(string_config_t what) {
 
 int32_t ConfigManager::getNumber(integer_config_t what) {
 	if (what >= LAST_INTEGER_CONFIG) {
-		std::cout << "[Warning - ConfigManager::getNumber] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::getNumber] Accessing invalid index: {}", what));
 		return 0;
 	}
 	return integer[what];
@@ -318,7 +323,7 @@ int32_t ConfigManager::getNumber(integer_config_t what) {
 
 bool ConfigManager::getBoolean(boolean_config_t what) {
 	if (what >= LAST_BOOLEAN_CONFIG) {
-		std::cout << "[Warning - ConfigManager::getBoolean] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::getBoolean] Accessing invalid index: {}", what));
 		return false;
 	}
 	return boolean[what];
@@ -339,7 +344,7 @@ float ConfigManager::getExperienceStage(uint32_t level) {
 
 bool ConfigManager::setString(string_config_t what, std::string_view value) {
 	if (what >= LAST_STRING_CONFIG) {
-		std::cout << "[Warning - ConfigManager::setString] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::setString] Accessing invalid index: {}", what));
 		return false;
 	}
 
@@ -349,7 +354,7 @@ bool ConfigManager::setString(string_config_t what, std::string_view value) {
 
 bool ConfigManager::setNumber(integer_config_t what, int32_t value) {
 	if (what >= LAST_INTEGER_CONFIG) {
-		std::cout << "[Warning - ConfigManager::setNumber] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::setNumber] Accessing invalid index: {}", what));
 		return false;
 	}
 
@@ -359,7 +364,7 @@ bool ConfigManager::setNumber(integer_config_t what, int32_t value) {
 
 bool ConfigManager::setBoolean(boolean_config_t what, bool value) {
 	if (what >= LAST_BOOLEAN_CONFIG) {
-		std::cout << "[Warning - ConfigManager::setBoolean] Accessing invalid index: " << what << std::endl;
+                Logger::instance().warn(fmt::format("[Warning - ConfigManager::setBoolean] Accessing invalid index: {}", what));
 		return false;
 	}
 

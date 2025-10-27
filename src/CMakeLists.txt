@@ -63,15 +63,18 @@ set(tfs_SRC
 	${CMAKE_CURRENT_LIST_DIR}/server.cpp
 	${CMAKE_CURRENT_LIST_DIR}/signals.cpp
 	${CMAKE_CURRENT_LIST_DIR}/spawn.cpp
-	${CMAKE_CURRENT_LIST_DIR}/spells.cpp
-	${CMAKE_CURRENT_LIST_DIR}/storeinbox.cpp
-	${CMAKE_CURRENT_LIST_DIR}/talkaction.cpp
-	${CMAKE_CURRENT_LIST_DIR}/tasks.cpp
-	${CMAKE_CURRENT_LIST_DIR}/teleport.cpp
-	${CMAKE_CURRENT_LIST_DIR}/thing.cpp
-	${CMAKE_CURRENT_LIST_DIR}/tile.cpp
-	${CMAKE_CURRENT_LIST_DIR}/tools.cpp
-	${CMAKE_CURRENT_LIST_DIR}/trashholder.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/spells.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/storeinbox.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/talkaction.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/tasks.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/teleport.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/thing.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/scripting/LuaErrorWrap.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/tile.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/tools.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/trashholder.cpp
 	${CMAKE_CURRENT_LIST_DIR}/vocation.cpp
 	${CMAKE_CURRENT_LIST_DIR}/weapons.cpp
 	${CMAKE_CURRENT_LIST_DIR}/wildcardtree.cpp
@@ -154,17 +157,20 @@ set(tfs_HDR
 	${CMAKE_CURRENT_LIST_DIR}/scriptmanager.h
 	${CMAKE_CURRENT_LIST_DIR}/server.h
 	${CMAKE_CURRENT_LIST_DIR}/signals.h
-	${CMAKE_CURRENT_LIST_DIR}/spawn.h
-	${CMAKE_CURRENT_LIST_DIR}/spectators.h
-	${CMAKE_CURRENT_LIST_DIR}/spells.h
-	${CMAKE_CURRENT_LIST_DIR}/storeinbox.h
-	${CMAKE_CURRENT_LIST_DIR}/talkaction.h
-	${CMAKE_CURRENT_LIST_DIR}/tasks.h
-	${CMAKE_CURRENT_LIST_DIR}/teleport.h
-	${CMAKE_CURRENT_LIST_DIR}/thing.h
-	${CMAKE_CURRENT_LIST_DIR}/thread_holder_base.h
-	${CMAKE_CURRENT_LIST_DIR}/tile.h
-	${CMAKE_CURRENT_LIST_DIR}/tools.h
+        ${CMAKE_CURRENT_LIST_DIR}/spawn.h
+        ${CMAKE_CURRENT_LIST_DIR}/spectators.h
+        ${CMAKE_CURRENT_LIST_DIR}/spells.h
+        ${CMAKE_CURRENT_LIST_DIR}/storeinbox.h
+        ${CMAKE_CURRENT_LIST_DIR}/talkaction.h
+        ${CMAKE_CURRENT_LIST_DIR}/tasks.h
+        ${CMAKE_CURRENT_LIST_DIR}/teleport.h
+        ${CMAKE_CURRENT_LIST_DIR}/thing.h
+        ${CMAKE_CURRENT_LIST_DIR}/thread_holder_base.h
+        ${CMAKE_CURRENT_LIST_DIR}/scripting/LuaErrorWrap.h
+        ${CMAKE_CURRENT_LIST_DIR}/utils/CrashGuard.h
+        ${CMAKE_CURRENT_LIST_DIR}/utils/Logger.h
+        ${CMAKE_CURRENT_LIST_DIR}/tile.h
+        ${CMAKE_CURRENT_LIST_DIR}/tools.h
 	${CMAKE_CURRENT_LIST_DIR}/town.h
 	${CMAKE_CURRENT_LIST_DIR}/trashholder.h
 	${CMAKE_CURRENT_LIST_DIR}/vocation.h
@@ -186,14 +192,18 @@ endif()
 target_link_libraries(tfslib PRIVATE
         Boost::iostreams
         Boost::locale
-	Boost::system
-	fmt::fmt
-	OpenSSL::Crypto
-	pugixml::pugixml
-	${CMAKE_THREAD_LIBS_INIT}
-	${LUA_LIBRARIES}
-	${MYSQL_CLIENT_LIBS}
+        Boost::system
+        fmt::fmt
+        OpenSSL::Crypto
+        pugixml::pugixml
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${LUA_LIBRARIES}
+        ${MYSQL_CLIENT_LIBS}
 )
+
+if(WIN32)
+        target_link_libraries(tfslib PRIVATE ${DBGHELP_LIBRARIES})
+endif()
 
 if(APPLE)
 	target_link_libraries(tfslib PRIVATE Iconv::Iconv)
