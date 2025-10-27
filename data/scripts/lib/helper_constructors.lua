@@ -1,3 +1,7 @@
+if type(TalkAction) ~= "function" or type(CreatureEvent) ~= "function" or type(GlobalEvent) ~= "function" then
+        return
+end
+
 local classes = {Action, CreatureEvent, Spell, TalkAction, MoveEvent, GlobalEvent, Weapon}
 
 for _, class in ipairs(classes) do

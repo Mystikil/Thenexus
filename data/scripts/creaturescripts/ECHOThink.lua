@@ -1,4 +1,4 @@
-local creatureevent = CreatureEvent("ECHOThink")
+local creatureevent = CreatureEvent('ECHOThink')
 
 if not ECHO_CONFIG then
     dofile('data/lib/echo_config.lua')
@@ -344,7 +344,7 @@ end
 
 local function executeAbility(monster, state, target, abilityKey, ability, phaseData, now)
     local success = false
-    if ability.type == "target" then
+    if ability.type == 'target' then
         local chosen = target
         if not chosen then
             chosen = monster:getTarget()
@@ -352,14 +352,14 @@ local function executeAbility(monster, state, target, abilityKey, ability, phase
         if chosen then
             success = doTargetCombat(monster, chosen, ability.combatType, ability.minDamage, ability.maxDamage, ability.effect or CONST_ME_NONE)
         end
-    elseif ability.type == "area" then
+    elseif ability.type == 'area' then
         local center = target and target:getPosition() or monster:getPosition()
         if ability.area then
             success = doAreaCombatHealth(monster, ability.combatType, center, ability.area, ability.minDamage, ability.maxDamage, ability.effect or CONST_ME_NONE)
         else
             success = doTargetCombat(monster, target or monster, ability.combatType, ability.minDamage, ability.maxDamage, ability.effect or CONST_ME_NONE)
         end
-    elseif ability.type == "self" then
+    elseif ability.type == 'self' then
         success = true
         if ability.resistBoost then
             for dtype, amount in pairs(ability.resistBoost) do
@@ -529,21 +529,4 @@ function creatureevent.onDisappear(monster)
     return true
 end
 
-function onThink(monster, interval)
-    return creatureevent.onThink(monster, interval)
-end
-
-function onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
-    return creatureevent.onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
-end
-
-function onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
-    return creatureevent.onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
-end
-
-function onDisappear(monster)
-    return creatureevent.onDisappear(monster)
-end
-
-creatureevent:type("think")
 creatureevent:register()

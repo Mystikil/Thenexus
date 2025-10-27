@@ -18,15 +18,23 @@ local function ensureMonsterRegistration()
     for name, mType in pairs(monsterTypes) do
         if mType then
             local events = mType:getCreatureEvents() or {}
-            local has = false
+            local hasThink = false
+            local hasBind = false
             for _, eventName in ipairs(events) do
-                if eventName == "ECHOThink" then
-                    has = true
+                if eventName == 'ECHOThink' then
+                    hasThink = true
+                elseif eventName == 'ECHOAutoBind' then
+                    hasBind = true
+                end
+                if hasThink and hasBind then
                     break
                 end
             end
-            if not has then
-                mType:registerEvent("ECHOThink")
+            if not hasThink then
+                mType:registerEvent('ECHOThink')
+            end
+            if not hasBind then
+                mType:registerEvent('ECHOAutoBind')
             end
         end
     end
@@ -64,13 +72,18 @@ local function gcState()
     end
 end
 
-function onStartup()
+local init = GlobalEvent('ECHOInit')
+function init.onStartup()
     ensureGlobals()
     ensureMonsterRegistration()
     return true
 end
 
-function onThink(interval)
+init:register()
+
+local flush = GlobalEvent('ECHOFlush')
+flush:interval(30000)
+function flush.onThink(interval)
     if not ECHO_ENABLED then
         return true
     end
@@ -78,3 +91,5 @@ function onThink(interval)
     gcState()
     return true
 end
+
+flush:register()

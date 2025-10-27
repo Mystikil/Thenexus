@@ -8,15 +8,19 @@ local function log(message)
     print('[ReputationEconomy] ' .. message)
 end
 
-function onStartup()
+local startup = GlobalEvent('ReputationStartup')
+function startup.onStartup()
     if ReputationEconomy and (reputationEnabled or economyEnabled) then
         ReputationEconomy.onStartup()
         log('initialized pools and caches')
     end
     return true
 end
+startup:register()
 
-function onThink(interval)
+local tick = GlobalEvent('ReputationEconomyTick')
+tick:interval(60000)
+function tick.onThink(interval)
     if not ReputationEconomy or not economyEnabled then
         return true
     end
@@ -30,8 +34,11 @@ function onThink(interval)
     end
     return true
 end
+tick:register()
 
-function onTime(interval)
+local decay = GlobalEvent('ReputationDecay')
+decay:time('05:00:00')
+function decay.onTime(interval)
     if ReputationEconomy and reputationEnabled then
         local decayed = ReputationEconomy.applyDecay()
         if decayed > 0 then
@@ -40,5 +47,6 @@ function onTime(interval)
     end
     return true
 end
+decay:register()
 
 trace.checkpoint('rep_eco:globalevents/reputation_economy.lua:end')
