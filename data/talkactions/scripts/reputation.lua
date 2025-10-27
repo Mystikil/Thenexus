@@ -1,3 +1,26 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:talkactions/reputation.lua:begin')
+
+if not (_G.__REPUTATION_SYSTEM_ENABLED) then
+    local function registerDisabledTalk(actionName)
+        local talk = TalkAction(actionName)
+        function talk.onSay(player, words, param)
+            player:sendCancelMessage('Reputation system is disabled.')
+            return false
+        end
+        talk:separator(' ')
+        talk:register()
+    end
+
+    registerDisabledTalk('!rep')
+    registerDisabledTalk('/addrep')
+    registerDisabledTalk('/setrep')
+    registerDisabledTalk('/reptier')
+    registerDisabledTalk('/economy')
+    trace.checkpoint('rep_eco:talkactions/reputation.lua:disabled')
+    return
+end
+
 local function formatStanding(player, faction)
     local rep = ReputationEconomy.getPlayerReputation(player, faction.id)
     local toNext = ReputationEconomy.pointsToNextTier(rep.value)
@@ -155,3 +178,5 @@ function economy.onSay(player, words, param)
 end
 economy:separator(' ')
 economy:register()
+
+trace.checkpoint('rep_eco:talkactions/reputation.lua:end')

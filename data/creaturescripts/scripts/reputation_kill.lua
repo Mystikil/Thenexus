@@ -1,3 +1,14 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:creaturescripts/reputation_kill.lua:begin')
+
+if not (_G.__REPUTATION_SYSTEM_ENABLED) then
+    function onKill(creature, target)
+        return true
+    end
+    trace.checkpoint('rep_eco:creaturescripts/reputation_kill.lua:disabled')
+    return
+end
+
 local config = NX_REPUTATION_CONFIG
 
 function onKill(creature, target)
@@ -25,3 +36,5 @@ function onKill(creature, target)
     end
     return true
 end
+
+trace.checkpoint('rep_eco:creaturescripts/reputation_kill.lua:end')

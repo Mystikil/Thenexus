@@ -1,3 +1,6 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:nx_reputation.lua:begin')
+
 -- Reputation & Trading Economy runtime helpers
 if not NX_REPUTATION_CONFIG then
     dofile('data/lib/nx_reputation_config.lua')
@@ -5,6 +8,20 @@ end
 
 local ReputationEconomy = rawget(_G, 'ReputationEconomy') or {}
 _G.ReputationEconomy = ReputationEconomy
+
+local reputationEnabled = rawget(_G, '__REPUTATION_SYSTEM_ENABLED')
+if reputationEnabled == nil then
+    reputationEnabled = true
+end
+local economyEnabled = rawget(_G, '__ECONOMY_SYSTEM_ENABLED')
+if economyEnabled == nil then
+    economyEnabled = true
+end
+
+if not reputationEnabled and not economyEnabled then
+    trace.checkpoint('rep_eco:nx_reputation.lua:disabled')
+    return ReputationEconomy
+end
 
 local config = NX_REPUTATION_CONFIG
 local tierOrder = config._tierOrder or {}
@@ -191,6 +208,16 @@ local function fetchPlayerReputation(playerId, factionId, bypassCache)
 end
 
 function ReputationEconomy.getPlayerReputation(player, factionId, bypassCache)
+    if not reputationEnabled then
+        local defaultTier = config.tiers[1]
+        return {
+            playerId = type(player) == 'number' and player or player:getGuid(),
+            factionId = factionId,
+            value = 0,
+            tier = defaultTier,
+        }
+    end
+
     local playerId = type(player) == 'number' and player or player:getGuid()
     local repValue, tier = fetchPlayerReputation(playerId, factionId, bypassCache)
     return {
@@ -256,12 +283,24 @@ local function fetchEconomyState(factionId, factionConfig, bypassCache)
 end
 
 function ReputationEconomy.getEconomyPool(factionId, bypassCache)
+    if not economyEnabled then
+        return 0
+    end
     local factionConfig = ReputationEconomy.getFactionConfig(factionId)
     local state = fetchEconomyState(factionId, factionConfig, bypassCache)
     return state.pool
 end
 
 function ReputationEconomy.getEconomyState(factionId, bypassCache)
+    if not economyEnabled then
+        return {
+            pool = 0,
+            modifier = 1.0,
+            label = 'disabled',
+            secretChance = 0,
+            capDiscount = false,
+        }
+    end
     local factionConfig = ReputationEconomy.getFactionConfig(factionId) or {}
     local economyConfig = factionConfig.economy or {}
     local stateData = fetchEconomyState(factionId, factionConfig, bypassCache)
@@ -478,6 +517,30 @@ local function clamp(value)
 end
 
 function ReputationEconomy.calculateNpcPrice(player, npcContext, params)
+    if not reputationEnabled and not economyEnabled then
+        params = params or {}
+        local basePrice = params.basePrice or 0
+        local amount = math.max(1, params.amount or 1)
+        return {
+            unitPrice = basePrice,
+            unitGross = basePrice,
+            unitFee = 0,
+            grossTotal = basePrice * amount,
+            netTotal = basePrice * amount,
+            totalFee = 0,
+            tier = config.tiers[1],
+            tierModifier = 1.0,
+            economyModifier = 1.0,
+            economyState = { label = 'disabled', modifier = 1.0 },
+            globalModifier = 1.0,
+            feeRate = 0,
+            factionConfig = nil,
+            dynamic = nil,
+            stock = nil
+        }
+    end
+
+    params = params or {}
     local priceType = params.type or 'buy'
     local amount = math.max(1, params.amount or 1)
     local basePrice = params.basePrice or 0
@@ -585,6 +648,10 @@ function ReputationEconomy.calculateNpcPrice(player, npcContext, params)
 end
 
 function ReputationEconomy.queueEconomyDelta(factionId, delta, reason, referenceId)
+    if not economyEnabled then
+        return 0
+    end
+
     if delta == 0 then
         return
     end
@@ -600,6 +667,10 @@ function ReputationEconomy.queueEconomyDelta(factionId, delta, reason, reference
 end
 
 function ReputationEconomy.flushEconomyLedger(limit)
+    if not economyEnabled then
+        return 0
+    end
+
     limit = limit or 50
     local query = string.format('SELECT `id`, `faction_id`, `delta`, `reason`, `reference_id` FROM `%s` WHERE `processed` = 0 ORDER BY `id` ASC LIMIT %d', TABLE_ECONOMY_LEDGER, limit)
     local resultId = db.storeQuery(query)
@@ -609,7 +680,13 @@ function ReputationEconomy.flushEconomyLedger(limit)
 
     local processedIds = {}
     local processedCount = 0
+    local iterations = 0
     repeat
+        iterations = iterations + 1
+        if iterations > limit * 10 then
+            print('[ReputationEconomy] flushEconomyLedger aborted due to iteration cap')
+            break
+        end
         local rowId = result.getNumber(resultId, 'id')
         local factionId = result.getNumber(resultId, 'faction_id')
         local delta = result.getNumber(resultId, 'delta')
@@ -686,6 +763,10 @@ local function applySoftHardCaps(factionConfig, currentValue, delta)
 end
 
 function ReputationEconomy.addReputation(player, factionId, delta, source, extra)
+    if not reputationEnabled then
+        return 0
+    end
+
     if delta == 0 then
         return 0
     end
@@ -722,6 +803,10 @@ function ReputationEconomy.addReputation(player, factionId, delta, source, extra
 end
 
 function ReputationEconomy.addTradeReputation(player, factionId, amount, priceType, priceInfo)
+    if not reputationEnabled then
+        return 0
+    end
+
     local factionConfig = ReputationEconomy.getFactionConfig(factionId)
     if not factionConfig then
         return 0
@@ -906,6 +991,10 @@ function ReputationEconomy.sendShopHint(player, npcContext)
 end
 
 function ReputationEconomy.captureMarketFees(limit)
+    if not economyEnabled then
+        return 0
+    end
+
     limit = limit or 100
     local cursorQuery = string.format('SELECT `id`, `last_history_id` FROM `%s` LIMIT 1', TABLE_MARKET_CURSOR)
     local cursorId = 0
@@ -925,7 +1014,13 @@ function ReputationEconomy.captureMarketFees(limit)
 
     local processed = 0
     local finalId = lastId
+    local iterations = 0
     repeat
+        iterations = iterations + 1
+        if iterations > limit * 10 then
+            print('[ReputationEconomy] captureMarketFees aborted due to iteration cap')
+            break
+        end
         local rowId = result.getNumber(historyId, 'id')
         local playerId = result.getNumber(historyId, 'player_id')
         local sale = result.getNumber(historyId, 'sale')
@@ -962,6 +1057,9 @@ function ReputationEconomy.captureMarketFees(limit)
 end
 
 function ReputationEconomy.applyDecay()
+    if not reputationEnabled then
+        return 0
+    end
     local processed = 0
     for name, info in pairs(config.factions) do
         local factionId = info.id
@@ -971,7 +1069,13 @@ function ReputationEconomy.applyDecay()
             local query = string.format('SELECT `player_id`, `reputation`, `last_decay` FROM `%s` WHERE `faction_id` = %d', TABLE_PLAYER_REP, factionId)
             local resultId = db.storeQuery(query)
             if resultId then
+                local iterations = 0
                 repeat
+                    iterations = iterations + 1
+                    if iterations > 10000 then
+                        print(string.format('[ReputationEconomy] applyDecay aborted for faction %s due to iteration cap', tostring(name)))
+                        break
+                    end
                     local playerId = result.getNumber(resultId, 'player_id')
                     local reputationValue = result.getNumber(resultId, 'reputation')
                     local lastDecay = result.getNumber(resultId, 'last_decay')
@@ -1017,5 +1121,7 @@ function ReputationEconomy.getAllFactions()
     table.sort(list, function(a, b) return a.id < b.id end)
     return list
 end
+
+trace.checkpoint('rep_eco:nx_reputation.lua:end')
 
 return ReputationEconomy

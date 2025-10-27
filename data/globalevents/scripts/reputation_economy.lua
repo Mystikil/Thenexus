@@ -1,9 +1,15 @@
+local trace = trace or { checkpoint = function() end }
+trace.checkpoint('rep_eco:globalevents/reputation_economy.lua:begin')
+
+local reputationEnabled = _G.__REPUTATION_SYSTEM_ENABLED ~= false
+local economyEnabled = _G.__ECONOMY_SYSTEM_ENABLED ~= false
+
 local function log(message)
     print('[ReputationEconomy] ' .. message)
 end
 
 function onStartup()
-    if ReputationEconomy then
+    if ReputationEconomy and (reputationEnabled or economyEnabled) then
         ReputationEconomy.onStartup()
         log('initialized pools and caches')
     end
@@ -11,7 +17,7 @@ function onStartup()
 end
 
 function onThink(interval)
-    if not ReputationEconomy then
+    if not ReputationEconomy or not economyEnabled then
         return true
     end
     local applied = ReputationEconomy.flushEconomyLedger()
@@ -26,7 +32,7 @@ function onThink(interval)
 end
 
 function onTime(interval)
-    if ReputationEconomy then
+    if ReputationEconomy and reputationEnabled then
         local decayed = ReputationEconomy.applyDecay()
         if decayed > 0 then
             log('applied decay to ' .. decayed .. ' player rows')
@@ -34,3 +40,5 @@ function onTime(interval)
     end
     return true
 end
+
+trace.checkpoint('rep_eco:globalevents/reputation_economy.lua:end')

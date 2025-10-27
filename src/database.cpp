@@ -6,8 +6,138 @@
 #include "database.h"
 
 #include "configmanager.h"
+#include "utils/DiagnosticsConfig.h"
+#include "utils/Logger.h"
 
 #include <mysql/errmsg.h>
+
+#include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cctype>
+#include <string>
+#include <string_view>
+
+#include <fmt/format.h>
+
+namespace {
+
+        constexpr std::array<std::string_view, 8> kRepEcoTables = {
+                "factions",
+                "npc_factions",
+                "player_faction_reputation",
+                "player_faction_reputation_log",
+                "faction_economy",
+                "faction_economy_history",
+                "faction_economy_ledger",
+                "faction_market_cursor",
+        };
+
+        constexpr std::chrono::milliseconds kSlowQueryThreshold{1000};
+        constexpr std::chrono::seconds kTransactionWarningThreshold{5};
+
+        std::atomic<bool> g_transactionActive{false};
+        std::atomic<bool> g_transactionWarned{false};
+        std::atomic<int64_t> g_transactionStartMs{0};
+
+        int64_t toMilliseconds(const std::chrono::steady_clock::time_point& tp) {
+                return std::chrono::duration_cast<std::chrono::milliseconds>(tp.time_since_epoch()).count();
+        }
+
+        void beginTransactionTimer() {
+                g_transactionActive.store(true, std::memory_order_relaxed);
+                g_transactionWarned.store(false, std::memory_order_relaxed);
+                g_transactionStartMs.store(toMilliseconds(std::chrono::steady_clock::now()), std::memory_order_relaxed);
+        }
+
+        void endTransactionTimer() {
+                g_transactionActive.store(false, std::memory_order_relaxed);
+                g_transactionWarned.store(false, std::memory_order_relaxed);
+        }
+
+        std::string toLowerLimited(std::string_view text, std::size_t limit) {
+                std::string lower;
+                const auto count = std::min<std::size_t>(text.size(), limit);
+                lower.reserve(count);
+                for (std::size_t index = 0; index < count; ++index) {
+                        lower.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(text[index]))));
+                }
+                return lower;
+        }
+
+        bool shouldTraceRepEco(std::string_view query) {
+                if (!diagnostics::isSqlTraceEnabled()) {
+                        return false;
+                }
+
+                const auto lowered = toLowerLimited(query, 4096);
+                for (const auto table : kRepEcoTables) {
+                        if (lowered.find(table) != std::string::npos) {
+                                return true;
+                        }
+                }
+                return false;
+        }
+
+        std::string sanitizeSql(std::string_view sql) {
+                std::string sanitized;
+                sanitized.reserve(std::min<std::size_t>(sql.size(), 120));
+                std::size_t appended = 0;
+                bool previousSpace = false;
+                for (char ch : sql) {
+                        if (appended >= 120) {
+                                break;
+                        }
+                        unsigned char uch = static_cast<unsigned char>(ch);
+                        if (std::isspace(uch)) {
+                                if (!previousSpace) {
+                                        sanitized.push_back(' ');
+                                        ++appended;
+                                        previousSpace = true;
+                                }
+                        } else {
+                                sanitized.push_back(ch);
+                                ++appended;
+                                previousSpace = false;
+                        }
+                }
+
+                return sanitized;
+        }
+
+        void checkTransactionDuration() {
+                if (!g_transactionActive.load(std::memory_order_relaxed) || g_transactionWarned.load(std::memory_order_relaxed)) {
+                        return;
+                }
+
+                const auto nowMs = toMilliseconds(std::chrono::steady_clock::now());
+                const auto startMs = g_transactionStartMs.load(std::memory_order_relaxed);
+                if (nowMs - startMs >= std::chrono::duration_cast<std::chrono::milliseconds>(kTransactionWarningThreshold).count()) {
+                        g_transactionWarned.store(true, std::memory_order_relaxed);
+                        Logger::instance().warn(fmt::format("SQL[rep_eco] long-running transaction ({} ms without commit)", nowMs - startMs));
+                        Logger::instance().flush();
+                }
+        }
+
+        void logSqlTrace(std::string_view sql, std::chrono::milliseconds duration, uint64_t rows, bool isSelect) {
+                const std::string message = fmt::format(
+                        "SQL[rep_eco] ({} ms, {} {}) {}",
+                        duration.count(),
+                        rows,
+                        isSelect ? "rows" : "rows affected",
+                        sanitizeSql(sql));
+
+                if (duration > kSlowQueryThreshold) {
+                        Logger::instance().warn(message);
+                } else {
+                        Logger::instance().info(message);
+                }
+                Logger::instance().flush();
+                checkTransactionDuration();
+        }
+
+} // namespace
 
 static detail::Mysql_ptr connectToDatabase(const bool retryIfError) {
 	bool isFirstAttemptToConnect = true;
@@ -88,71 +218,118 @@ bool Database::connect() {
 }
 
 bool Database::beginTransaction() {
-	databaseLock.lock();
+        databaseLock.lock();
 
-	const bool result = executeQuery("START TRANSACTION");
-	retryQueries = !result;
-	if (!result) {
-		databaseLock.unlock();
-	}
+        const bool result = executeQuery("START TRANSACTION");
+        retryQueries = !result;
+        if (!result) {
+                databaseLock.unlock();
+        } else {
+                beginTransactionTimer();
+        }
 
-	return result;
+        return result;
 }
 
 bool Database::rollback() {
-	const bool result = executeQuery("ROLLBACK");
-	retryQueries = true;
-	databaseLock.unlock();
+        const bool result = executeQuery("ROLLBACK");
+        retryQueries = true;
+        databaseLock.unlock();
+        if (result) {
+                endTransactionTimer();
+        }
 
-	return result;
+        return result;
 }
 
 bool Database::commit() {
-	const bool result = executeQuery("COMMIT");
-	retryQueries = true;
-	databaseLock.unlock();
+        const bool result = executeQuery("COMMIT");
+        retryQueries = true;
+        databaseLock.unlock();
+        if (result) {
+                endTransactionTimer();
+        }
 
-	return result;
+        return result;
 }
 
 bool Database::executeQuery(const std::string& query) {
-	std::lock_guard<std::recursive_mutex> lockGuard(databaseLock);
-	auto result = ::executeQuery(handle, query, retryQueries);
+        std::lock_guard<std::recursive_mutex> lockGuard(databaseLock);
+        const bool traceThis = shouldTraceRepEco(query);
+        std::chrono::steady_clock::time_point start;
+        if (traceThis) {
+                start = std::chrono::steady_clock::now();
+        }
 
-	// executeQuery can be called with command that produces result (e.g. SELECT)
-	// we have to store that result, even though we do not need it, otherwise handle will get blocked
-	auto mysql_res = mysql_store_result(handle.get());
-	mysql_free_result(mysql_res);
+        auto result = ::executeQuery(handle, query, retryQueries);
 
-	return result;
+        my_ulonglong affectedRows = 0;
+        if (result) {
+                affectedRows = mysql_affected_rows(handle.get());
+        }
+
+        // executeQuery can be called with command that produces result (e.g. SELECT)
+        // we have to store that result, even though we do not need it, otherwise handle will get blocked
+        auto mysql_res = mysql_store_result(handle.get());
+        mysql_free_result(mysql_res);
+
+        if (traceThis) {
+                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+                logSqlTrace(query, duration, static_cast<uint64_t>(affectedRows), false);
+        }
+
+        return result;
 }
 
 DBResult_ptr Database::storeQuery(std::string_view query) {
-	std::lock_guard<std::recursive_mutex> lockGuard(databaseLock);
+        std::lock_guard<std::recursive_mutex> lockGuard(databaseLock);
 
-	retry:
-	if (!::executeQuery(handle, query, retryQueries) && !retryQueries) {
-		return nullptr;
-	}
+        const bool traceThis = shouldTraceRepEco(query);
+        std::chrono::steady_clock::time_point start;
+        if (traceThis) {
+                start = std::chrono::steady_clock::now();
+        }
 
-	// we should call that every time as someone would call executeQuery('SELECT...')
-	// as it is described in MySQL manual: "it doesn't hurt" :P
-	detail::MysqlResult_ptr res{mysql_store_result(handle.get())};
-	if (!res) {
-		std::cout << "[Error - mysql_store_result] Query: " << query << std::endl << "Message: " << mysql_error(handle.get()) << std::endl;
-		const unsigned error = mysql_errno(handle.get());
-		if (!isLostConnectionError(error) || !retryQueries) {
-			return nullptr;
-		}
-		goto retry;
-	}
+retry:
+        if (!::executeQuery(handle, query, retryQueries) && !retryQueries) {
+                if (traceThis) {
+                        const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+                        logSqlTrace(query, duration, 0, true);
+                }
+                return nullptr;
+        }
 
-	// retrieving results of query
-	DBResult_ptr result = std::make_shared<DBResult>(std::move(res));
-	if (!result->hasNext()) {
-		return nullptr;
-	}
-	return result;
+        // we should call that every time as someone would call executeQuery('SELECT...')
+        // as it is described in MySQL manual: "it doesn't hurt" :P
+        detail::MysqlResult_ptr res{mysql_store_result(handle.get())};
+        if (!res) {
+                std::cout << "[Error - mysql_store_result] Query: " << query << std::endl << "Message: " << mysql_error(handle.get()) << std::endl;
+                const unsigned error = mysql_errno(handle.get());
+                if (!isLostConnectionError(error) || !retryQueries) {
+                        if (traceThis) {
+                                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+                                logSqlTrace(query, duration, 0, true);
+                        }
+                        return nullptr;
+                }
+                goto retry;
+        }
+
+        const uint64_t rowCount = static_cast<uint64_t>(mysql_num_rows(res.get()));
+        // retrieving results of query
+        DBResult_ptr result = std::make_shared<DBResult>(std::move(res));
+        if (!result->hasNext()) {
+                if (traceThis) {
+                        const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+                        logSqlTrace(query, duration, rowCount, true);
+                }
+                return nullptr;
+        }
+        if (traceThis) {
+                const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+                logSqlTrace(query, duration, rowCount, true);
+        }
+        return result;
 }
 
 std::string Database::escapeBlob(const char* s, uint32_t length) const {
