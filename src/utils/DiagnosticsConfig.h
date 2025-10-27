@@ -1,14 +1,11 @@
 #pragma once
 
-#include <atomic>
-
 namespace diagnostics {
 
-        void setTraceStartupEnabled(bool enabled);
-        bool isTraceStartupEnabled();
-
-        void setSqlTraceEnabled(bool enabled);
-        bool isSqlTraceEnabled();
+bool isSqlTraceEnabled();
+void setSqlTraceEnabled(bool enabled);
+bool isTraceStartupEnabled();
+void setTraceStartupEnabled(bool enabled);
 
 } // namespace diagnostics
 
