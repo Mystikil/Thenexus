@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
+#include <lua.hpp>
 
-struct lua_State;
+#include <string>
 
 int pushTraceback(lua_State* L);
 bool pcallWithTrace(lua_State* L, int nargs, int nresults, const std::string& context);
