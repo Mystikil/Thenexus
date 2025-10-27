@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "common/diagnostics.h"
 
 #include <atomic>

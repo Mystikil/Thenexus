@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "Logger.h"
 
 #include <chrono>

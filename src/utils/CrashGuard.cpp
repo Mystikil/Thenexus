@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "utils/CrashGuard.h"
 
 #include "utils/Logger.h"
