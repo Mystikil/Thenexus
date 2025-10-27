@@ -256,6 +256,14 @@
     <ClCompile Include="..\src\xtea.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\common\diagnostics.cpp" />
+    <ClCompile Include="src\utils\Path.cpp" />
+    <ClCompile Include="src\utils\Logger.cpp" />
+    <ClCompile Include="src\utils\CrashGuard.cpp" />
+    <ClCompile Include="src\utils\StartupProbe.cpp" />
+    <ClCompile Include="src\scripting\LuaErrorWrap.cpp" />
+  </ItemGroup>
+  <ItemGroup>
     <ClInclude Include="..\src\actions.h" />
     <ClInclude Include="..\src\ban.h" />
     <ClInclude Include="..\src\baseevents.h" />
