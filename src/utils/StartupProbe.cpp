@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "utils/StartupProbe.h"
 
 #include "utils/Logger.h"

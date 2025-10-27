@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "scripting/LuaErrorWrap.h"
 
 #include <lua.hpp>

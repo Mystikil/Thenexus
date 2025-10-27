@@ -1,3 +1,5 @@
+#include "otpch.h"
+
 #include "Path.h"
 
 #include <filesystem>
