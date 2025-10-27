@@ -1,11 +1,12 @@
 set(tfs_SRC
-	${CMAKE_CURRENT_LIST_DIR}/otpch.cpp
-	${CMAKE_CURRENT_LIST_DIR}/actions.cpp
-	${CMAKE_CURRENT_LIST_DIR}/ban.cpp
-	${CMAKE_CURRENT_LIST_DIR}/baseevents.cpp
-	${CMAKE_CURRENT_LIST_DIR}/bed.cpp
-	${CMAKE_CURRENT_LIST_DIR}/chat.cpp
-	${CMAKE_CURRENT_LIST_DIR}/combat.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/otpch.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/actions.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/ban.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/baseevents.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/bed.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/chat.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/common/diagnostics.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/combat.cpp
 	${CMAKE_CURRENT_LIST_DIR}/condition.cpp
 	${CMAKE_CURRENT_LIST_DIR}/configmanager.cpp
 	${CMAKE_CURRENT_LIST_DIR}/connection.cpp
@@ -85,13 +86,14 @@ set(tfs_SRC
 )
 
 set(tfs_HDR
-	${CMAKE_CURRENT_LIST_DIR}/otpch.h
-	${CMAKE_CURRENT_LIST_DIR}/actions.h
-	${CMAKE_CURRENT_LIST_DIR}/ban.h
-	${CMAKE_CURRENT_LIST_DIR}/baseevents.h
-	${CMAKE_CURRENT_LIST_DIR}/bed.h
-	${CMAKE_CURRENT_LIST_DIR}/chat.h
-	${CMAKE_CURRENT_LIST_DIR}/combat.h
+        ${CMAKE_CURRENT_LIST_DIR}/otpch.h
+        ${CMAKE_CURRENT_LIST_DIR}/actions.h
+        ${CMAKE_CURRENT_LIST_DIR}/ban.h
+        ${CMAKE_CURRENT_LIST_DIR}/baseevents.h
+        ${CMAKE_CURRENT_LIST_DIR}/bed.h
+        ${CMAKE_CURRENT_LIST_DIR}/chat.h
+        ${CMAKE_CURRENT_LIST_DIR}/common/diagnostics.h
+        ${CMAKE_CURRENT_LIST_DIR}/combat.h
 	${CMAKE_CURRENT_LIST_DIR}/condition.h
 	${CMAKE_CURRENT_LIST_DIR}/configmanager.h
 	${CMAKE_CURRENT_LIST_DIR}/connection.h
