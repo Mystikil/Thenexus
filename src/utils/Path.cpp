@@ -14,25 +14,26 @@ std::filesystem::path makePath(std::filesystem::path const& rel)
 
     while (true) {
         SetLastError(ERROR_SUCCESS);
-        DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        const DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
         if (length == 0) {
             return rel;
         }
 
-        if (length == buffer.size()) {
-            const DWORD error = GetLastError();
-            if (error == ERROR_INSUFFICIENT_BUFFER) {
-                buffer.resize(buffer.size() * 2, L'\0');
-                continue;
-            }
+        if (length < buffer.size()) {
+            buffer.resize(length);
+            std::filesystem::path exePath(buffer);
+            return exePath.parent_path() / rel;
         }
 
-        buffer.resize(length);
-        std::filesystem::path exePath(buffer);
-        return exePath.parent_path() / rel;
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+            buffer.resize(length);
+            std::filesystem::path exePath(buffer);
+            return exePath.parent_path() / rel;
+        }
+
+        buffer.resize(buffer.size() * 2, L'\0');
     }
 #else
-    return std::filesystem::current_path() / rel;
+    return rel;
 #endif
 }
-
