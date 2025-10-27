@@ -35,6 +35,10 @@ $routes = [
     'downloads' => __DIR__ . '/pages/downloads.php',
     'rules' => __DIR__ . '/pages/rules.php',
     'about' => __DIR__ . '/pages/about.php',
+    'features' => __DIR__ . '/pages/features.php',
+    'feature_echo_ai' => __DIR__ . '/pages/feature_echo_ai.php',
+    'feature_dynamic_economy' => __DIR__ . '/pages/feature_dynamic_economy.php',
+    'feature_unified_reputation' => __DIR__ . '/pages/feature_unified_reputation.php',
 ];
 
 $page = $_GET['p'] ?? 'home';

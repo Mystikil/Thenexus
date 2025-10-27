@@ -18,6 +18,17 @@ $u = current_user();
         <li class="nav-item"><a class="nav-link<?php echo $current === 'home' ? ' active' : ''; ?>" href="?p=home">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/Site/roadmap/">Roadmap</a></li>
 
+        <?php $featurePages = ['features', 'feature_echo_ai', 'feature_dynamic_economy', 'feature_unified_reputation']; ?>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle<?php echo in_array($current, $featurePages, true) ? ' active' : ''; ?>" href="#" data-bs-toggle="dropdown">Features</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item<?php echo $current === 'features' ? ' active' : ''; ?>" href="?p=features">Overview</a></li>
+            <li><a class="dropdown-item<?php echo $current === 'feature_echo_ai' ? ' active' : ''; ?>" href="?p=feature_echo_ai">E.C.H.O AI System</a></li>
+            <li><a class="dropdown-item<?php echo $current === 'feature_dynamic_economy' ? ' active' : ''; ?>" href="?p=feature_dynamic_economy">Dynamic Player-Driven Economy</a></li>
+            <li><a class="dropdown-item<?php echo $current === 'feature_unified_reputation' ? ' active' : ''; ?>" href="?p=feature_unified_reputation">Unified Reputation &amp; Trading</a></li>
+          </ul>
+        </li>
+
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Game</a>
           <ul class="dropdown-menu">
