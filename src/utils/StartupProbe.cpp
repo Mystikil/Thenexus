@@ -8,6 +8,7 @@
 #include <chrono>
 #include <mutex>
 #include <string>
+#include <string_view>
 #include <thread>
 
 #include <fmt/format.h>
@@ -92,10 +93,12 @@ void StartupProbe::shutdown()
 void StartupProbe::mark(const char* phase)
 {
     const auto now = std::chrono::steady_clock::now();
-    std::string phaseName = phase != nullptr ? phase : "";
-    if (phaseName.empty()) {
-        phaseName = "(none)";
+    std::string_view phaseView = phase != nullptr ? std::string_view{phase} : std::string_view{};
+    if (phaseView.empty()) {
+        phaseView = "(none)";
     }
+
+    std::string phaseName{phaseView};
 
     std::chrono::milliseconds delta{0};
     {
