@@ -24,6 +24,9 @@
   <event type="healthchange" name="nx_boss_hit"    script="nx_boss_think.lua"/>
   <event type="death"        name="nx_boss_death"  script="nx_boss_think.lua"/>
 
+  <event type="spawn" name="MonsterRankSpawn" script="monster/monster_rank.lua"/>
+  <event type="death" name="MonsterRankDeath" script="monster/monster_rank.lua"/>
+
   <!-- REMOVE these (your fork doesn’t support their types):
        <event type="spawn" name="nx_rank_apply"  script="nx_rank_apply.lua"/>
        <event type="look"  name="nx_rank_look"   script="nx_rank_look.lua"/>
