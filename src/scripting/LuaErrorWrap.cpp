@@ -6,6 +6,10 @@
 
 #include "utils/Logger.h"
 
+#ifndef LUA_OK
+#define LUA_OK 0
+#endif
+
 int pushTraceback(lua_State* L)
 {
     const char* message = nullptr;
@@ -19,7 +23,32 @@ int pushTraceback(lua_State* L)
         }
     }
 
+#if LUA_VERSION_NUM >= 502
     luaL_traceback(L, L, message, 1);
+#else
+    if (!message) {
+        message = "";
+    }
+
+    lua_getglobal(L, "debug");
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_pushstring(L, message);
+        return 1;
+    }
+
+    lua_getfield(L, -1, "traceback");
+    if (!lua_isfunction(L, -1)) {
+        lua_pop(L, 2);
+        lua_pushstring(L, message);
+        return 1;
+    }
+
+    lua_pushstring(L, message);
+    lua_pushinteger(L, 2);
+    lua_call(L, 2, 1);
+    lua_remove(L, -2);
+#endif
     return 1;
 }
 
