@@ -7,6 +7,9 @@
 // Definitions should be global.
 #include "definitions.h"
 
+// Project-wide formatters for fmt::* usage.
+#include "config/ConfigFormatters.h"
+
 // System headers required in headers should be included here.
 #include <algorithm>
 #include <array>
