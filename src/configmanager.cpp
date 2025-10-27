@@ -12,6 +12,8 @@
 
 #include <fmt/format.h>
 
+#include "config/ConfigFormatters.h"
+
 #if __has_include("luajit/lua.hpp")
 #include <luajit/lua.hpp>
 #else
