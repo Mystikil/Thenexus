@@ -10,6 +10,13 @@ local function ensureGlobals()
     ECHO_PERSIST_BUFFER = ECHO_PERSIST_BUFFER or {}
 end
 
+local REQUIRED_EVENTS = {
+    'ECHOThink',
+    'ECHOThinkHealth',
+    'ECHOThinkDeath',
+    'ECHOAutoBind',
+}
+
 local function ensureMonsterRegistration()
     local monsterTypes = Game.getMonsterTypes and Game.getMonsterTypes() or nil
     if not monsterTypes then
@@ -17,24 +24,14 @@ local function ensureMonsterRegistration()
     end
     for name, mType in pairs(monsterTypes) do
         if mType then
-            local events = mType:getCreatureEvents() or {}
-            local hasThink = false
-            local hasBind = false
-            for _, eventName in ipairs(events) do
-                if eventName == 'ECHOThink' then
-                    hasThink = true
-                elseif eventName == 'ECHOAutoBind' then
-                    hasBind = true
-                end
-                if hasThink and hasBind then
-                    break
-                end
+            local existing = {}
+            for _, eventName in ipairs(mType:getCreatureEvents() or {}) do
+                existing[eventName] = true
             end
-            if not hasThink then
-                mType:registerEvent('ECHOThink')
-            end
-            if not hasBind then
-                mType:registerEvent('ECHOAutoBind')
+            for _, requiredName in ipairs(REQUIRED_EVENTS) do
+                if not existing[requiredName] then
+                    mType:registerEvent(requiredName)
+                end
             end
         end
     end

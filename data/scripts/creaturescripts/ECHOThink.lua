@@ -1,5 +1,3 @@
-local creatureevent = CreatureEvent('ECHOThink')
-
 if not ECHO_CONFIG then
     dofile('data/lib/echo_config.lua')
 end
@@ -442,7 +440,7 @@ local function updateSessionTotals(state, bucket, amount)
     state.sessionTotals.total = (state.sessionTotals.total or 0) + amount
 end
 
-function creatureevent.onThink(monster)
+local function onThink(monster)
     if not ECHO_ENABLED or not monster or not monster:isMonster() then
         return true
     end
@@ -478,7 +476,7 @@ function creatureevent.onThink(monster)
     return true
 end
 
-function creatureevent.onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
+local function onHealthChange(monster, attacker, primaryDamage, primaryType, secondaryDamage, secondaryType, origin)
     if not ECHO_ENABLED or not monster or not monster:isMonster() then
         return primaryDamage, primaryType, secondaryDamage, secondaryType
     end
@@ -506,7 +504,7 @@ function creatureevent.onHealthChange(monster, attacker, primaryDamage, primaryT
     return primaryDamage, primaryType, secondaryDamage, secondaryType
 end
 
-function creatureevent.onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
+local function onDeath(monster, corpse, killer, mostDamageKiller, unjustified, mostDamageUnjustified)
     if not monster or not monster:isMonster() then
         return true
     end
@@ -521,12 +519,21 @@ function creatureevent.onDeath(monster, corpse, killer, mostDamageKiller, unjust
     return true
 end
 
-function creatureevent.onDisappear(monster)
-    if not monster then
-        return true
-    end
-    ECHO_STATE[monster:getId()] = nil
-    return true
+local function registerEvent(name, eventType, registrar)
+    local event = CreatureEvent(name)
+    event:type(eventType)
+    registrar(event)
+    event:register()
 end
 
-creatureevent:register()
+registerEvent('ECHOThink', 'think', function(event)
+    event:onThink(onThink)
+end)
+
+registerEvent('ECHOThinkHealth', 'healthchange', function(event)
+    event:onHealthChange(onHealthChange)
+end)
+
+registerEvent('ECHOThinkDeath', 'death', function(event)
+    event:onDeath(onDeath)
+end)
