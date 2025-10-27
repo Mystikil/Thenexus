@@ -36,11 +36,20 @@ local function scaleLootEntry(entry, multiplier)
         return scaled
 end
 
-local function rollLootTable(corpse, lootEntries, multiplier)
+local function rollLootTable(monster, corpse, lootEntries, multiplier)
+        local economy = rawget(_G, 'NX_ECONOMY')
+        local shouldAllow = economy and economy.shouldAllowLootItem
+
         for i = 1, #lootEntries do
                 local entry = scaleLootEntry(lootEntries[i], multiplier)
-                if not corpse:createLootItem(entry) then
-                        print("[Warning] DropLoot: Could not add loot item to corpse.")
+                local allow = true
+                if shouldAllow then
+                        allow = shouldAllow(entry, { monster = monster, corpse = corpse })
+                end
+                if allow then
+                        if not corpse:createLootItem(entry) then
+                                print("[Warning] DropLoot: Could not add loot item to corpse.")
+                        end
                 end
         end
 end
@@ -67,10 +76,10 @@ event.onDropLoot = function(self, corpse)
 
         if doCreateLoot then
                 local monsterLoot = mType:getLoot()
-                rollLootTable(corpse, monsterLoot, lootMultiplier)
+                rollLootTable(self, corpse, monsterLoot, lootMultiplier)
                 if extraRolls > 0 then
                         for _ = 1, extraRolls do
-                                rollLootTable(corpse, monsterLoot, lootMultiplier)
+                                rollLootTable(self, corpse, monsterLoot, lootMultiplier)
                         end
                 end
         end

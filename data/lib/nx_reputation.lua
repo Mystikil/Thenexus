@@ -8,6 +8,7 @@ _G.ReputationEconomy = ReputationEconomy
 
 local config = NX_REPUTATION_CONFIG
 local tierOrder = config._tierOrder or {}
+local Economy = rawget(_G, 'NX_ECONOMY')
 local OFFERSTATE_ACCEPTED = rawget(_G, 'OFFERSTATE_ACCEPTED') or 3
 local jsonEncode = json and json.encode or function()
     return '{}'
@@ -425,14 +426,23 @@ function ReputationEconomy.getShopItemMetadata(npcHandler, priceType, itemId, su
 end
 
 local function computeTierModifier(tier, priceType)
+    local modifier
     if priceType == 'buy' then
-        return tier.buyModifier or 1.0
+        modifier = tier.buyModifier or 1.0
+    else
+        modifier = tier.sellModifier or 1.0
     end
-    return tier.sellModifier or 1.0
+    if Economy and Economy.getReputationPriceModifier and tier and tier.name then
+        modifier = modifier * Economy.getReputationPriceModifier(tier.name)
+    end
+    return modifier
 end
 
 local function computeGlobalModifier(priceType)
     local modifier = (config.globalModifiers and config.globalModifiers[priceType]) or 1.0
+    if Economy and Economy.getMarketFeeModifier then
+        modifier = modifier * Economy.getMarketFeeModifier(priceType)
+    end
     return modifier
 end
 
@@ -448,6 +458,13 @@ local function getFeeRate(factionConfig, npcContext, priceType)
 
     if npcContext and npcContext.options and npcContext.options.fees and npcContext.options.fees[priceType] then
         base = npcContext.options.fees[priceType]
+    end
+
+    if Economy and Economy.resolveNpcPricing and npcContext and npcContext.__lastPricing and npcContext.__lastPricing[priceType] then
+        local override = npcContext.__lastPricing[priceType].feeRate
+        if override ~= nil then
+            base = override
+        end
     end
 
     return math.max(0, base)
@@ -476,12 +493,58 @@ function ReputationEconomy.calculateNpcPrice(player, npcContext, params)
 
     local globalModifier = computeGlobalModifier(priceType)
 
-    local adjustedUnit = math.floor(basePrice * tierModifier * economyModifier * globalModifier + 0.5)
+    local dynamicPricing
+    if Economy and Economy.resolveNpcPricing then
+        dynamicPricing = Economy.resolveNpcPricing(npcContext, {
+            type = priceType,
+            amount = amount,
+            basePrice = basePrice,
+            itemId = params.itemId,
+            metadata = params.metadata,
+            player = player
+        })
+    end
+
+    local dynamicMultiplier = 1.0
+    local dynamicFeeOverride
+    local priceFloor
+    local priceCeiling
+    local stockInfo
+    if dynamicPricing then
+        dynamicMultiplier = dynamicPricing.priceMultiplier or 1.0
+        dynamicFeeOverride = dynamicPricing.feeRate
+        priceFloor = dynamicPricing.priceFloor
+        priceCeiling = dynamicPricing.priceCeiling
+        stockInfo = dynamicPricing.stock
+        if npcContext then
+            npcContext.__lastPricing = npcContext.__lastPricing or {}
+            npcContext.__lastPricing[priceType] = dynamicPricing
+        end
+    elseif npcContext and npcContext.__lastPricing then
+        npcContext.__lastPricing[priceType] = nil
+    end
+
+    local adjustedUnit = math.floor(basePrice * dynamicMultiplier * tierModifier * economyModifier * globalModifier + 0.5)
+    if priceFloor then
+        local floorValue = math.floor(basePrice * priceFloor + 0.5)
+        if floorValue > adjustedUnit then
+            adjustedUnit = floorValue
+        end
+    end
+    if priceCeiling then
+        local ceilingValue = math.floor(basePrice * priceCeiling + 0.5)
+        if ceilingValue < adjustedUnit then
+            adjustedUnit = ceilingValue
+        end
+    end
     if adjustedUnit < 0 then
         adjustedUnit = 0
     end
 
     local feeRate = getFeeRate(factionConfig, npcContext, priceType)
+    if dynamicFeeOverride ~= nil then
+        feeRate = dynamicFeeOverride
+    end
     local unitFee = math.floor(adjustedUnit * feeRate + 0.5)
     if unitFee > adjustedUnit then
         unitFee = adjustedUnit
@@ -515,7 +578,9 @@ function ReputationEconomy.calculateNpcPrice(player, npcContext, params)
         economyState = economyState,
         globalModifier = globalModifier,
         feeRate = feeRate,
-        factionConfig = factionConfig
+        factionConfig = factionConfig,
+        dynamic = dynamicPricing,
+        stock = stockInfo
     }
 end
 
@@ -695,6 +760,10 @@ function ReputationEconomy.onNpcTrade(player, npcContext, trade)
     if trade.totalNet and trade.totalNet > 0 then
         ReputationEconomy.addTradeReputation(player, factionId, trade.totalNet, trade.type, trade.priceInfo)
     end
+
+    if Economy and Economy.registerNpcTrade then
+        Economy.registerNpcTrade(player, npcContext, trade)
+    end
 end
 
 function ReputationEconomy.getNpcFactionByName(npcName)
@@ -741,6 +810,9 @@ function ReputationEconomy.filterShopItems(player, npcHandler, npcContext)
 
         if shopItem.buy and shopItem.buy > 0 then
             metadata = ReputationEconomy.getShopItemMetadata(npcHandler, 'buy', shopItem.id, shopItem.subType)
+            if Economy and Economy.mergeNpcMetadata then
+                metadata = Economy.mergeNpcMetadata(npcContext, 'buy', shopItem, metadata)
+            end
             include = true
             if metadata and metadata.minTier and tierIndex < getTierIndex(metadata.minTier) then
                 include = false
@@ -751,6 +823,9 @@ function ReputationEconomy.filterShopItems(player, npcHandler, npcContext)
             if include and metadata and metadata.economyMax and economyState.pool > metadata.economyMax then
                 include = false
             end
+            if include and Economy and not Economy.canNpcProvide(npcContext, 'buy', shopItem.id, 1) then
+                include = false
+            end
             if include then
                 local priceInfo = ReputationEconomy.calculateNpcPrice(player, npcContext, {
                     type = 'buy',
@@ -759,12 +834,19 @@ function ReputationEconomy.filterShopItems(player, npcHandler, npcContext)
                     itemId = shopItem.id,
                     metadata = metadata
                 })
-                buyPrice = priceInfo.unitPrice
+                if priceInfo and priceInfo.stock and priceInfo.stock.current and priceInfo.stock.current <= 0 then
+                    include = false
+                else
+                    buyPrice = priceInfo.unitPrice
+                end
             end
         end
 
         if include or (shopItem.sell and shopItem.sell > 0) then
             local sellMeta = ReputationEconomy.getShopItemMetadata(npcHandler, 'sell', shopItem.id, shopItem.subType)
+            if Economy and Economy.mergeNpcMetadata then
+                sellMeta = Economy.mergeNpcMetadata(npcContext, 'sell', shopItem, sellMeta)
+            end
             local allowSell = shopItem.sell and shopItem.sell > 0
             if allowSell then
                 if sellMeta and sellMeta.minTier and tierIndex < getTierIndex(sellMeta.minTier) then
@@ -773,6 +855,9 @@ function ReputationEconomy.filterShopItems(player, npcHandler, npcContext)
                 if allowSell and sellMeta and sellMeta.economyMin and economyState.pool < sellMeta.economyMin then
                     allowSell = false
                 end
+            end
+            if allowSell and Economy and not Economy.canNpcProvide(npcContext, 'sell', shopItem.id, 1) then
+                allowSell = false
             end
             if allowSell then
                 local priceInfo = ReputationEconomy.calculateNpcPrice(player, npcContext, {
@@ -856,6 +941,10 @@ function ReputationEconomy.captureMarketFees(limit)
             if fee > 0 then
                 ReputationEconomy.queueEconomyDelta(factionId, fee, sale == 1 and 'market_sale' or 'market_buy', playerId)
             end
+        end
+
+        if Economy and Economy.registerMarketActivity then
+            Economy.registerMarketActivity(total)
         end
 
         finalId = rowId
