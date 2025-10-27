@@ -110,8 +110,13 @@ local function decorateName(monster, rank)
     end
 end
 
-function onSpawn(monster)
+function onThink(monster)
     if not monster or not monster:isMonster() then
+        return true
+    end
+
+    -- Prevent reapplying the rank adjustments on subsequent think ticks.
+    if monster:getStorageValue(STORAGE.rank) ~= -1 then
         return true
     end
 
@@ -124,6 +129,10 @@ function onSpawn(monster)
     scaleHealth(monster, rank)
     scaleSpeed(monster, rank)
     decorateName(monster, rank)
+
+    if monster.unregisterEvent then
+        monster:unregisterEvent('MonsterRankThink')
+    end
 
     return true
 end
