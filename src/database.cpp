@@ -6,7 +6,7 @@
 #include "database.h"
 
 #include "configmanager.h"
-#include "utils/DiagnosticsConfig.h"
+#include "common/diagnostics.h"
 #include "utils/Logger.h"
 
 #include <mysql/errmsg.h>
