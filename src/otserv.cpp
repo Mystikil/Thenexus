@@ -26,10 +26,13 @@
 #include "world/WorldPressureManager.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <fstream>
 #include <fmt/format.h>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include <boost/algorithm/string.hpp>
@@ -90,10 +93,66 @@ namespace {
         std::string normalizeColumnType(std::string value) {
                 boost::algorithm::to_lower(value);
                 value.erase(std::remove_if(value.begin(), value.end(), [](unsigned char ch) { return std::isspace(ch); }), value.end());
-                return value;
+
+                bool isUnsigned = false;
+                if (const auto pos = value.find("unsigned"); pos != std::string::npos) {
+                        isUnsigned = true;
+                        value.erase(pos, std::string("unsigned").size());
+                }
+
+                std::string baseType = value;
+                std::string modifiers;
+                if (const auto parenPos = value.find('('); parenPos != std::string::npos) {
+                        baseType = value.substr(0, parenPos);
+                        modifiers = value.substr(parenPos);
+                }
+
+                static const std::unordered_set<std::string> integerTypes = {
+                        "tinyint", "smallint", "mediumint", "int", "integer", "bigint",
+                };
+
+                if (integerTypes.find(baseType) != integerTypes.end()) {
+                        modifiers.clear();
+                }
+
+                std::string canonical = baseType + modifiers;
+                if (isUnsigned) {
+                        canonical.append(" unsigned");
+                }
+
+                return canonical;
+        }
+
+        void logSchemaNormalizationExamples() {
+                static bool logged = false;
+                if (logged) {
+                        return;
+                }
+                logged = true;
+
+                constexpr std::array<std::pair<const char*, const char*>, 3> examples = {{
+                        {"int(11)", "int"},
+                        {"smallint unsigned", "smallint(5) unsigned"},
+                        {"bigint(20)", "bigint"},
+                }};
+
+                for (const auto& [lhs, rhs] : examples) {
+                        const auto lhsNormalized = normalizeColumnType(lhs);
+                        const auto rhsNormalized = normalizeColumnType(rhs);
+                        const bool equal = lhsNormalized == rhsNormalized;
+                        Logger::instance().debug(fmt::format(
+                                "Schema normalization example: \"{}\" == \"{}\" -> {} ({} vs {})",
+                                lhs,
+                                rhs,
+                                equal ? "true" : "false",
+                                lhsNormalized,
+                                rhsNormalized));
+                }
         }
 
         bool verifyTableSchema(const TableSchemaSpec& spec, std::vector<std::string>& messages) {
+                logSchemaNormalizationExamples();
+
                 Database& db = Database::getInstance();
                 const auto schemaName = getString(ConfigManager::MYSQL_DB);
 
@@ -131,7 +190,7 @@ namespace {
 
                         const auto expectedType = normalizeColumnType(column.type);
                         if (it->second.first != expectedType) {
-                                messages.emplace_back(fmt::format("column '{}' type mismatch (expected {}, got {})", column.name, column.type, it->second.first));
+                                messages.emplace_back(fmt::format("column '{}' type mismatch (expected {}, got {})", column.name, expectedType, it->second.first));
                                 ok = false;
                         }
 
@@ -254,7 +313,7 @@ namespace {
                         {
                                 "factions",
                                 {
-                                        {"id", "smallint(5)unsigned", false},
+                                        {"id", "smallint unsigned", false},
                                         {"name", "varchar(64)", false},
                                         {"description", "varchar(255)", false},
                                         {"npc_buy_fee", "decimal(6,4)", false},
@@ -263,13 +322,13 @@ namespace {
                                         {"trade_buy_factor", "decimal(10,6)", false},
                                         {"trade_sell_factor", "decimal(10,6)", false},
                                         {"donation_multiplier", "decimal(10,6)", false},
-                                        {"kill_penalty", "int(11)", false},
-                                        {"decay_per_week", "int(11)", false},
-                                        {"soft_cap", "int(11)", false},
-                                        {"hard_cap", "int(11)", false},
+                                        {"kill_penalty", "int", false},
+                                        {"decay_per_week", "int", false},
+                                        {"soft_cap", "int", false},
+                                        {"hard_cap", "int", false},
                                         {"soft_diminish", "decimal(6,4)", false},
-                                        {"created_at", "int(11)", false},
-                                        {"updated_at", "int(11)", false},
+                                        {"created_at", "int", false},
+                                        {"updated_at", "int", false},
                                 },
                                 {"id"},
                                 {
@@ -282,7 +341,7 @@ namespace {
                                 "npc_factions",
                                 {
                                         {"npc_name", "varchar(64)", false},
-                                        {"faction_id", "smallint(5)unsigned", false},
+                                        {"faction_id", "smallint unsigned", false},
                                 },
                                 {"npc_name"},
                                 {
@@ -296,11 +355,11 @@ namespace {
                         {
                                 "player_faction_reputation",
                                 {
-                                        {"player_id", "int(11)", false},
-                                        {"faction_id", "smallint(5)unsigned", false},
-                                        {"reputation", "int(11)", false},
-                                        {"last_activity", "int(11)", false},
-                                        {"last_decay", "int(11)", false},
+                                        {"player_id", "int", false},
+                                        {"faction_id", "smallint unsigned", false},
+                                        {"reputation", "int", false},
+                                        {"last_activity", "int", false},
+                                        {"last_decay", "int", false},
                                 },
                                 {"player_id", "faction_id"},
                                 {
@@ -315,13 +374,13 @@ namespace {
                         {
                                 "player_faction_reputation_log",
                                 {
-                                        {"id", "bigint(20)unsigned", false},
-                                        {"player_id", "int(11)", false},
-                                        {"faction_id", "smallint(5)unsigned", false},
-                                        {"delta", "int(11)", false},
+                                        {"id", "bigint unsigned", false},
+                                        {"player_id", "int", false},
+                                        {"faction_id", "smallint unsigned", false},
+                                        {"delta", "int", false},
                                         {"source", "varchar(64)", false},
                                         {"context", "text", false},
-                                        {"created_at", "int(11)", false},
+                                        {"created_at", "int", false},
                                 },
                                 {"id"},
                                 {
@@ -337,9 +396,9 @@ namespace {
                         {
                                 "faction_economy",
                                 {
-                                        {"faction_id", "smallint(5)unsigned", false},
-                                        {"pool", "bigint(20)", false},
-                                        {"updated_at", "int(11)", false},
+                                        {"faction_id", "smallint unsigned", false},
+                                        {"pool", "bigint", false},
+                                        {"updated_at", "int", false},
                                 },
                                 {"faction_id"},
                                 {
@@ -352,12 +411,12 @@ namespace {
                         {
                                 "faction_economy_history",
                                 {
-                                        {"id", "bigint(20)unsigned", false},
-                                        {"faction_id", "smallint(5)unsigned", false},
-                                        {"delta", "bigint(20)", false},
+                                        {"id", "bigint unsigned", false},
+                                        {"faction_id", "smallint unsigned", false},
+                                        {"delta", "bigint", false},
                                         {"reason", "varchar(128)", false},
-                                        {"reference_id", "int(11)", false},
-                                        {"created_at", "int(11)", false},
+                                        {"reference_id", "int", false},
+                                        {"created_at", "int", false},
                                 },
                                 {"id"},
                                 {
@@ -371,14 +430,14 @@ namespace {
                         {
                                 "faction_economy_ledger",
                                 {
-                                        {"id", "bigint(20)unsigned", false},
-                                        {"faction_id", "smallint(5)unsigned", false},
-                                        {"delta", "bigint(20)", false},
+                                        {"id", "bigint unsigned", false},
+                                        {"faction_id", "smallint unsigned", false},
+                                        {"delta", "bigint", false},
                                         {"reason", "varchar(128)", false},
-                                        {"reference_id", "int(11)", false},
-                                        {"created_at", "int(11)", false},
-                                        {"processed", "tinyint(1)", false},
-                                        {"processed_at", "int(11)", false},
+                                        {"reference_id", "int", false},
+                                        {"created_at", "int", false},
+                                        {"processed", "tinyint", false},
+                                        {"processed_at", "int", false},
                                 },
                                 {"id"},
                                 {
@@ -392,9 +451,9 @@ namespace {
                         {
                                 "faction_market_cursor",
                                 {
-                                        {"id", "tinyint(3)unsigned", false},
-                                        {"last_history_id", "int(10)unsigned", false},
-                                        {"updated_at", "int(11)", false},
+                                        {"id", "tinyint unsigned", false},
+                                        {"last_history_id", "int unsigned", false},
+                                        {"updated_at", "int", false},
                                 },
                                 {"id"},
                                 {
