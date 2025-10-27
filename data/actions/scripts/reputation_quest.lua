@@ -2,8 +2,12 @@ local trace = trace or { checkpoint = function() end }
 trace.checkpoint('rep_eco:actions/reputation_quest.lua:begin')
 
 if not (_G.__REPUTATION_SYSTEM_ENABLED) then
+    local disabledMessage = 'Reputation/Economy system is currently disabled.'
     function onUse(player, item, fromPosition, target, toPosition, isHotkey)
-        return false
+        if player then
+            player:sendCancelMessage(disabledMessage)
+        end
+        return true
     end
     trace.checkpoint('rep_eco:actions/reputation_quest.lua:disabled')
     return
