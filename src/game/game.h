@@ -414,11 +414,15 @@ class Game {
 		void ReleaseCreature(Creature* creature);
 		void ReleaseItem(Item* item);
 
-		bool canThrowObjectTo(const Position& fromPos, const Position& toPos, bool checkLineOfSight = true, bool sameFloor = false,
-		                      int32_t rangex = Map::maxClientViewportX, int32_t rangey = Map::maxClientViewportY) const;
-		bool isSightClear(const Position& fromPos, const Position& toPos, bool sameFloor = false) const;
+                bool canThrowObjectTo(const Position& fromPos, const Position& toPos, bool checkLineOfSight = true, bool sameFloor = false,
+                                      int32_t rangex = Map::maxClientViewportX, int32_t rangey = Map::maxClientViewportY) const;
+                bool isSightClear(const Position& fromPos, const Position& toPos, bool sameFloor = false) const;
+                void getSpectatorsInInstance(SpectatorVec& spectators, const Position& centerPos, InstanceId instanceId,
+                                             bool multifloor = false, bool onlyPlayers = false,
+                                             int32_t minRangeX = 0, int32_t maxRangeX = 0,
+                                             int32_t minRangeY = 0, int32_t maxRangeY = 0);
 
-		void changeSpeed(Creature* creature, int32_t varSpeedDelta);
+                void changeSpeed(Creature* creature, int32_t varSpeedDelta);
 		void internalCreatureChangeOutfit(Creature* creature, const Outfit_t& outfit);
 		void internalCreatureChangeVisible(Creature* creature, bool visible);
 		void changeLight(const Creature* creature);

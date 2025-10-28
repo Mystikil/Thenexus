@@ -544,6 +544,16 @@ namespace {
 
                 g_instances.loadConfig("data/instances/instances.json");
                 g_instances.ensureLoaded(DEFAULT_INSTANCE);
+#if ENABLE_INSTANCING
+                const auto& configuredInstances = g_instances.configured();
+                const auto activeInstances = g_instances.active();
+                logger.info(fmt::format("[Instances] configured={} active={} (loaded DEFAULT_INSTANCE)",
+                                        configuredInstances.size(), activeInstances.size()));
+                for (const auto& spec : configuredInstances) {
+                        logger.info(fmt::format("[Instance] id={} name={} otbm={} persistent={}", spec.id, spec.name,
+                                                spec.otbm, spec.persistent ? "true" : "false"));
+                }
+#endif
 
                 reputationEnabled = getBoolean(ConfigManager::ENABLE_REPUTATION_SYSTEM);
                 economyEnabled = getBoolean(ConfigManager::ENABLE_ECONOMY_SYSTEM);
