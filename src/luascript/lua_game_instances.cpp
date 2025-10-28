@@ -6,6 +6,7 @@
 #include "condition.h"
 #include "game/game.h"
 #include "game/InstanceManager.h"
+#include "map.h"
 
 extern Game g_game;
 extern InstanceManager g_instances;
@@ -94,12 +95,25 @@ int LuaScriptInterface::luaGameTransferPlayerToInstance(lua_State* L) {
 
 	g_instances.onPlayerLeave(player->getInstanceId());
 
-	const InstanceSpec* spec = g_instances.getSpec(id);
-	const Position targetPosition = hasPosition ? destination : (spec ? spec->spawn : Position{});
+        const InstanceSpec* spec = g_instances.getSpec(id);
+        Position targetPosition = hasPosition ? destination : (spec ? spec->spawn : Position{});
 
-	player->setInstanceId(id);
-	g_game.internalTeleport(player, targetPosition, true, true);
-	g_instances.onPlayerEnter(id);
+        if (hasPosition) {
+                Map* instanceMap = g_instances.getMap(id);
+                const bool validDestination = instanceMap && instanceMap->getTile(targetPosition) != nullptr;
+                if (!validDestination && spec) {
+                        targetPosition = spec->spawn;
+                }
+        }
+
+        player->stopWalk();
+        player->removeFollowCreature();
+        player->removeAttackedCreature();
+        player->sendCancelTarget();
+
+        player->setInstanceId(id);
+        g_game.internalTeleport(player, targetPosition, true, true);
+        g_instances.onPlayerEnter(id);
 
 	lua_pushboolean(L, true);
 	lua_pushnil(L);
