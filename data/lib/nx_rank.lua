@@ -44,6 +44,40 @@ NX_RANK.RANKS = {}
 NX_RANK.RANK_BY_KEY = {}
 NX_RANK.RUNTIME = {}
 
+local function isMonster(creature)
+    return creature and creature.isMonster and creature:isMonster()
+end
+
+local function getEngineRankKey(creature)
+    if not isMonster(creature) then
+        return nil
+    end
+
+    if creature.getRankName then
+        local name = creature:getRankName()
+        if name and name ~= "" and name ~= "None" then
+            return name
+        end
+    end
+
+    if creature.getRankIndex then
+        local idx = creature:getRankIndex()
+        if type(idx) == "number" and idx >= 0 then
+            return rankOrder[idx + 1]
+        end
+    end
+
+    return nil
+end
+
+local function getEngineRankDef(creature)
+    local key = getEngineRankKey(creature)
+    if not key then
+        return nil
+    end
+    return key, NX_RANK.RANK_BY_KEY[key]
+end
+
 local defaultRanks = {
     {
         key = "F",
@@ -433,6 +467,12 @@ function NX_RANK.getRankForCreature(creature)
     if not creature then
         return nil
     end
+
+    local key, tier = getEngineRankDef(creature)
+    if tier then
+        return tier
+    end
+
     local rankStr = creature:getStorageValue(NX_RANK.STORAGE.rank)
     if rankStr and rankStr ~= -1 and NX_RANK.RANK_BY_KEY[rankStr] then
         return NX_RANK.RANK_BY_KEY[rankStr]
@@ -455,6 +495,12 @@ function NX_RANK.getRankKey(creature)
     if not creature then
         return nil
     end
+
+    local key = getEngineRankKey(creature)
+    if key then
+        return key
+    end
+
     local rankStr = creature:getStorageValue(NX_RANK.STORAGE.rank)
     if rankStr and rankStr ~= -1 and NX_RANK.RANK_BY_KEY[rankStr] then
         return rankStr
