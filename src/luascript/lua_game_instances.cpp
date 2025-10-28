@@ -22,21 +22,25 @@ namespace {
 		lua_setfield(L, -2, "z");
 	}
 
-	void pushInstanceRulesTable(lua_State* L, const InstanceRules& rules) {
-		lua_createtable(L, 0, 6);
-		lua_pushnumber(L, rules.expRate);
-		lua_setfield(L, -2, "expRate");
-		lua_pushnumber(L, rules.lootRate);
-		lua_setfield(L, -2, "lootRate");
-		lua::pushString(L, rules.pvpMode);
-		lua_setfield(L, -2, "pvpMode");
-		lua_pushboolean(L, rules.permadeath);
-		lua_setfield(L, -2, "permadeath");
-		lua_pushboolean(L, rules.bindOnEntry);
-		lua_setfield(L, -2, "bindOnEntry");
-		lua_pushboolean(L, rules.persistent);
-		lua_setfield(L, -2, "persistent");
-	}
+        void pushInstanceRulesTable(lua_State* L, const InstanceRules& rules) {
+                lua_createtable(L, 0, 8);
+                lua_pushnumber(L, rules.expRate);
+                lua_setfield(L, -2, "expRate");
+                lua_pushnumber(L, rules.lootRate);
+                lua_setfield(L, -2, "lootRate");
+                lua::pushString(L, rules.pvpMode);
+                lua_setfield(L, -2, "pvpMode");
+                lua_pushboolean(L, rules.permadeath);
+                lua_setfield(L, -2, "permadeath");
+                lua_pushboolean(L, rules.bindOnEntry);
+                lua_setfield(L, -2, "bindOnEntry");
+                lua_pushboolean(L, rules.persistent);
+                lua_setfield(L, -2, "persistent");
+                lua::pushString(L, rules.entryMode);
+                lua_setfield(L, -2, "entryMode");
+                lua_pushinteger(L, rules.entryCost);
+                lua_setfield(L, -2, "entryCost");
+        }
 
 	void pushInstanceSpecTable(lua_State* L, const InstanceSpec& spec) {
 		lua_createtable(L, 0, 7);

@@ -5,16 +5,85 @@
       "name": "Default World",
       "otbm": "data/world/forgotten.otbm",
       "spawn": { "x": 100, "y": 100, "z": 7 },
-      "rules": { "expRate": 1.0, "lootRate": 1.0, "pvpMode": "optional", "permadeath": false, "bindOnEntry": false },
+      "rules": {
+        "expRate": 1.0,
+        "lootRate": 1.0,
+        "pvpMode": "optional",
+        "permadeath": false,
+        "bindOnEntry": false,
+        "persistent": true,
+        "entryMode": "free",
+        "entryCost": 0
+      },
       "persistent": true
     },
     {
       "id": 1,
       "name": "Iron Sigil",
-      "otbm": "data/world/iron_sigil.otbm",
-      "spawn": { "x": 200, "y": 200, "z": 7 },
-      "rules": { "expRate": 1.2, "lootRate": 1.1, "pvpMode": "hardcore", "permadeath": false, "bindOnEntry": true },
+      "otbm": "data/world/forgotten.otbm",
+      "spawn": { "x": 320, "y": 320, "z": 7 },
+      "rules": {
+        "expRate": 1.2,
+        "lootRate": 1.1,
+        "pvpMode": "hardcore",
+        "permadeath": false,
+        "bindOnEntry": true,
+        "persistent": true,
+        "entryMode": "ticket",
+        "entryCost": 500
+      },
       "persistent": true
+    },
+    {
+      "id": 2,
+      "name": "Verdant Sanctuary",
+      "otbm": "data/world/forgotten.otbm",
+      "spawn": { "x": 450, "y": 450, "z": 6 },
+      "rules": {
+        "expRate": 0.8,
+        "lootRate": 1.4,
+        "pvpMode": "protected",
+        "permadeath": false,
+        "bindOnEntry": false,
+        "persistent": true,
+        "entryMode": "free",
+        "entryCost": 0
+      },
+      "persistent": true
+    },
+    {
+      "id": 3,
+      "name": "Shadow Crucible",
+      "otbm": "data/world/forgotten.otbm",
+      "spawn": { "x": 580, "y": 580, "z": 8 },
+      "rules": {
+        "expRate": 2.0,
+        "lootRate": 2.5,
+        "pvpMode": "hardcore",
+        "permadeath": true,
+        "bindOnEntry": true,
+        "persistent": false,
+        "entryMode": "ordeal",
+        "entryCost": 10000
+      },
+      "persistent": false
+    },
+    {
+      "id": 4,
+      "name": "Skylance Gauntlet",
+      "otbm": "data/world/forgotten.otbm",
+      "spawn": { "x": 640, "y": 640, "z": 5 },
+      "rules": {
+        "expRate": 1.6,
+        "lootRate": 1.8,
+        "pvpMode": "optional",
+        "permadeath": false,
+        "bindOnEntry": true,
+        "persistent": false,
+        "entryMode": "seasonal",
+        "entryCost": 0
+      },
+      "persistent": false
     }
   ],
   "dungeons": []

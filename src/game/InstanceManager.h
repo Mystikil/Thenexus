@@ -22,6 +22,8 @@ struct InstanceRules {
         std::string pvpMode = "optional";
         bool persistent = true;
         int unloadGraceSeconds = 60;
+        std::string entryMode = "standard";
+        uint32_t entryCost = 0;
 };
 
 struct InstanceSpec {

@@ -44,6 +44,8 @@ namespace {
                 rules.pvpMode = value.value("pvpMode", rules.pvpMode);
                 rules.persistent = value.value("persistent", rules.persistent);
                 rules.unloadGraceSeconds = value.value("unloadGraceSeconds", rules.unloadGraceSeconds);
+                rules.entryMode = value.value("entryMode", rules.entryMode);
+                rules.entryCost = value.value("entryCost", rules.entryCost);
                 return rules;
         }
 }
