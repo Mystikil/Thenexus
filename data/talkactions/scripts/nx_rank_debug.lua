@@ -24,10 +24,28 @@ local function handleGet(player)
     if not monster then
         return
     end
-    local key = NX_RANK.getRankKey(monster) or "unknown"
+    local key = NX_RANK.getRankKey(monster)
+    if not key or key == "" then
+        if monster.getRankName then
+            local engineKey = monster:getRankName()
+            if engineKey and engineKey ~= "" and engineKey ~= "None" then
+                key = engineKey
+            end
+        end
+    end
+    if not key or key == "" then
+        key = "unknown"
+    end
+
     local tier = NX_RANK.getRankForCreature(monster)
-    local idx = tier and tier.index or -1
-    player:sendTextMessage(MESSAGE_STATUS_CONSOLE_BLUE, string.format("Rank %s (index %d)", key, idx))
+    local idx = tier and tier.index
+    if not idx and monster.getRankIndex then
+        local engineIdx = monster:getRankIndex()
+        if type(engineIdx) == "number" and engineIdx >= 0 then
+            idx = engineIdx
+        end
+    end
+    player:sendTextMessage(MESSAGE_STATUS_CONSOLE_BLUE, string.format("Rank %s (index %d)", key, idx or -1))
 end
 
 local function handleSet(player, args)

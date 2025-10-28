@@ -33,7 +33,7 @@ NX_RANK.REVEAL = {
     ENABLED = true,
     PERM = 54200,
     TEMP_UNTIL = 54201,
-    LORE_LVL = 10, -- default lore skill level required
+    LORE_LVL = 0, -- allow everyone to see ranks by default
     SHOW_HINT = true,
     HINT_TEXT = "You sense that this creature hides its true strength.",
     LINE_FMT = "Rank: %s",
@@ -372,14 +372,16 @@ function NX_RANK.decorateName(creature, rankStr)
     if not tier then
         return
     end
-    local suffix = tier.name_suffix
-    local baseName = creature:getName()
-    if suffix and suffix ~= "" then
-        if creature.setCustomName then
-            creature:setCustomName(baseName .. suffix)
-        elseif creature.setName then
-            creature:setName(baseName .. suffix)
-        end
+    local suffix = tier.name_suffix or ""
+    local baseName = creature:getType() and creature:getType():getName() or creature:getName()
+    local decorated = string.format("%s, Rank %s", baseName, tier.key)
+    if suffix ~= "" then
+        decorated = decorated .. suffix
+    end
+    if creature.setCustomName then
+        creature:setCustomName(decorated)
+    elseif creature.setName then
+        creature:setName(decorated)
     end
     if tier.color and creature.setOutfit then
         local outfit = creature:getOutfit()
