@@ -9,6 +9,7 @@
 #include "configmanager.h"
 #include "depotchest.h"
 #include "game/game.h"
+#include "game/InstanceManager.h"
 
 #include "inbox.h"
 #include "storeinbox.h"
@@ -143,13 +144,13 @@ bool IOLoginData::preloadPlayer(Player* player, const std::string& name) {
 }
 
 bool IOLoginData::loadPlayerById(Player* player, uint32_t id) {
-	Database& db = Database::getInstance();
-	return loadPlayer(player, db.storeQuery(fmt::format("SELECT `id`, `name`, `account_id`, `group_id`, `sex`, `vocation`, `experience`, `level`, `maglevel`, `health`, `healthmax`, `blessings`, `mana`, `manamax`, `manaspent`, `soul`, `lookbody`, `lookfeet`, `lookhead`, `looklegs`, `looktype`, `lookaddons`, `currentmount`, `posx`, `posy`, `posz`, `cap`, `lastlogin`, `lastlogout`, `lastip`, `conditions`, `skulltime`, `skull`, `town_id`, `balance`, `offlinetraining_time`, `offlinetraining_skill`, `stamina`, `skill_fist`, `skill_fist_tries`, `skill_club`, `skill_club_tries`, `skill_sword`, `skill_sword_tries`, `skill_axe`, `skill_axe_tries`, `skill_dist`, `skill_dist_tries`, `skill_shielding`, `skill_shielding_tries`, `skill_fishing`, `skill_fishing_tries`, `direction` FROM `players` WHERE `id` = {:d}", id)));
+        Database& db = Database::getInstance();
+        return loadPlayer(player, db.storeQuery(fmt::format("SELECT `id`, `name`, `account_id`, `group_id`, `sex`, `vocation`, `experience`, `level`, `maglevel`, `health`, `healthmax`, `blessings`, `mana`, `manamax`, `manaspent`, `soul`, `lookbody`, `lookfeet`, `lookhead`, `looklegs`, `looktype`, `lookaddons`, `currentmount`, `posx`, `posy`, `posz`, `cap`, `lastlogin`, `lastlogout`, `lastip`, `conditions`, `skulltime`, `skull`, `town_id`, `balance`, `offlinetraining_time`, `offlinetraining_skill`, `stamina`, `skill_fist`, `skill_fist_tries`, `skill_club`, `skill_club_tries`, `skill_sword`, `skill_sword_tries`, `skill_axe`, `skill_axe_tries`, `skill_dist`, `skill_dist_tries`, `skill_shielding`, `skill_shielding_tries`, `skill_fishing`, `skill_fishing_tries`, `direction`, `instance_id` FROM `players` WHERE `id` = {:d}", id)));
 }
 
 bool IOLoginData::loadPlayerByName(Player* player, const std::string& name) {
-	Database& db = Database::getInstance();
-	return loadPlayer(player, db.storeQuery(fmt::format("SELECT `id`, `name`, `account_id`, `group_id`, `sex`, `vocation`, `experience`, `level`, `maglevel`, `health`, `healthmax`, `blessings`, `mana`, `manamax`, `manaspent`, `soul`, `lookbody`, `lookfeet`, `lookhead`, `looklegs`, `looktype`, `lookaddons`, `currentmount`, `posx`, `posy`, `posz`, `cap`, `lastlogin`, `lastlogout`, `lastip`, `conditions`, `skulltime`, `skull`, `town_id`, `balance`, `offlinetraining_time`, `offlinetraining_skill`, `stamina`, `skill_fist`, `skill_fist_tries`, `skill_club`, `skill_club_tries`, `skill_sword`, `skill_sword_tries`, `skill_axe`, `skill_axe_tries`, `skill_dist`, `skill_dist_tries`, `skill_shielding`, `skill_shielding_tries`, `skill_fishing`, `skill_fishing_tries`, `direction` FROM `players` WHERE `name` = {:s}", db.escapeString(name))));
+        Database& db = Database::getInstance();
+        return loadPlayer(player, db.storeQuery(fmt::format("SELECT `id`, `name`, `account_id`, `group_id`, `sex`, `vocation`, `experience`, `level`, `maglevel`, `health`, `healthmax`, `blessings`, `mana`, `manamax`, `manaspent`, `soul`, `lookbody`, `lookfeet`, `lookhead`, `looklegs`, `looktype`, `lookaddons`, `currentmount`, `posx`, `posy`, `posz`, `cap`, `lastlogin`, `lastlogout`, `lastip`, `conditions`, `skulltime`, `skull`, `town_id`, `balance`, `offlinetraining_time`, `offlinetraining_skill`, `stamina`, `skill_fist`, `skill_fist_tries`, `skill_club`, `skill_club_tries`, `skill_sword`, `skill_sword_tries`, `skill_axe`, `skill_axe_tries`, `skill_dist`, `skill_dist_tries`, `skill_shielding`, `skill_shielding_tries`, `skill_fishing`, `skill_fishing_tries`, `direction`, `instance_id` FROM `players` WHERE `name` = {:s}", db.escapeString(name))));
 }
 
 static GuildWarVector getWarList(uint32_t guildId) {
@@ -285,9 +286,16 @@ bool IOLoginData::loadPlayer(Player* player, DBResult_ptr result) {
 		}
 	}
 
-	player->loginPosition.x = result->getNumber<uint16_t>("posx");
-	player->loginPosition.y = result->getNumber<uint16_t>("posy");
-	player->loginPosition.z = result->getNumber<uint16_t>("posz");
+        player->loginPosition.x = result->getNumber<uint16_t>("posx");
+        player->loginPosition.y = result->getNumber<uint16_t>("posy");
+        player->loginPosition.z = result->getNumber<uint16_t>("posz");
+
+        InstanceId instanceId = result->getNumber<uint16_t>("instance_id");
+        if (!g_instances.ensureLoaded(instanceId)) {
+                instanceId = DEFAULT_INSTANCE;
+                g_instances.ensureLoaded(DEFAULT_INSTANCE);
+        }
+        player->setInstanceId(instanceId);
 
 	player->lastLoginSaved = result->getNumber<time_t>("lastlogin");
 	player->lastLogout = result->getNumber<time_t>("lastlogout");
@@ -668,8 +676,9 @@ bool IOLoginData::savePlayer(Player* player) {
 	query << "`skill_dist_tries` = " << player->skills[SKILL_DISTANCE].tries << ',';
 	query << "`skill_shielding` = " << player->skills[SKILL_SHIELD].level << ',';
 	query << "`skill_shielding_tries` = " << player->skills[SKILL_SHIELD].tries << ',';
-	query << "`skill_fishing` = " << player->skills[SKILL_FISHING].level << ',';
-	query << "`skill_fishing_tries` = " << player->skills[SKILL_FISHING].tries << ',';
+        query << "`skill_fishing` = " << player->skills[SKILL_FISHING].level << ',';
+        query << "`skill_fishing_tries` = " << player->skills[SKILL_FISHING].tries << ',';
+        query << "`instance_id` = " << player->getInstanceId() << ',';
 	query << "`direction` = " << static_cast<uint16_t> (player->getDirection()) << ',';
 
 	if (!player->isOffline()) {

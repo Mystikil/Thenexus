@@ -8,6 +8,7 @@
 #include "cylinder.h"
 #include "depotchest.h"
 #include "depotlocker.h"
+#include "definitions.h"
 #include "enums.h"
 #include "groups.h"
 #include "guild.h"
@@ -416,6 +417,14 @@ class Player final : public Creature, public Cylinder {
 		}
 		void setTown(Town* town) {
 			this->town = town;
+		}
+
+		InstanceId getInstanceId() const {
+			return instanceId_;
+		}
+
+		void setInstanceId(InstanceId instanceId) {
+			instanceId_ = instanceId;
 		}
 
 		void clearModalWindows();
@@ -1297,6 +1306,7 @@ class Player final : public Creature, public Cylinder {
 		uint32_t editListId = 0;
 		uint32_t mana = 0;
 		uint32_t manaMax = 0;
+		InstanceId instanceId_ = DEFAULT_INSTANCE;
 		int32_t varSkills[SKILL_LAST + 1] = {};
 		int32_t varSpecialSkills[SPECIALSKILL_LAST + 1] = {};
 		int32_t varStats[STAT_LAST + 1] = {};

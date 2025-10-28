@@ -24,6 +24,7 @@
 #include "utils/Logger.h"
 #include "utils/StartupProbe.h"
 #include "world/WorldPressureManager.hpp"
+#include "game/InstanceManager.h"
 
 #include <algorithm>
 #include <array>
@@ -540,6 +541,9 @@ namespace {
                         startupErrorMessage("Unable to load " + configFile + "!");
                         return;
                 }
+
+                g_instances.loadConfig("data/instances/instances.json");
+                g_instances.ensureLoaded(DEFAULT_INSTANCE);
 
                 reputationEnabled = getBoolean(ConfigManager::ENABLE_REPUTATION_SYSTEM);
                 economyEnabled = getBoolean(ConfigManager::ENABLE_ECONOMY_SYSTEM);
