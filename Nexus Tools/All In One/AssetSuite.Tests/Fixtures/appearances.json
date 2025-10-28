@@ -1,0 +1,20 @@
+{
+  "appearances": [
+    {
+      "id": 1,
+      "type": "Item",
+      "frameGroups": [
+        {
+          "groupType": "Idle",
+          "defaultDuration": 100,
+          "frames": [
+            {
+              "duration": 100,
+              "spriteIds": [1, 2]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
