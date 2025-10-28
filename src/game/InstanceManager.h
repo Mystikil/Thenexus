@@ -1,83 +1,56 @@
 // Copyright 2023 The Forgotten Server Authors. All rights reserved.
 // Use of this source code is governed by the GPL-2.0 License that can be found in the LICENSE file.
 
-#pragma once
+#ifndef FS_INSTANCEMANAGER_H
+#define FS_INSTANCEMANAGER_H
 
-#if ENABLE_INSTANCING
-
-#include <ctime>
-#include <map>
+#include <memory>
 #include <string>
-#include <unordered_set>
+#include <unordered_map>
 #include <vector>
+
+#include "../definitions.h"
 #include "../position.h"
 
+class Map;
 
-class Player;
-class Monster;
-
-struct InstanceConfig {
-        std::string name;
-        uint32_t durationSeconds = 1800;
-        std::vector<uint32_t> warnAt;
-        float expMult = 1.0f;
-        float lootMult = 1.0f;
-        float hpMult = 1.0f;
-        float dmgMult = 1.0f;
-        float armorMult = 1.0f;
-        std::vector<std::string> bossNames;
-        Position entryPos;
-        Position exitPos;
-        bool partyOnly = false;
-        uint16_t minLevel = 1;
-        uint32_t cooldownSeconds = 0;
-        uint32_t seed = 0;
+struct InstanceRules {
+        float expRate = 1.0f;
+        float lootRate = 1.0f;
+        bool permadeath = false;
+        bool bindOnEntry = false;
+        std::string pvpMode = "optional";
+        bool persistent = true;
+        int unloadGraceSeconds = 60;
 };
 
-struct ActiveInstance {
-        uint32_t uid = 0;
+struct InstanceSpec {
+        InstanceId id = 0;
         std::string name;
-        time_t start = 0;
-        time_t end = 0;
-        std::vector<uint32_t> warnAt;
-        float expMult = 1.0f;
-        float lootMult = 1.0f;
-        float hpMult = 1.0f;
-        float dmgMult = 1.0f;
-        float armorMult = 1.0f;
-        Position entryPos;
-        Position exitPos;
-        std::unordered_set<uint32_t> players;
-        std::unordered_set<uint32_t> creatures;
-        std::vector<std::string> bossNames;
-        bool partyOnly = false;
-        uint16_t minLevel = 1;
-        uint32_t cooldownSeconds = 0;
-        uint32_t seed = 0;
+        std::string otbm;
+        Position spawn;
+        InstanceRules rules;
+        bool persistent = true;
 };
 
 class InstanceManager {
         public:
-                static InstanceManager& get();
-
-                uint32_t create(const InstanceConfig& cfg);
-                bool bindPlayer(Player* player, uint32_t uid, std::string* reason = nullptr);
-                bool bindParty(Player* leader, uint32_t uid, std::string* reason = nullptr);
-                bool teleportInto(uint32_t uid, Player* playerOrLeader);
-                void onBossDeath(Monster* boss);
-                void close(uint32_t uid, const std::string& reason);
-                void heartbeat();
-                const std::map<uint32_t, ActiveInstance>& list() const {
-                        return instances;
-                }
-                bool isPlayerBound(uint32_t guid, uint32_t uid) const;
-                bool playerLeave(Player* player);
+                bool loadConfig(const std::string& path);
+                bool ensureLoaded(InstanceId id);
+                Map* getMap(InstanceId id) const;
+                const InstanceSpec* getSpec(InstanceId id) const;
+                const std::vector<InstanceSpec>& configured() const { return specs_; }
+                std::vector<InstanceId> active() const;
+                void onPlayerEnter(InstanceId id);
+                void onPlayerLeave(InstanceId id);
+                bool closeInstance(InstanceId id);
 
         private:
-                InstanceManager() = default;
-
-                uint32_t nextUid = 1;
-                std::map<uint32_t, ActiveInstance> instances;
+                std::unordered_map<InstanceId, std::unique_ptr<Map>> maps_;
+                std::unordered_map<InstanceId, int> playerCounts_;
+                std::vector<InstanceSpec> specs_;
 };
 
-#endif // ENABLE_INSTANCING
+extern InstanceManager g_instances;
+
+#endif // FS_INSTANCEMANAGER_H
