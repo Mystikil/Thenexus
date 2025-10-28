@@ -19,12 +19,16 @@ local function getKiller(killer)
  end
 
 function onDeath(player, corpse, killer, mostDamageKiller, lastHitUnjustified, mostDamageUnjustified)
-	local playerId = player:getId()
-	if nextUseStaminaTime[playerId] then
-		nextUseStaminaTime[playerId] = nil
-	end
+        local playerId = player:getId()
+        if nextUseStaminaTime[playerId] then
+                nextUseStaminaTime[playerId] = nil
+        end
 
-	player:sendTextMessage(MESSAGE_EVENT_ADVANCE, "You are dead.")
+        if ActivityPermadeath and ActivityPermadeath.onPlayerDeath then
+                ActivityPermadeath.onPlayerDeath(player)
+        end
+
+        player:sendTextMessage(MESSAGE_EVENT_ADVANCE, "You are dead.")
 	if not deathListEnabled then
 		return
 	end

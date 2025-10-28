@@ -30,5 +30,9 @@ function onLogin(player)
         player:registerEvent("DropLoot")
         player:registerEvent("SerialOnLook")
         player:registerEvent("FactionReputationKill")
+
+        if ActivityManager and ActivityManager.onLogin then
+                ActivityManager.onLogin(player)
+        end
         return true
 end
