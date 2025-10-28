@@ -219,6 +219,12 @@ void Game::loadMap(const std::string& path, bool isCalledByLua) {
 	map.loadMap(path, false, isCalledByLua);
 }
 
+#if ENABLE_INSTANCING
+Map* Game::mapFor(InstanceId id) const {
+	return g_instances.getMap(id);
+}
+#endif
+
 Cylinder* Game::internalGetCylinder(Player* player, const Position& pos) const {
 	if (pos.x != 0xFFFF) {
 		return map.getTile(pos);

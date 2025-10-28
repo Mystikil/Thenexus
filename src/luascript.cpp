@@ -56,6 +56,8 @@ extern Weapons* g_weapons;
 
 LuaEnvironment g_luaEnvironment;
 
+void registerGameInstanceBindings(lua_State* L);
+
 namespace {
 
 	constexpr int32_t EVENT_ID_LOADING = 1;
@@ -2213,6 +2215,8 @@ void LuaScriptInterface::registerFunctions() {
 
 	// Game
 	registerTable(L, "Game");
+
+	registerGameInstanceBindings(L);
 
 	registerMethod(L, "Game", "loadMap", LuaScriptInterface::luaGameLoadMap);
 	registerMethod(L, "Game", "getSpectators", LuaScriptInterface::luaGameGetSpectators);

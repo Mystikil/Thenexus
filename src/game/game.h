@@ -83,6 +83,9 @@ class Game {
 
 		bool loadMainMap(const std::string& filename);
 		void loadMap(const std::string& path, bool isCalledByLua = false);
+#if ENABLE_INSTANCING
+		Map* mapFor(InstanceId id) const;
+#endif
 
 		/**
 		  * Get the map size - info purpose only
