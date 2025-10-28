@@ -1,0 +1,18 @@
+[
+  {
+    "clientId": 1001,
+    "serverId": 2001,
+    "attributes": {
+      "Type": "Item",
+      "Weight": "42"
+    }
+  },
+  {
+    "clientId": 1002,
+    "serverId": 2002,
+    "attributes": {
+      "Type": "Item",
+      "Stackable": "true"
+    }
+  }
+]
