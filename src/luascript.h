@@ -130,6 +130,8 @@ enum ErrorCode_t {
 
 class LuaScriptInterface {
 	public:
+		friend void registerGameInstanceBindings(lua_State* L);
+
 		explicit LuaScriptInterface(std::string interfaceName);
 		virtual ~LuaScriptInterface();
 
