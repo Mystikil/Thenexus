@@ -120,6 +120,9 @@
     <ClCompile Include="..\src\luascript.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\luascript\lua_game_instances.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="..\src\mailbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
