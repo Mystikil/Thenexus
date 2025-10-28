@@ -1,0 +1,3 @@
+Version: v1
+Archive: thenexus_server_v1.zip
+Summary: Snapshot of the Nexus server repository including the XAMPP-ready Site folder and all current server features.
