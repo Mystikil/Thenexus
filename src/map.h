@@ -4,6 +4,7 @@
 #ifndef FS_MAP_H
 #define FS_MAP_H
 
+#include "definitions.h"
 #include "house.h"
 #include "position.h"
 #include "spawn.h"
@@ -159,6 +160,9 @@ class Map {
 
 		uint32_t clean() const;
 
+		void setInstanceId(InstanceId id) { instanceId_ = id; }
+		InstanceId getInstanceId() const { return instanceId_; }
+
 		/**
 		  * Load a map.
 		  * \returns true if the map was loaded successfully
@@ -269,6 +273,8 @@ class Map {
 		SpectatorCache playersSpectatorCache;
 
 		QTreeNode root;
+
+		InstanceId instanceId_ = DEFAULT_INSTANCE;
 
 		std::filesystem::path spawnfile;
 		std::filesystem::path housefile;

@@ -4,6 +4,11 @@
 #ifndef FS_DEFINITIONS_H
 #define FS_DEFINITIONS_H
 
+#include <cstdint>
+
+using InstanceId = uint16_t;
+constexpr InstanceId DEFAULT_INSTANCE = 0;
+
 static constexpr auto STATUS_SERVER_NAME = "The Nexus Server v1";
 static constexpr auto STATUS_SERVER_VERSION = "10.98";
 static constexpr auto STATUS_SERVER_DEVELOPERS = "The Forgotten Server Team & ALS With Nexus Group";
