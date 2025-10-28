@@ -44,14 +44,34 @@ event.onLook = function(self, thing, position, distance, description)
 			description, position.x, position.y, position.z
 		)
 
-		if thing:isCreature() then
-			if thing:isPlayer() then
-				description = string.format("%s\nIP: %s.", description, thing:getIp())
-			end
-		end
-	end
+                if thing:isCreature() then
+                        if thing:isPlayer() then
+                                description = string.format("%s\nIP: %s.", description, thing:getIp())
+                        end
+                end
+        end
 
-	local group = self:getGroup()
+        if thing:isPlayer() and thing == self then
+                local vocation = thing:getVocation()
+                if vocation then
+                        local regenSegments = {}
+                        local healthAmount = vocation:getHealthGainAmount()
+                        local healthTicks = vocation:getHealthGainTicks()
+                        if healthAmount > 0 and healthTicks > 0 then
+                                table.insert(regenSegments, string.format("+%d HP every %ds", healthAmount, healthTicks))
+                        end
+                        local manaAmount = vocation:getManaGainAmount()
+                        local manaTicks = vocation:getManaGainTicks()
+                        if manaAmount > 0 and manaTicks > 0 then
+                                table.insert(regenSegments, string.format("+%d MP every %ds", manaAmount, manaTicks))
+                        end
+                        if #regenSegments > 0 then
+                                description = string.format("%s\nRegeneration: %s", description, table.concat(regenSegments, ", "))
+                        end
+                end
+        end
+
+        local group = self:getGroup()
 	if group and group:getId() >= 3 and thing:isCreature() and thing:isMonster() and thing:hasRank() then
 		local rankName = thing:getRankName()
 		if rankName ~= "" then
