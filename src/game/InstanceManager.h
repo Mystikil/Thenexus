@@ -35,12 +35,15 @@ struct InstanceSpec {
 
 class InstanceManager {
         public:
+                static InstanceManager& get();
+
                 bool loadConfig(const std::string& path);
                 bool ensureLoaded(InstanceId id);
                 Map* getMap(InstanceId id) const;
                 const InstanceSpec* getSpec(InstanceId id) const;
                 const std::vector<InstanceSpec>& configured() const { return specs_; }
                 std::vector<InstanceId> active() const;
+                void heartbeat();
                 void onPlayerEnter(InstanceId id);
                 void onPlayerLeave(InstanceId id);
                 bool closeInstance(InstanceId id);
