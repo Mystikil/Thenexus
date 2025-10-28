@@ -24,13 +24,11 @@
   <event type="healthchange" name="nx_boss_hit"    script="nx_boss_think.lua"/>
   <event type="death"        name="nx_boss_death"  script="nx_boss_think.lua"/>
 
-  <event type="think" name="MonsterRankThink" script="monster/monster_rank.lua"/>
-  <event type="death" name="MonsterRankDeath" script="monster/monster_rank.lua"/>
+  <event type="spawn" name="nx_rank_apply"  script="nx_rank_apply.lua"/>
+  <event type="look"  name="nx_rank_look"   script="nx_rank_look.lua"/>
+  <event type="look"  name="SerialOnLook"   script="serial_on_look.lua"/>
 
-  <!-- REMOVE these (your fork doesn’t support their types):
-       <event type="spawn" name="nx_rank_apply"  script="nx_rank_apply.lua"/>
-       <event type="look"  name="nx_rank_look"   script="nx_rank_look.lua"/>
-       <event type="look"  name="SerialOnLook"   script="serial_on_look.lua"/>
+  <!-- Optional boss events (only register if the engine supports their hooks):
        <event type="spawn" name="nx_boss_spawn"  script="nx_boss_think.lua"/>
        <event type="target" name="nx_boss_target" script="nx_boss_think.lua"/>
   -->

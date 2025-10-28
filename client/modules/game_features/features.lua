@@ -209,6 +209,12 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GameThingUpgradeClassification)
         end
 
+        -- Always enable cosmetic rarity/tier features regardless of protocol.
+        -- The server only exposes 10.98, but our client modules rely on these flags
+        -- to draw rarity frames and tier badges.
+        g_game.enableFeature(GameColorizedLootValue)
+        g_game.enableFeature(GameThingUpgradeClassification)
+
         if version >= 1281 then
             g_game.enableFeature(GamePlayerFamiliars)
             g_game.disableFeature(GameEnvironmentEffect)

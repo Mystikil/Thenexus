@@ -8,6 +8,10 @@ if not NX_RANK then
     NX_RANK = {}
 end
 
+if NX_RANK.ENABLED == nil then
+    NX_RANK.ENABLED = true
+end
+
 local rankOrder = {
     "F", "E", "D", "C", "B", "A", "S", "SS", "SSS"
 }
@@ -26,6 +30,7 @@ NX_RANK.STORAGE = {
 
 -- Reveal storages / configuration. Numbers chosen from unused range.
 NX_RANK.REVEAL = {
+    ENABLED = true,
     PERM = 54200,
     TEMP_UNTIL = 54201,
     LORE_LVL = 10, -- default lore skill level required

@@ -5,7 +5,7 @@
 -- visual state on death.
 
 local function hasValidRankContext()
-    return NX_RANK and NX_RANK.STORAGE and NX_RANK.getRankForCreature
+    return NX_RANK and NX_RANK.ENABLED ~= false and NX_RANK.STORAGE and NX_RANK.getRankForCreature
 end
 
 local function getTierFromCreature(creature)

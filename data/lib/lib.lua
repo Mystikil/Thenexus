@@ -30,13 +30,20 @@ local configManagerAvailable = rawget(_G, 'configManager') ~= nil
 local configKeysAvailable = rawget(_G, 'configKeys') ~= nil
 local reputationEnabled = true
 local economyEnabled = true
+local monsterRankEnabled = true
 if configManagerAvailable and configKeysAvailable then
     reputationEnabled = configManager.getBoolean(configKeys.ENABLE_REPUTATION_SYSTEM)
     economyEnabled = configManager.getBoolean(configKeys.ENABLE_ECONOMY_SYSTEM)
+    monsterRankEnabled = configManager.getBoolean(configKeys.ENABLE_MONSTER_RANK_SYSTEM)
 end
 
 _G.__REPUTATION_SYSTEM_ENABLED = reputationEnabled
 _G.__ECONOMY_SYSTEM_ENABLED = economyEnabled
+_G.__MONSTER_RANK_SYSTEM_ENABLED = monsterRankEnabled
+
+if NX_RANK then
+    NX_RANK.ENABLED = monsterRankEnabled
+end
 
 dofile('data/lib/nx_reputation_config.lua')
 

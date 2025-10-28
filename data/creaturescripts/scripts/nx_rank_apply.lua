@@ -4,7 +4,7 @@
 -- modifications. Delegates the heavy lifting to NX_RANK helper functions.
 
 function onSpawn(creature)
-    if not creature or not creature:isMonster() or not NX_RANK then
+    if not creature or not creature:isMonster() or not NX_RANK or NX_RANK.ENABLED == false then
         return true
     end
 
