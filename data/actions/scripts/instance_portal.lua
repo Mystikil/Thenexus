@@ -1,45 +1,42 @@
-local cfgs = {
-        ember_catacomb = {
-                name = "Ember Catacomb",
-                durationSeconds = 30 * 60,
-                warnAt = {5 * 60, 60},
-                scaling = {exp = 1.3, loot = 1.2, hp = 1.25, dmg = 1.2, armor = 1.1},
-                bossNames = {"Lava Tyrant"},
-                entryPos = {x = 1000, y = 1005, z = 7},
-                exitPos = {x = 1002, y = 1002, z = 7},
-                partyOnly = true,
-                minLevel = 60,
-                cooldownSeconds = 3600,
-        },
-}
+local ActivityManager = ActivityManager or dofile('data/scripts/lib/activity_manager.lua')
+
+local function resolveActivityId(item)
+        local description = item:getAttribute(ITEM_ATTRIBUTE_DESCRIPTION)
+        if description and description ~= '' then
+                local numeric = tonumber(description)
+                if numeric then
+                        return numeric
+                end
+        end
+        local text = item:getAttribute(ITEM_ATTRIBUTE_TEXT)
+        if text and text ~= '' then
+                local numeric = tonumber(text)
+                if numeric then
+                        return numeric
+                end
+        end
+        return nil
+end
 
 function onUse(player, item, fromPosition, target, toPosition, isHotkey)
-        local key = item:getAttribute(ITEM_ATTRIBUTE_DESCRIPTION) or "ember_catacomb"
-        local cfg = cfgs[key]
-        if not cfg then
-                player:sendTextMessage(MESSAGE_STATUS_SMALL, "Portal misconfigured.")
+        local activityId = resolveActivityId(item)
+        if not activityId then
+                player:sendTextMessage(MESSAGE_STATUS_SMALL, "Portal misconfigured (missing activity id).")
                 return true
         end
 
-        local uid = createInstance(cfg)
-        if not uid or uid == 0 then
-                player:sendTextMessage(MESSAGE_STATUS_SMALL, "Failed to create instance.")
+        local activity = ActivityManager.getActivity(activityId)
+        if not activity then
+                player:sendTextMessage(MESSAGE_STATUS_SMALL, "Portal references unknown activity.")
                 return true
         end
 
-        if cfg.partyOnly then
-                if not bindParty(uid, player) then
-                        player:sendTextMessage(MESSAGE_STATUS_SMALL, "Party requirements not met.")
-                        return true
-                end
-        else
-                if not bindPlayer(uid, player) then
-                        player:sendTextMessage(MESSAGE_STATUS_SMALL, "Entry requirements not met.")
-                        return true
-                end
+        local ok, reason = ActivityManager.enter(player, activityId)
+        if not ok then
+                player:sendTextMessage(MESSAGE_STATUS_SMALL, reason)
+                return true
         end
 
-        teleportInto(uid, player)
-        player:sendTextMessage(MESSAGE_EVENT_ADVANCE, "You feel the air shift as reality folds around your party…")
+        player:sendTextMessage(MESSAGE_EVENT_ADVANCE, string.format('You feel the air shift as reality folds around your party on the way to %s.', activity.name))
         return true
 end

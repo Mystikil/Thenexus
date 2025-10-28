@@ -42,8 +42,13 @@
         <talkaction words="!buypremium" script="buy_prem.lua" />
         <talkaction words="!buyhouse" script="buy_house.lua" />
         <talkaction words="!sellhouse" separator=" " script="sell_house.lua" />
-	<talkaction words="!leavehouse" script="leave_house.lua" />
-	<talkaction words="!changesex" script="change_sex.lua" />
+        <talkaction words="!leavehouse" script="leave_house.lua" />
+        <talkaction words="!changesex" script="change_sex.lua" />
+        <talkaction words="!instance" separator=" " script="instance_command.lua" />
+        <talkaction words="!instanceid" separator=" " script="instance_command.lua" />
+        <talkaction words="!dungeon" separator=" " script="dungeon_command.lua" />
+        <talkaction words="!dungeonid" separator=" " script="dungeon_command.lua" />
+        <talkaction words="!confirm" separator=" " script="activity_confirm.lua" />
         <talkaction words="!uptime" script="uptime.lua" />
         <talkaction words="!deathlist" separator=" " script="death_list.lua" />
         <talkaction words="!kills" script="kills.lua" />

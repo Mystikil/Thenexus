@@ -19,6 +19,13 @@ dofile('data/lib/economy.lua')
 dofile('data/lib/nx_rank.lua')
 dofile('data/lib/nx_boss.lua')
 
+dofile('data/lib/activities/activity_config.lua')
+dofile('data/lib/activities/activity_monsters.lua')
+dofile('data/lib/activities/activity_features.lua')
+dofile('data/lib/activities/activity_unlocks.lua')
+dofile('data/scripts/lib/activity_permadeath.lua')
+dofile('data/scripts/lib/activity_manager.lua')
+
 local configManagerAvailable = rawget(_G, 'configManager') ~= nil
 local configKeysAvailable = rawget(_G, 'configKeys') ~= nil
 local reputationEnabled = true
