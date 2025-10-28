@@ -1,0 +1,21 @@
+{
+  "instances": [
+    {
+      "id": 0,
+      "name": "Default World",
+      "otbm": "data/world/world.otbm",
+      "spawn": { "x": 100, "y": 100, "z": 7 },
+      "rules": { "expRate": 1.0, "lootRate": 1.0, "pvpMode": "optional", "permadeath": false, "bindOnEntry": false },
+      "persistent": true
+    },
+    {
+      "id": 1,
+      "name": "Iron Sigil",
+      "otbm": "data/world/iron_sigil.otbm",
+      "spawn": { "x": 200, "y": 200, "z": 7 },
+      "rules": { "expRate": 1.2, "lootRate": 1.1, "pvpMode": "hardcore", "permadeath": false, "bindOnEntry": true },
+      "persistent": true
+    }
+  ],
+  "dungeons": []
+}
