@@ -48,6 +48,11 @@ namespace {
         }
 }
 
+InstanceManager& InstanceManager::get()
+{
+        return g_instances;
+}
+
 bool InstanceManager::loadConfig(const std::string& path)
 {
         std::ifstream input(path);
@@ -159,6 +164,30 @@ std::vector<InstanceId> InstanceManager::active() const
                 ids.push_back(entry.first);
         }
         return ids;
+}
+
+void InstanceManager::heartbeat()
+{
+        std::vector<InstanceId> toClose;
+        toClose.reserve(maps_.size());
+
+        for (const auto& mapEntry : maps_) {
+                const InstanceId id = mapEntry.first;
+                const InstanceSpec* spec = getSpec(id);
+                if (!spec || spec->persistent) {
+                        continue;
+                }
+
+                if (playerCounts_.find(id) != playerCounts_.end()) {
+                        continue;
+                }
+
+                toClose.push_back(id);
+        }
+
+        for (InstanceId id : toClose) {
+                closeInstance(id);
+        }
 }
 
 void InstanceManager::onPlayerEnter(InstanceId id)
