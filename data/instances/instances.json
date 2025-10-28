@@ -3,7 +3,7 @@
     {
       "id": 0,
       "name": "Default World",
-      "otbm": "data/world/world.otbm",
+      "otbm": "data/world/forgotten.otbm",
       "spawn": { "x": 100, "y": 100, "z": 7 },
       "rules": { "expRate": 1.0, "lootRate": 1.0, "pvpMode": "optional", "permadeath": false, "bindOnEntry": false },
       "persistent": true
