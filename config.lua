@@ -106,6 +106,7 @@ showPlayerLogInConsole = true
 checkDuplicateStorageKeys = false
 enableReputationSystem = true
 enableEconomySystem = true
+enableMonsterRankSystem = true
 
 -- VIP and Depot limits
 -- NOTE: you can set custom limits per group in data/XML/groups.xml

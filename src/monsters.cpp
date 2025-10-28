@@ -5,6 +5,8 @@
 
 #include "monsters.h"
 
+#include <algorithm>
+
 #include "combat.h"
 #include "configmanager.h"
 #include "game/game.h"
@@ -1348,15 +1350,26 @@ MonsterType* Monsters::loadMonster(const std::string& file, const std::string& m
 		}
 	}
 
-	if ((node = monsterNode.child("script"))) {
-		for (auto eventNode : node.children()) {
-			if ((attr = eventNode.attribute("name"))) {
-				mType->info.scripts.emplace_back(attr.as_string());
-			} else {
-				std::cout << "[Warning - Monsters::loadMonster] Missing name for script event. " << file << std::endl;
-			}
-		}
-	}
+        if ((node = monsterNode.child("script"))) {
+                for (auto eventNode : node.children()) {
+                        if ((attr = eventNode.attribute("name"))) {
+                                mType->info.scripts.emplace_back(attr.as_string());
+                        } else {
+                                std::cout << "[Warning - Monsters::loadMonster] Missing name for script event. " << file << std::endl;
+                        }
+                }
+        }
+
+        if (ConfigManager::getBoolean(ConfigManager::ENABLE_MONSTER_RANK_SYSTEM)) {
+                auto& scripts = mType->info.scripts;
+                auto ensureScript = [&scripts](const std::string& scriptName) {
+                        if (std::find(scripts.begin(), scripts.end(), scriptName) == scripts.end()) {
+                                scripts.emplace_back(scriptName);
+                        }
+                };
+                ensureScript("nx_rank_apply");
+                ensureScript("nx_rank_scale");
+        }
 
 	mType->info.summons.shrink_to_fit();
 	mType->info.lootItems.shrink_to_fit();

@@ -65,6 +65,13 @@ event.onDropLoot = function(self, corpse)
 
         local lootMultiplier = 1
         local extraRolls = 0
+        if NX_RANK and NX_RANK.ENABLED ~= false and NX_RANK.getRankForCreature then
+                local tier = NX_RANK.getRankForCreature(self)
+                if tier then
+                        lootMultiplier = tier.loot_mult or lootMultiplier
+                        extraRolls = tier.extra_rolls or extraRolls
+                end
+        end
         if self.hasRank and self:hasRank() then
                 lootMultiplier = self.getRankLootMultiplier and self:getRankLootMultiplier() or lootMultiplier
                 extraRolls = self.getRankExtraRolls and self:getRankExtraRolls() or extraRolls

@@ -43,7 +43,7 @@ function onLook(player, thing, position, description)
         return description
     end
 
-    if not NX_RANK or not NX_RANK.getRankKey then
+    if not NX_RANK or NX_RANK.ENABLED == false or not NX_RANK.getRankKey then
         return description
     end
 
@@ -54,7 +54,7 @@ function onLook(player, thing, position, description)
 
     local tier = NX_RANK.getRankForCreature(thing)
     local revealConfig = NX_RANK.REVEAL
-    if not revealConfig then
+    if not revealConfig or revealConfig.ENABLED == false then
         return description
     end
 

@@ -48,6 +48,7 @@ namespace ConfigManager {
                 MONSTER_OVERSPAWN,
                 ENABLE_REPUTATION_SYSTEM,
                 ENABLE_ECONOMY_SYSTEM,
+                ENABLE_MONSTER_RANK_SYSTEM,
 
                 LAST_BOOLEAN_CONFIG /* this must be the last one */
         };

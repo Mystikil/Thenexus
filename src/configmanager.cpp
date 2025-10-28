@@ -236,6 +236,7 @@ bool ConfigManager::load() {
         boolean[MONSTER_OVERSPAWN] = getGlobalBoolean(L, "monsterOverspawn", false);
         boolean[ENABLE_REPUTATION_SYSTEM] = getGlobalBoolean(L, "enableReputationSystem", true);
         boolean[ENABLE_ECONOMY_SYSTEM] = getGlobalBoolean(L, "enableEconomySystem", true);
+        boolean[ENABLE_MONSTER_RANK_SYSTEM] = getGlobalBoolean(L, "enableMonsterRankSystem", true);
 
         string[DEFAULT_PRIORITY] = getGlobalString(L, "defaultPriority", "high");
 	string[SERVER_NAME] = getGlobalString(L, "serverName", "");

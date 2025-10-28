@@ -2190,6 +2190,7 @@ void LuaScriptInterface::registerFunctions() {
         registerEnumIn(L, "configKeys", ConfigManager::MONSTER_OVERSPAWN);
         registerEnumIn(L, "configKeys", ConfigManager::ENABLE_REPUTATION_SYSTEM);
         registerEnumIn(L, "configKeys", ConfigManager::ENABLE_ECONOMY_SYSTEM);
+        registerEnumIn(L, "configKeys", ConfigManager::ENABLE_MONSTER_RANK_SYSTEM);
 
 	// os
 	registerMethod(L, "os", "mtime", LuaScriptInterface::luaSystemTime);
