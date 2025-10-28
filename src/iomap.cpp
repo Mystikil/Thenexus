@@ -141,6 +141,11 @@ bool IOMap::loadMap(Map* map, const std::filesystem::path& fileName) {
 	return true;
 }
 
+bool IOMap::loadInto(const std::string& file, Map& targetMap) {
+        IOMap loader;
+        return loader.loadMap(&targetMap, file);
+}
+
 bool IOMap::parseMapDataAttributes(OTB::Loader& loader, const OTB::Node& mapNode, Map& map, const std::filesystem::path& fileName) {
 	PropStream propStream;
 	if (!loader.getProps(mapNode, propStream)) {

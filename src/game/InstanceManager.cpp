@@ -1,147 +1,204 @@
 // Copyright 2023 The Forgotten Server Authors. All rights reserved.
 // Use of this source code is governed by the GPL-2.0 License that can be found in the LICENSE file.
 
-#include "otpch.h"                // PCH must be first
+#include "otpch.h"
 
-#include "InstanceManager.h"         // same folder
-#include "game.h"                    // same folder
+#include "InstanceManager.h"
 
-#include "../creatures/player.h"     // up one, then into creatures/
-#include "../creatures/monsters/monster.h"
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <utility>
 
-#include "../scheduler.h"            // up one
-// Use whichever your tree actually has:
-#include "../logger.h"               // older TFS
-// #include "../logging.h"           // some forks use logging.h instead
+#include "../iomap.h"
+#include "../map.h"
+#include "../thirdparty/json.hpp"
 
-#if ENABLE_INSTANCING
+namespace {
+        using json = nlohmann::json;
 
-InstanceManager& InstanceManager::get() {
-        static InstanceManager instance;
-        return instance;
-}
-
-uint32_t InstanceManager::create(const InstanceConfig& cfg) {
-        const uint32_t uid = nextUid++;
-
-        ActiveInstance active;
-        active.uid = uid;
-        active.name = cfg.name;
-        active.start = time(nullptr);
-        active.end = active.start + cfg.durationSeconds;
-        active.warnAt = cfg.warnAt;
-        active.expMult = cfg.expMult;
-        active.lootMult = cfg.lootMult;
-        active.hpMult = cfg.hpMult;
-        active.dmgMult = cfg.dmgMult;
-        active.armorMult = cfg.armorMult;
-        active.entryPos = cfg.entryPos;
-        active.exitPos = cfg.exitPos;
-        active.bossNames = cfg.bossNames;
-        active.partyOnly = cfg.partyOnly;
-        active.minLevel = cfg.minLevel;
-        active.cooldownSeconds = cfg.cooldownSeconds;
-        active.seed = cfg.seed;
-
-        instances.emplace(uid, active);
-        fmt::print("[Instance] created uid={} name={}\n", uid, cfg.name);
-        return uid;
-}
-
-bool InstanceManager::bindPlayer(Player* player, uint32_t uid, std::string* reason) {
-        if (!player) {
-                if (reason) {
-                        *reason = "invalid player";
+        Position parsePosition(const json& value, const Position& fallback = Position{})
+        {
+                Position result = fallback;
+                if (!value.is_object()) {
+                        return result;
                 }
+
+                result.x = value.value("x", static_cast<uint16_t>(fallback.x));
+                result.y = value.value("y", static_cast<uint16_t>(fallback.y));
+                result.z = value.value("z", static_cast<uint8_t>(fallback.z));
+                return result;
+        }
+
+        InstanceRules parseRules(const json& value, const InstanceRules& defaults = InstanceRules{})
+        {
+                InstanceRules rules = defaults;
+                if (!value.is_object()) {
+                        return rules;
+                }
+
+                rules.expRate = value.value("expRate", rules.expRate);
+                rules.lootRate = value.value("lootRate", rules.lootRate);
+                rules.permadeath = value.value("permadeath", rules.permadeath);
+                rules.bindOnEntry = value.value("bindOnEntry", rules.bindOnEntry);
+                rules.pvpMode = value.value("pvpMode", rules.pvpMode);
+                rules.persistent = value.value("persistent", rules.persistent);
+                rules.unloadGraceSeconds = value.value("unloadGraceSeconds", rules.unloadGraceSeconds);
+                return rules;
+        }
+}
+
+bool InstanceManager::loadConfig(const std::string& path)
+{
+        std::ifstream input(path);
+        if (!input.is_open()) {
+                std::cout << "[Error - InstanceManager::loadConfig] Failed to open " << path << '\n';
                 return false;
         }
 
-        auto it = instances.find(uid);
-        if (it == instances.end()) {
-                if (reason) {
-                        *reason = "instance not found";
-                }
+        json data;
+        try {
+                input >> data;
+        } catch (const std::exception& e) {
+                std::cout << "[Error - InstanceManager::loadConfig] Failed to parse JSON: " << e.what() << '\n';
                 return false;
         }
 
-        it->second.players.insert(player->getGUID());
-        player->setInstanceId(uid);
+        const json* instances = nullptr;
+        if (data.is_array()) {
+                instances = &data;
+        } else {
+                auto it = data.find("instances");
+                if (it != data.end()) {
+                        instances = &(*it);
+                }
+        }
+
+        if (!instances || !instances->is_array()) {
+                std::cout << "[Error - InstanceManager::loadConfig] No instances array in " << path << '\n';
+                return false;
+        }
+
+        std::vector<InstanceSpec> loaded;
+        loaded.reserve(instances->size());
+
+        for (const auto& entry : *instances) {
+                if (!entry.is_object()) {
+                        continue;
+                }
+
+                InstanceSpec spec;
+                spec.id = static_cast<InstanceId>(entry.value("id", static_cast<uint32_t>(0)));
+                spec.name = entry.value("name", std::string{});
+                spec.otbm = entry.value("otbm", std::string{});
+                spec.spawn = parsePosition(entry.value("spawn", json::object()), spec.spawn);
+                spec.rules = parseRules(entry.value("rules", json::object()), spec.rules);
+                spec.persistent = entry.value("persistent", spec.persistent);
+
+                if (spec.otbm.empty()) {
+                        std::cout << "[Warning - InstanceManager::loadConfig] Instance " << spec.id << " missing otbm path\n";
+                        continue;
+                }
+
+                loaded.emplace_back(std::move(spec));
+        }
+
+        specs_ = std::move(loaded);
         return true;
 }
 
-bool InstanceManager::bindParty(Player* leader, uint32_t uid, std::string* reason) {
-        // TODO: iterate over the leader party members and apply validation.
-        return bindPlayer(leader, uid, reason);
-}
+bool InstanceManager::ensureLoaded(InstanceId id)
+{
+        if (maps_.find(id) != maps_.end()) {
+                return true;
+        }
 
-bool InstanceManager::teleportInto(uint32_t uid, Player* playerOrLeader) {
-        if (!playerOrLeader) {
+        const InstanceSpec* spec = getSpec(id);
+        if (!spec) {
                 return false;
         }
 
-        const auto it = instances.find(uid);
-        if (it == instances.end()) {
+        auto map = std::make_unique<Map>();
+        map->setInstanceId(id);
+
+        if (!IOMap::loadInto(spec->otbm, *map)) {
                 return false;
         }
 
-        // TODO: perform teleportation and state preparation.
+        maps_[id] = std::move(map);
+        playerCounts_.try_emplace(id, 0);
         return true;
 }
 
-void InstanceManager::onBossDeath(Monster* boss) {
-        if (!boss) {
+Map* InstanceManager::getMap(InstanceId id) const
+{
+        auto it = maps_.find(id);
+        if (it == maps_.end()) {
+                return nullptr;
+        }
+        return it->second.get();
+}
+
+const InstanceSpec* InstanceManager::getSpec(InstanceId id) const
+{
+        auto it = std::find_if(specs_.begin(), specs_.end(), [id](const InstanceSpec& spec) {
+                return spec.id == id;
+        });
+
+        if (it == specs_.end()) {
+                return nullptr;
+        }
+        return &*it;
+}
+
+std::vector<InstanceId> InstanceManager::active() const
+{
+        std::vector<InstanceId> ids;
+        ids.reserve(maps_.size());
+        for (const auto& entry : maps_) {
+                ids.push_back(entry.first);
+        }
+        return ids;
+}
+
+void InstanceManager::onPlayerEnter(InstanceId id)
+{
+        ++playerCounts_[id];
+}
+
+void InstanceManager::onPlayerLeave(InstanceId id)
+{
+        auto it = playerCounts_.find(id);
+        if (it == playerCounts_.end()) {
                 return;
         }
 
-        // TODO: identify owning instance and close it when the tracked boss dies.
-}
-
-void InstanceManager::close(uint32_t uid, const std::string& reason) {
-        auto it = instances.find(uid);
-        if (it == instances.end()) {
+        if (it->second > 1) {
+                --it->second;
                 return;
         }
 
-        fmt::print("[Instance] closing uid={} reason={}\n", uid, reason);
-
-        // TODO: teleport players out, clean up creatures and revoke bindings.
-        instances.erase(it);
+        playerCounts_.erase(it);
 }
 
-void InstanceManager::heartbeat() {
-        const time_t now = time(nullptr);
-        (void)now;
-        for (auto it = instances.begin(); it != instances.end(); ++it) {
-                ActiveInstance& instance = it->second;
-                (void)instance;
-                // TODO: emit warnings, close expired instances and handle scaling timers.
-        }
-
-        g_scheduler.addEvent(createSchedulerTask(5000, []() {
-                InstanceManager::get().heartbeat();
-        }));
-}
-
-bool InstanceManager::isPlayerBound(uint32_t guid, uint32_t uid) const {
-        const auto it = instances.find(uid);
-        if (it == instances.end()) {
-                return false;
-        }
-        return it->second.players.contains(guid);
-}
-
-bool InstanceManager::playerLeave(Player* player) {
-        if (!player) {
+bool InstanceManager::closeInstance(InstanceId id)
+{
+        auto mapIt = maps_.find(id);
+        if (mapIt == maps_.end()) {
                 return false;
         }
 
-        for (auto& entry : instances) {
-                if (entry.second.players.erase(player->getGUID()) != 0) {
-                        player->resetToWorldInstance();
-                        return true;
-                }
+        auto countIt = playerCounts_.find(id);
+        if (countIt != playerCounts_.end() && countIt->second > 0) {
+                return false;
         }
-        return false;
+
+        maps_.erase(mapIt);
+        if (countIt != playerCounts_.end()) {
+                playerCounts_.erase(countIt);
+        }
+        return true;
 }
 
-#endif // ENABLE_INSTANCING
+InstanceManager g_instances;
+
